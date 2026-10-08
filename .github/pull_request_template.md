@@ -1,15 +1,9 @@
-## Co zmienia ten PR?
+<!-- Tytuł: typ(obszar): opis, np. feat(backend): endpoint do odbioru alarmów -->
+<!-- Etykieta obszaru: dodaj area:<obszar> w panelu Labels po prawej -->
 
-## Powiązane issue
+## Co i dlaczego
+
+## Jak przetestowano
+
+## Powiązane
 Closes #
-
-## Obszar
-- [ ] firmware  - [ ] backend  - [ ] frontend  - [ ] detection
-- [ ] hardware  - [ ] comms    - [ ] docs
-
-## Jak przetestowano?
-
-## Checklista
-- [ ] Brak sekretów / kluczy w kodzie
-- [ ] Zmiana formatu wiadomości? → zaktualizowany `docs/protocol.md`
-- [ ] README zaktualizowane (jeśli trzeba)
