@@ -1,0 +1,3 @@
+# Hardware
+
+**Odpowiedzialny:** Wojtek
