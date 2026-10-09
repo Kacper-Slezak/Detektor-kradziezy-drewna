@@ -63,3 +63,79 @@ Jak heartbeat nie przyjdzie przez ~12 h, serwer daje alarm „czujnik milczy” 
 nagłówek + wersja firmware + przyczyna restartu (1 normalne włączenie, 2 watchdog, 3 za niskie napięcie) + bateria.
 Jak urządzenie restartuje się co chwilę przez watchdog, to mamy buga.
 
+## Blokada po alarmie + odpowiedź leśniczego
+
+Pomysł: urządzenie ma się budzić jak najrzadziej. Po wysłaniu alarmu **blokuje się** i nie wysyła kolejnych, aż:
+- leśniczy w apce kliknie „fałszywy alarm” albo „złapany”, **albo**
+- minie timeout (np. 1 h).
+
+```
+SEN --drgania--> ANALIZA --to piła--> wyślij ALARM --> ZABLOKOWANY
+ ^                  |                                      |
+ |-----nie piła-----|                                      |
+ |------------- odpowiedź leśniczego / timeout ------------|
+```
+
+Problem: śpiące urządzenie nie odbierze wiadomości od tak.
+Dlatego:
+Jak się nie da, zostaje sam timeout.
+
+### Ramki w dół (serwer → urządzenie)
+
+Bajt 0: wersja (4 bity) + komenda (4 bity)
+
+| kod | komenda | co robi urządzenie |
+|---|---|---|
+| 1 | FALSE_ALARM | odblokuj się |
+| 2 | REAL_THEFT | odblokuj się |
+| 3 | SET_CONFIG | +4 B: timeout blokady [min], co ile update [min], co ile heartbeat [h], minimalna pewność do wysłania alarmu [%] |
+| 4 | PING | wyślij heartbeat teraz |
+
+SET_CONFIG jest po to, żeby móc zmieniać ustawienia bez wgrywania nowego firmware. Np. jak jest za dużo fałszywych alarmów, podbijamy minimalną pewność.
+
+## Co robi serwer
+
+1. ID z sieci → szukamy urządzenia w bazie (nieznane = olewamy i logujemy) (może się nie da i trzeba przekazać wtedy no zmienimy strukture)
+2. sprawdzamy wersję
+3. licznik: mniejszy lub równy ostatniemu = duplikat, wywalamy; przeskok = logujemy, że coś zginęło; po BOOT akceptujemy nowy licznik
+4. dekodujemy do JSON-a i zapisujemy w bazie
+5. dla alarmu filtrowanie (niżej) i ewentualnie push
+6. jak czeka odpowiedź dla tego urządzenia, wysyłamy ją teraz
+
+Przykład: `11 00 2A 57 00 28 0F B4 40 00 00` →
+
+```json
+{
+  "device_id": "sensor-007",
+  "type": "ALARM",
+  "counter": 42,
+  "confidence": 87,
+  "duration_s": 40,
+  "dominant_freq_hz": 150,
+  "energy": 180,
+  "battery_pct": 64,
+  "received_at": "2026-10-09T11:52:10Z"
+}
+```
+
+Dekoder w Pythonie:
+
+- TODO 
+
+## Filtrowanie na serwerze – pomysły
+
+- Jeden lub dwa czujniki w tym samym czasie → bardziej prawdopodobne, że to kradzież
+- pół lasu naraz → raczej wichura
+- silny wiatr z API pogodowego → obniżamy ocenę ??? nie wiem czy to ma sens 
+- czujnik, który często daje fałszywe alarmy (wg odpowiedzi leśniczych) → obniżamy
+
+Fajny bonus: odpowiedzi leśniczych (fałszywy/prawdziwy) zapisujemy razem z alarmem, więc Kiryl dostaje oznaczone dane z terenu.
+
+## Do ustalenia
+
+- [ ] **Martyna:** Jaka komunikacja: satelita? coś innego ? Ile bajtów i ile wiadomości dziennie? Czy da się wysłać coś w dół?
+- [ ] **Kiryl:** jakie liczby algorytm umie policzyć na mikrokontrolerze? Czy częstotliwość i energia mają sens?
+- [ ] **Wojtek:** będzie czujnik otwarcia obudowy?
+- [ ] **Damian:** gdzie trzymać licznik, żeby przetrwał restart?
+- [ ] **Kacper + Martyna:** szyfrowanie przy satelicie ML-KEM haha
+- [ ] **wszyscy:** ustalić timeout blokady i interwały, jak zmierzymy zużycie baterii, czy czegoś brakuje do przeglądniecia całe
