@@ -1,0 +1,15 @@
+# --- API ---
+fastapi
+uvicorn[standard]
+pydantic-settings
+
+# --- Baza (PostgreSQL / TimescaleDB) ---
+sqlalchemy[asyncio]
+asyncpg
+alembic
+
+# --- Testy i jakość kodu ---
+pytest
+pytest-asyncio
+httpx
+ruff
