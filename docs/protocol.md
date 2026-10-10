@@ -102,7 +102,7 @@ SET_CONFIG jest po to, żeby móc zmieniać ustawienia bez wgrywania nowego firm
 5. dla alarmu filtrowanie (niżej) i ewentualnie push
 6. jak czeka odpowiedź dla tego urządzenia, wysyłamy ją teraz
 
-Przykład: `11 00 2A 57 00 28 0F B4 40 00 00` →
+Przykład: `11 00 2A 57 00 28 0F B4 40` →
 
 ```json
 {
