@@ -1,0 +1,38 @@
+services:
+  web:
+    build: .
+    image: detektor-api
+    container_name: detektor_api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://detektor:${POSTGRES_PASSWORD}@timescaledb:5432/detektor
+    ports:
+      - "8000:8000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_USER: detektor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: detektor
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U detektor -d detektor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  timescaledb:
