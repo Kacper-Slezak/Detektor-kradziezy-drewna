@@ -88,8 +88,6 @@ Pasmem nazywamy fragment widma fal elektromagnetycznych. W łączności satelita
 
 ## Porównanie różnych technik
 
-*(na Sigfox nie patrzymy)*
-
 | Network | Sigfox | LoRa | NB-IoT (Cat NB1) | LTE-M (Cat M1) |
 |---|---|---|---|---|
 | Type | PLWAN | PLWAN | DSSS modulation | LTE (cellular) |
