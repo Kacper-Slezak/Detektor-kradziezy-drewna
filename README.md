@@ -55,7 +55,7 @@ Zasady pracy z repo opisuje [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Linki
 
-- [Lista urządzeń (UPeL)](https://upel.agh.edu.pl/mod/folder/view.php?id=453953)
-- [Excel z podziałem](https://aghedupl-my.sharepoint.com/:x:/g/personal/kks_agh_edu_pl/IQCxSIKTbemgRo97P_-m8VCBAS5CAIudH66-dRaOSBrDc34?e=VrRsyi)
+- [Repo do pobrania](https://upel.agh.edu.pl/mod/folder/view.php?id=453953)
+- [Podział zadań](https://aghedupl-my.sharepoint.com/:x:/g/personal/kks_agh_edu_pl/IQCxSIKTbemgRo97P_-m8VCBAS5CAIudH66-dRaOSBrDc34?e=VrRsyi)
 - [Karta projektu](https://aghedupl-my.sharepoint.com/:w:/g/personal/twozniak_student_agh_edu_pl/IQAcMxB2Ik2qTo55fBwVSHiMAbE1DVx7Ct5AAJeqKGnZN2o?e=MPKtkL)
 - [Lista grup](https://docs.google.com/spreadsheets/d/11RTGv6CSY3fC4iVpIKA_a65sy7gYM6XlGd3oxX1Dz3g/edit?gid=0#gid=0)
