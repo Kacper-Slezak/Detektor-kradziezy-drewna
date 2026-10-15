@@ -1,12 +1,28 @@
 # Protokół – ramki urządzenie ↔ serwer
 
-> Szkic od backendu (Kacper). Dopisujcie uwagi w PR, zwłaszcza Damian, Kiryl i Martyna. Nic tu nie jest ostateczne.
+> Szkic od backendu (Kacper). Dopisujcie uwagi w PR, zwłaszcza Damian, Kiryl i Martyna. Nic tu nie jest ostateczne. 
+## Co ustaliliśmy (i co to zmienia)
+ 
+- **Łączność: LoRaWAN** (na testy publiczna sieć TTN, LoPy). Może później przejdziemy na NB-IoT(narazie zostawiam), więc ramka nie zależy od sieci i ten sam format ma działać w obu.
+- **Komunikacja jednostronna**: tylko urządzenie → serwer. Nie ma żadnych komend w dół.
+- **Czujnik obszarowy (obok stosu drewna)**. Główny czujniki to **mikrofon**, akcelerometr.
+- **Detekcja działa na urządzeniu**. Wysyłamy tylko wynik i parę liczb, żadnego surowego dźwięku.
+- **GPS jest w terminalu/telefonie leśniczego**, nie w urządzeniu. Lokalizację mygły zapisujemy raz przy montażu.
+
+
 
 ## Ogólnie
 
 - Wysyłamy **bajty, nie JSON**. Łącze to kilkadziesiąt bajtów na wiadomość (chyba)
 - Celujemy w max ~20 B na ramkę.
+-  **Limit czasu nadawania:** TTN daje ~30 s nadawania na dobę na urządzenie (fair use), a do tego jest 1% duty cycle. Przy SF12 jedna nasza ramka to ok. 1 s w eterze, czyli **max ok. 25 wiadomości na dobę** w najgorszym przypadku. Heartbeat co 6 h (4/dobę) i alarmy mieszczą się spokojnie.\
+- **Co daje sieć (nie wysyłamy tego w ramce):**
+  - ID urządzenia (DevEUI w LoRaWAN, później IMEI w NB-IoT)
+  - czas odbioru,
+
+-  **szyfrowanie i podpis**: LoRaWAN szyfruje (AES-128) i podpisuje każdą ramkę sam, a TTN wysyła nam ją po HTTPS. Na razie nie musimy robić własnego szyfrowania. Wróci, jeśli przejdziemy na NB-IoT.
 - ID urządzenia i czas odbioru powinna nam dać sieć, więc nie wysyłamy ich w ramce. Lokalizacja też nie, bo drzewo się nie rusza i wpisujemy ją raz w bazie z poziomu terminala leśniczego ją pobieramy .
+- **Lokalizacja mygły**: nie w ramce. Leśniczy przypisuje czujnik do mygły w apce, a GPS bierzemy z jego telefonu/terminala.
 - Kolejność bajtów: big-endian(kto był na programowaniu sieciowym pamięta).
 
 **Filtrowanie jest w dwóch miejscach:** - w przypadku braku możliwości wysłania drgań
@@ -17,11 +33,13 @@
 
 | bajt | co | uwagi |
 |---|---|---|
-| 0 (górne 4 bity) | wersja | wersja **formatu ramki**, nie urządzenia. Jak zmienimy układ pól, to podbijamy, żeby serwer wiedział, jak czytać stare i nowe. Startujemy od 1, to mi internet podpowiedział nie wiem czy ma sens w prototypie ale w produkcie ma dlamnie |
+| 0 (górne 4 bity) | wersja | wersja **formatu ramki**, nie urządzenia. Jak zmienimy układ pól, to podbijamy, żeby serwer wiedział, jak czytać stare i nowe. Startujemy od 1. W prototypie może przesada, ale kosztuje pół  bajtu  |
 | 0 (dolne 4 bity) | typ | jaka to wiadomość (lista niżej) |
-| 1–2 | licznik | +1 przy każdej ramce. Po to, żeby wyłapać duplikaty lub jakieś zbierzności jeszcze nie wiem czy to potrzebne, zgubione ramki. Musi przetrwać restart |
+| 1–2 | licznik | +1 przy każdej ramce. Po to, żeby wyłapać duplikaty lub jakieś zbierzności jeszcze nie wiem czy to potrzebne, zgubione ramki. Musi przetrwać restart nie wiem czy to potrzebne w LoraWan |
 
 Np. `0x11` = wersja 1, typ 1 (alarm).
+
+> Opcja: W lorze wydaje się możliwe oszczędzenie w kilku miejscach do doczytani
 
 ## Typy
 
@@ -30,20 +48,27 @@ Np. `0x11` = wersja 1, typ 1 (alarm).
 | 1 | ALARM | wykryto "kradzież", po tym urządzenie się blokuje |
 | 2 | HEARTBEAT | co ~6 h, „żyję” + bateria czas do określenia |
 | 3 | BOOT | po włączeniu/restarcie | 
+| 4 | TAMPER | *opcjonalnie, jeśli zostanie akcelerometr*: ktoś ruszył/wyjął samo urządzenie |
+ 
+- jak coś wymyślicie, to dopiszcie
+- Mój pomysł z osobnym alarmem, gdy ktoś za bardzo zainteresuje się czujnikiem i go weźmie, to właśnie **TAMPER**. Szukanie wywiezionego czujnika odpada, bo nie mamy GPS-a w urządzeniu. Przy LoRa ostatnią pozycję widać najwyżej z tego, która bramka go słyszała (dokładność kilometrów).
+ 
 
-- jak coś wymyślicie to dopiszcie
-- Moim pomysłem był by też jakiś Alarm osobno dla ruchu osobno dla dźwięku powiedzmy że któś się za bardzo zainteresował naszym czujnikiem i go wziął albo coś ?? też może jakiś sposób znajdowania go ?? jak już rozkrandą drewno no to on gdzieśspadnie poleci itp., chyab że to co mówiłem tymonowi jest on jakoś z boku nie w stosie na stosie tlylko jako galąź obok 
 
-### ALARM – 9 B
 
+### ALARM – 10 B
+ 
 | bajt | pole | uwagi |
 |---|---|---|
 | 0–2 | nagłówek | |
-| 3 | pewność 0–100 | jak bardzo algorytm jest pewny, że to piła. Skalę ustala Kiryl, nie wiem czy będzie skala narazie ją daje |
-| 4–5 | czas trwania [s] | czy to było stuknięcie, czy 40 s piłowania, nie mam pojęcia czy to będzie ale brzmi spoko |
-| 6 | częstotliwość ×10 Hz | główna częstotliwość z FFT; **do pogadania z Kirylem**, czy to w ogóle ma sens |
-| 7 | energia 0–255 | jak mocno trzęsie, rozumiem to jako czujnik nie dźwięku ale drgań/ruchu  |
-| 8 | bateria % | |
+| 3 | rodzaj zdarzenia | 1 = podbieranie/załadunek, 2 = piła, 3 = silnik pojazdu, 0 = nieznane. **Listę ustala Kiryl**, na razie przykładowa |
+| 4 | źródło (bity) | bit0 = mikrofon, bit1 = akcelerometr. Jak oba, to alarm pewniejszy |
+| 5 | pewność 0–100 | jak bardzo algorytm jest pewny. Skalę ustala Kiryl, na razie ją daję |
+| 6–7 | czas trwania [s] | czy to było stuknięcie, czy 10 minut ładowania |
+| 8 | głośność / energia 0–255 | jak głośno/mocno. Nie wiem czy potrzebne |
+| 9 | bateria % | |
+ 
+> Zmiany: zamiast „częstotliwości z FFT” są rodzaj zdarzenia i źródło, bo pod mikrofon to bardziej przydatne. Częstotliwość wróci, jeśli Kiryl powie, że ma sens.
 
 
 ### HEARTBEAT – 6 B
@@ -63,79 +88,73 @@ Jak heartbeat nie przyjdzie przez ~12 h, serwer daje alarm „czujnik milczy” 
 nagłówek + wersja firmware + przyczyna restartu (1 normalne włączenie, 2 watchdog, 3 za niskie napięcie) + bateria.
 Jak urządzenie restartuje się co chwilę przez watchdog, to mamy buga.
 
-## Blokada po alarmie + odpowiedź leśniczego
-
-Pomysł: urządzenie ma się budzić jak najrzadziej. Po wysłaniu alarmu **blokuje się** i nie wysyła kolejnych, aż:
-- leśniczy w apce kliknie „fałszywy alarm” albo „złapany”, **albo**
-- minie timeout (np. 1 h).
-
+## Blokada po alarmie
+ 
+Urządzenie ma się budzić jak najrzadziej. Po wysłaniu alarmu **blokuje się** i nie wysyła kolejnych **do upływu timeoutu** (np. 1 h).
+ 
 ```
-SEN --drgania--> ANALIZA --to piła--> wyślij ALARM --> ZABLOKOWANY
- ^                  |                                      |
- |-----nie piła-----|                                      |
- |------------- odpowiedź leśniczego / timeout ------------|
+SEN --dźwięk/drgania--> ANALIZA --kradzież--> wyślij ALARM --> ZABLOKOWANY
+ ^                         |                                       |
+ |-------nie kradzież------|                                       |
+ |------------------------- timeout (np. 1 h) ---------------------|
 ```
+ 
+Komunikacja jest jednostronna, więc **odpowiedź leśniczego („fałszywy alarm” / „złapany”) nie idzie do urządzenia**, tylko zostaje na serwerze. Zamyka alarm w apce i jest etykietą dla Kiryla.
+ 
 
-Problem: śpiące urządzenie nie odbierze wiadomości od tak.
-Dlatego:
-Jak się nie da, zostaje sam timeout.
-
-### Ramki w dół (serwer → urządzenie)
-
-Bajt 0: wersja (4 bity) + komenda (4 bity)
-
-| kod | komenda | co robi urządzenie |
-|---|---|---|
-| 1 | FALSE_ALARM | odblokuj się |
-| 2 | REAL_THEFT | odblokuj się |
-| 3 | SET_CONFIG | +4 B: timeout blokady [min], co ile update [min], co ile heartbeat [h], minimalna pewność do wysłania alarmu [%] |
-| 4 | PING | wyślij heartbeat teraz |
-
-SET_CONFIG jest po to, żeby móc zmieniać ustawienia bez wgrywania nowego firmware. Np. jak jest za dużo fałszywych alarmów, podbijamy minimalną pewność.
 
 ## Co robi serwer
+ 
+1. Przychodzi webhook z TTN → wyciągamy DevEUI, ramkę (base64), czas odbioru i RSSI/SNR. Przy NB-IoT będzie inny „adapter”, ale dalej wszystko tak samo.
+2. DevEUI → szukamy urządzenia w bazie (nieznane = olewamy i logujemy) → z niego mygła i leśnictwo
+3. sprawdzamy wersję
+4. licznik: mniejszy lub równy ostatniemu = duplikat, wywalamy; przeskok = logujemy, że coś zginęło; po BOOT akceptujemy nowy licznik
+5. dekodujemy do JSON-a i zapisujemy w bazie
+6. dla alarmu filtrowanie (niżej) i ewentualnie push
 
-1. ID z sieci → szukamy urządzenia w bazie (nieznane = olewamy i logujemy) (może się nie da i trzeba przekazać wtedy no zmienimy strukture)
-2. sprawdzamy wersję
-3. licznik: mniejszy lub równy ostatniemu = duplikat, wywalamy; przeskok = logujemy, że coś zginęło; po BOOT akceptujemy nowy licznik
-4. dekodujemy do JSON-a i zapisujemy w bazie
-5. dla alarmu filtrowanie (niżej) i ewentualnie push
-6. jak czeka odpowiedź dla tego urządzenia, wysyłamy ją teraz
 
-Przykład: `11 00 2A 57 00 28 0F B4 40` →
-
+Przykład: `11 00 2A 01 01 57 00 28 B4 40` →
+ 
 ```json
 {
   "device_id": "sensor-007",
+  "mygla": "M-12",
   "type": "ALARM",
   "counter": 42,
+  "event": "podbieranie",
+  "source": ["mikrofon"],
   "confidence": 87,
   "duration_s": 40,
-  "dominant_freq_hz": 150,
   "energy": 180,
   "battery_pct": 64,
+  "rssi": -112,
   "received_at": "2026-10-09T11:52:10Z"
 }
 ```
 
+
 Dekoder w Pythonie:
 
-- TODO 
-
+- TODO (będzie w `backend/app/protocol/decoder.py` z testami)
 ## Filtrowanie na serwerze – pomysły
 
-- Jeden lub dwa czujniki w tym samym czasie → bardziej prawdopodobne, że to kradzież
-- pół lasu naraz → raczej wichura
-- silny wiatr z API pogodowego → obniżamy ocenę ??? nie wiem czy to ma sens 
+# Filtrowanie na serwerze – pomysły
+ 
+- **Mygła wydana do wywozu** (leśniczy potwierdził w apce) → alarmy z niej wyciszamy w czasie wywozu. Najważniejsza reguła, bez niej każdy legalny wywóz to alarm - nie wiem może da się inaczej to rozwiązać
+
+- pół lasu naraz → raczej wichura albo burza
+- silny wiatr z API pogodowego → obniżamy ocenę ??? nie wiem, czy to ma sens przy mikrofonie, może przy wietrze jest głośno
 - czujnik, który często daje fałszywe alarmy (wg odpowiedzi leśniczych) → obniżamy
 
+ 
 Fajny bonus: odpowiedzi leśniczych (fałszywy/prawdziwy) zapisujemy razem z alarmem, więc Kiryl dostaje oznaczone dane z terenu.
 
-## Do ustalenia
 
-- [ ] **Martyna:** Jaka komunikacja: satelita? coś innego ? Ile bajtów i ile wiadomości dziennie? Czy da się wysłać coś w dół?
-- [ ] **Kiryl:** jakie liczby algorytm umie policzyć na mikrokontrolerze? Czy częstotliwość i energia mają sens?
-- [ ] **Wojtek:** będzie czujnik otwarcia obudowy?
-- [ ] **Damian:** gdzie trzymać licznik, żeby przetrwał restart?
-- [ ] **Kacper + Martyna:** szyfrowanie przy satelicie ML-KEM haha
-- [ ] **wszyscy:** ustalić timeout blokady i interwały, jak zmierzymy zużycie baterii, czy czegoś brakuje do przeglądniecia całe
+## Do ustalenia
+ 
+- [ ] **Martyna:** czy w miejscu testów jest zasięg TTN (ttnmapper.org)? Jak nie, to własna bramka? Jaki SF realnie wyjdzie?
+- [ ] **Kiryl:** jakie rodzaje zdarzeń algorytm umie rozróżnić i jaka skala pewności? Czy częstotliwość ma sens?
+- [ ] **Damian:** licznik zostaje (2 B) czy na LoRa polegamy na FCnt? Gdzie go trzymać, żeby przetrwał restart?
+- [ ] **Wojtek / Damian:** zostaje akcelerometr, czyli jest TAMPER?
+- [ ] **wszyscy:** timeout blokady i co ile heartbeat, jak zmierzymy zużycie baterii
+
