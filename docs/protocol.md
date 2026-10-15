@@ -3,7 +3,7 @@
 > Szkic od backendu (Kacper). Dopisujcie uwagi w PR, zwłaszcza Damian, Kiryl i Martyna. Nic tu nie jest ostateczne. 
 ## Co ustaliliśmy (i co to zmienia)
  
-- **Łączność: LoRaWAN** (na testy publiczna sieć TTN, LoPy). Może później przejdziemy na NB-IoT(narazie zostawiam), więc ramka nie zależy od sieci i ten sam format ma działać w obu.
+- **Łączność: LoRaWAN** (na testy publiczna sieć TTN lub drugim microkontrolerze, LoPy). 
 - **Komunikacja jednostronna**: tylko urządzenie → serwer. Nie ma żadnych komend w dół.
 - **Czujnik obszarowy (obok stosu drewna)**. Główny czujniki to **mikrofon**, akcelerometr.
 - **Detekcja działa na urządzeniu**. Wysyłamy tylko wynik i parę liczb, żadnego surowego dźwięku.
@@ -17,12 +17,13 @@
 - Celujemy w max ~20 B na ramkę.
 -  **Limit czasu nadawania:** TTN daje ~30 s nadawania na dobę na urządzenie (fair use), a do tego jest 1% duty cycle. Przy SF12 jedna nasza ramka to ok. 1 s w eterze, czyli **max ok. 25 wiadomości na dobę** w najgorszym przypadku. Heartbeat co 6 h (4/dobę) i alarmy mieszczą się spokojnie.\
 - **Co daje sieć (nie wysyłamy tego w ramce):**
-  - ID urządzenia (DevEUI w LoRaWAN, później IMEI w NB-IoT)
+  - ID urządzenia (DevEUI w LoRaWAN)
+  -  Lokalizacja
   - czas odbioru,
 
--  **szyfrowanie i podpis**: LoRaWAN szyfruje (AES-128) i podpisuje każdą ramkę sam, a TTN wysyła nam ją po HTTPS. Na razie nie musimy robić własnego szyfrowania. Wróci, jeśli przejdziemy na NB-IoT.
-- ID urządzenia i czas odbioru powinna nam dać sieć, więc nie wysyłamy ich w ramce. Lokalizacja też nie, bo drzewo się nie rusza i wpisujemy ją raz w bazie z poziomu terminala leśniczego ją pobieramy .
-- **Lokalizacja mygły**: nie w ramce. Leśniczy przypisuje czujnik do mygły w apce, a GPS bierzemy z jego telefonu/terminala.
+-  **szyfrowanie i podpis**: LoRaWAN szyfruje (AES-128) i podpisuje każdą ramkę sam, a TTN wysyła nam ją po HTTPS. Nie musimy robić własnego szyfrowania chyba.
+- ID urządzenia i czas odbioru powinna nam dać sieć, więc nie wysyłamy ich w ramce.
+-  Lokalizacja też nie, bo czujnik się nie rusza i wpisujemy ją raz w bazie z poziomu terminala leśniczego ją pobieramy.
 - Kolejność bajtów: big-endian(kto był na programowaniu sieciowym pamięta).
 
 **Filtrowanie jest w dwóch miejscach:** - w przypadku braku możliwości wysłania drgań
@@ -39,7 +40,7 @@
 
 Np. `0x11` = wersja 1, typ 1 (alarm).
 
-> Opcja: W lorze wydaje się możliwe oszczędzenie w kilku miejscach do doczytani
+> Opcja: W lorze wydaje się możliwe oszczędzenie w kilku miejscach do doczytania
 
 ## Typy
 
@@ -105,7 +106,7 @@ Komunikacja jest jednostronna, więc **odpowiedź leśniczego („fałszywy alar
 
 ## Co robi serwer
  
-1. Przychodzi webhook z TTN → wyciągamy DevEUI, ramkę (base64), czas odbioru i RSSI/SNR. Przy NB-IoT będzie inny „adapter”, ale dalej wszystko tak samo.
+1. Przychodzi webhook z TTN → wyciągamy DevEUI, ramkę (base64), czas odbioru i RSSI/SNR. 
 2. DevEUI → szukamy urządzenia w bazie (nieznane = olewamy i logujemy) → z niego mygła i leśnictwo
 3. sprawdzamy wersję
 4. licznik: mniejszy lub równy ostatniemu = duplikat, wywalamy; przeskok = logujemy, że coś zginęło; po BOOT akceptujemy nowy licznik
@@ -142,9 +143,9 @@ Dekoder w Pythonie:
  
 - **Mygła wydana do wywozu** (leśniczy potwierdził w apce) → alarmy z niej wyciszamy w czasie wywozu. Najważniejsza reguła, bez niej każdy legalny wywóz to alarm - nie wiem może da się inaczej to rozwiązać
 
-- pół lasu naraz → raczej wichura albo burza
-- silny wiatr z API pogodowego → obniżamy ocenę ??? nie wiem, czy to ma sens przy mikrofonie, może przy wietrze jest głośno
-- czujnik, który często daje fałszywe alarmy (wg odpowiedzi leśniczych) → obniżamy
+- pół lasu naraz - raczej wichura albo burza
+- silny wiatr z API pogodowego - obniżamy ocenę ??? nie wiem, czy to ma sens przy mikrofonie, może przy wietrze jest głośno
+- czujnik, który często daje fałszywe alarmy (wg odpowiedzi leśniczych) - obniżamy
 
  
 Fajny bonus: odpowiedzi leśniczych (fałszywy/prawdziwy) zapisujemy razem z alarmem, więc Kiryl dostaje oznaczone dane z terenu.
@@ -152,9 +153,9 @@ Fajny bonus: odpowiedzi leśniczych (fałszywy/prawdziwy) zapisujemy razem z ala
 
 ## Do ustalenia
  
-- [ ] **Martyna:** czy w miejscu testów jest zasięg TTN (ttnmapper.org)? Jak nie, to własna bramka? Jaki SF realnie wyjdzie?
+
 - [ ] **Kiryl:** jakie rodzaje zdarzeń algorytm umie rozróżnić i jaka skala pewności? Czy częstotliwość ma sens?
 - [ ] **Damian:** licznik zostaje (2 B) czy na LoRa polegamy na FCnt? Gdzie go trzymać, żeby przetrwał restart?
-- [ ] **Wojtek / Damian:** zostaje akcelerometr, czyli jest TAMPER?
+- [ ] **Wojtek / Damian:** zostaje akcelerometr czy to drugie, czyli da się TAMPER?
 - [ ] **wszyscy:** timeout blokady i co ile heartbeat, jak zmierzymy zużycie baterii
 
