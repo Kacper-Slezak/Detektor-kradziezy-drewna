@@ -5,7 +5,7 @@
  
 - **Łączność: LoRaWAN** (na testy publiczna sieć TTN lub drugim microkontrolerze, LoPy). 
 - **Komunikacja jednostronna**: tylko urządzenie → serwer. Nie ma żadnych komend w dół.
-- **Czujnik obszarowy (obok stosu drewna)**. Główny czujniki to **mikrofon**, akcelerometr.
+- **Czujnik obszarowy (obok stosu drewna)**. Główny czujniki to **mikrofon**, czujnik wibracji.
 - **Detekcja działa na urządzeniu**. Wysyłamy tylko wynik i parę liczb, żadnego surowego dźwięku.
 - **GPS jest w terminalu/telefonie leśniczego**, nie w urządzeniu. Lokalizację mygły zapisujemy raz przy montażu.
 
@@ -49,12 +49,8 @@ Np. `0x11` = wersja 1, typ 1 (alarm).
 | 1 | ALARM | wykryto "kradzież", po tym urządzenie się blokuje |
 | 2 | HEARTBEAT | co ~6 h, „żyję” + bateria czas do określenia |
 | 3 | BOOT | po włączeniu/restarcie | 
-| 4 | TAMPER | *opcjonalnie, jeśli zostanie akcelerometr*: ktoś ruszył/wyjął samo urządzenie |
  
 - jak coś wymyślicie, to dopiszcie
-- Mój pomysł z osobnym alarmem, gdy ktoś za bardzo zainteresuje się czujnikiem i go weźmie, to właśnie **TAMPER**. Szukanie wywiezionego czujnika odpada, bo nie mamy GPS-a w urządzeniu. Przy LoRa ostatnią pozycję widać najwyżej z tego, która bramka go słyszała (dokładność kilometrów).
- 
-
 
 
 ### ALARM – 10 B
@@ -137,7 +133,6 @@ Przykład: `11 00 2A 01 01 57 00 28 B4 40` →
 Dekoder w Pythonie:
 
 - TODO (będzie w `backend/app/protocol/decoder.py` z testami)
-## Filtrowanie na serwerze – pomysły
 
 # Filtrowanie na serwerze – pomysły
  
