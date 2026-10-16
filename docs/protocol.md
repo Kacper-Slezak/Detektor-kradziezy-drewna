@@ -58,7 +58,7 @@ Np. `0x11` = wersja 1, typ 1 (alarm).
 | bajt | pole | uwagi |
 |---|---|---|
 | 0–2 | nagłówek | |
-| 3 | rodzaj zdarzenia | 1 = podbieranie/załadunek, 2 = piła, 3 = silnik pojazdu, 0 = nieznane. **Listę ustala Kiryl**, na razie przykładowa |
+| 3 | rodzaj zdarzenia |  **Listę ustala Kiryl**, na razie przykładowa |
 | 4 | źródło (bity) | bit0 = mikrofon, bit1 = akcelerometr. Jak oba, to alarm pewniejszy |
 | 5 | pewność 0–100 | jak bardzo algorytm jest pewny. Skalę ustala Kiryl, na razie ją daję |
 | 6–7 | czas trwania [s] | czy to było stuknięcie, czy 10 minut ładowania |
@@ -74,7 +74,7 @@ Np. `0x11` = wersja 1, typ 1 (alarm).
 |---|---|---|
 | 0–2 | nagłówek | |
 | 3 | bateria % | |
-| 4 | odrzucone zdarzenia | ile razy się obudził i stwierdził, że to nie piła. Dane dla Kiryla, plus jak jest dużo przy ciszy, to pewnie czujnik padł, nie wiem czy to bedzie tak działać |
+| 4 | odrzucone zdarzenia | ile razy się obudził i stwierdził, że to nie kradzież. Dane dla Kiryla, plus jak jest dużo przy ciszy, to pewnie czujnik padł, nie wiem czy to bedzie tak działać, do tego nie wiem jak to by miało dizałąć z czujnikiem wibracji i alramem mysle że musmy to omówić |
 | 5 | flagi | bit0 zablokowany, bit1 niska bateria, bit2 błąd czujnika |
 
 Jak heartbeat nie przyjdzie przez ~12 h, serwer daje alarm „czujnik milczy” (zerwany, rozładowany, zagłuszony…).
