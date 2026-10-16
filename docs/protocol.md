@@ -90,7 +90,7 @@ Jak urządzenie restartuje się co chwilę przez watchdog, to mamy buga.
 Urządzenie ma się budzić jak najrzadziej. Po wysłaniu alarmu **blokuje się** i nie wysyła kolejnych **do upływu timeoutu** (np. 1 h).
  
 ```
-SEN --dźwięk/drgania--> ANALIZA --kradzież--> wyślij ALARM --> ZABLOKOWANY
+SEN --dźwięk/drgania--> ANALIZA --kradzież--> wyślij ALARM x3 --> ZABLOKOWANY
  ^                         |                                       |
  |-------nie kradzież------|                                       |
  |------------------------- timeout (np. 1 h) ---------------------|
