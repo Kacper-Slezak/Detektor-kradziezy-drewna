@@ -37,6 +37,7 @@ Dodatkowo dostępny jest Expansion Board: https://docs.pycom.io/datasheets/expan
 - Wymiary: 55 x 20 x 3,5 mm
 
 ### Dokumentacja i materiały
+- [Informacje na stronie producenta](https://docs.pycom.io/datasheets/development/lopy/)
 - [Specyfikacja techniczna](./assets/lopySpecsheetFinal.pdf)
 - [Obsługa ESP32 w Arduino IDE](https://www.dfrobot.com/blog-598.html)
 - [Tutorial MicroPython](https://www.dfrobot.com/blog-692.html?tracking=59cf43642c1e8&utm_source=DFRobot_Newsletter&utm_campaign=829f546aa4-EMAIL_CAMPAIGN_2017_National&utm_medium=email&utm_term=0_0633b8d2f9-829f546aa4-19754189)
@@ -108,15 +109,19 @@ Wybrany został akumulator bez BMS ze względu na specyfikę urządzenia oraz fa
 2x [Akumulator Samsung 35E INR18650-35E 3500mAh Li-Ion 3.6V](
 https://allegro.pl/events/clicks?emission_unit_id=76c621c1-4cf8-41bd-85a8-806af5e4db70&emission_id=20c9b42c-4e3a-48f3-9190-c46e5c0091c3&type=OFFER&ts=1792414665473&redirect=https%3A%2F%2Fallegro.pl%2Foferta%2F18813433448%3Fbi_s%3Dads%26bi_m%3Dproductlisting%253Adesktop%253Aquery%26bi_c%3DYmExZDU1YmMtZWU5MC00NDc4LWJiYjYtMTY4N2QyOWNmNWIyAA%26bi_t%3Dape&placement=productlisting:desktop:query&sig=7822ad27035cf816447d7c023e1e1dff)
 
-> [!WARNING]  
-> Ilość lub pojemność akumulatora może ulec zmianie w zalezności od szacowanych obliczeń zużycia energii przez układ
+
 
 ### Moduł BMS
-[Moduł BMS 2s 5A Li-Ion 18650 7,4V 8,4V Ładowarka](https://allegro.pl/oferta/modul-bms-2s-5a-li-ion-18650-7-4v-8-4v-ladowarka-13614076993?bi_s=ads&bi_m=productlisting:desktop:query&bi_c=MDU5YzEyNTEtMTgzZS00ZGI1LWI0YWQtMzNjMDM0OWI4OTk3AA&bi_t=ape&referrer=proxy&emission_unit_id=0cc49b65-b843-4c0a-b52f-8302133e5334)
+[Moduł BMS PCM PCB Ładowania i Ochrony Ogniw Li-ion 2S 8,4V 8A do 18650](https://allegro.pl/produkt/ladowarka-abc-8355-11145404-07e3-490f-920e-0e06216b4d84?offerId=18299673018)
 
 Moduł obsługuje dwa akumulatory
 
 ## przetwornica impulsowa typu step-down
-Jeżeli będą dwa akumulatory, do dostosowania w zaleznosci od zuzycia energii
+[Przetwornica LM2596 DC-DC Step-Down 3A 3-35V na 1,5-30V do FPV do Projektów](https://allegro.pl/produkt/przetwornica-abc-rc-lm2596-1e9aba40-4602-428a-b5be-f7c754625060?offerId=18660363316)
 
-### Koszyczek do baterii
+> [!WARNING]  
+> Przetwornica LM2596 nie jest obojętna dla zużycia energii. W zastosowaniu komercyjnym powinna zostać użyta inna przetwornica, ale do prototypu ten model jest tańszy i bardziej dostępny
+
+
+### Koszyk do baterii
+[Koszyk na Akumulator 2x 18650 z Wyłącznikiem Koszyczek z Pokrywą Przewodami](https://allegro.pl/produkt/koszyk-na-akumulator-18650-abc-2-szt-z-wylacznikiem-i-pokrywa-ad0608e5-a5b0-45b5-b293-2add310675f1?offerId=18518318930)
