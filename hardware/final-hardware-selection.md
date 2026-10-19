@@ -12,6 +12,8 @@ Dodatkowo dostępny jest Expansion Board: https://docs.pycom.io/datasheets/expan
 
 ![image](https://cdn1.botland.com.pl/img/art/inne/07873_3.jpg)
 
+![image](https://docs.pycom.io/gitbook/assets/lopy-pinout.png)
+
 ### Główne cechy urządzenia:
 - Napięcie pracy: od 3,3 V do 5,5 V
 - Mikrokontroler: ESP32
