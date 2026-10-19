@@ -113,7 +113,7 @@ https://allegro.pl/events/clicks?emission_unit_id=76c621c1-4cf8-41bd-85a8-806af5
 
 
 ### Moduł BMS
-[Moduł BMS PCM PCB Ładowania i Ochrony Ogniw Li-ion 2S 8,4V 8A do 18650](https://allegro.pl/produkt/ladowarka-abc-8355-11145404-07e3-490f-920e-0e06216b4d84?offerId=18299673018)
+[Moduł BMS 2s 5A Li-Ion 18650 7,4V 8,4V Ładowarka](https://allegro.pl/oferta/modul-bms-2s-5a-li-ion-18650-7-4v-8-4v-ladowarka-13614076993?bi_s=ads&bi_m=productlisting:desktop:query&bi_c=MDU5YzEyNTEtMTgzZS00ZGI1LWI0YWQtMzNjMDM0OWI4OTk3AA&bi_t=ape&referrer=proxy&emission_unit_id=0cc49b65-b843-4c0a-b52f-8302133e5334)
 
 Moduł obsługuje dwa akumulatory
 
@@ -125,4 +125,4 @@ Moduł obsługuje dwa akumulatory
 
 
 ### Koszyk do baterii
-[Koszyk na Akumulator 2x 18650 z Wyłącznikiem Koszyczek z Pokrywą Przewodami](https://allegro.pl/produkt/koszyk-na-akumulator-18650-abc-2-szt-z-wylacznikiem-i-pokrywa-ad0608e5-a5b0-45b5-b293-2add310675f1?offerId=18518318930)
+[KOSZYK 2 X 18650 BLASZKI PRZEWODY KOSZYCZEK 2S](https://allegro.pl/produkt/koszyk-2-x-18650-blaszki-przewody-koszyczek-2s-2347bdfe-296f-4497-897c-2d333c7fda4d?offerId=13614087155)
