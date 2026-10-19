@@ -53,7 +53,7 @@ Opis produktu: https://botland.com.pl/gravity-czujniki-sily-i-krancowki/4713-dfr
 **Analogowy** czujnik wibracji z piezoelektryczną membraną. Zasilany jest napięciem od 3,3 V do 5 V, współpracuje z modułami Arduino.
 Na wyjściu modułu można odczytać zmiany napięcia proporcjonalne do siły wibracji.
 
-![image](https://cdn1.botland.com.pl/img/art/inne/04713_5.jpg)
+<img src="https://cdn1.botland.com.pl/img/art/inne/04713_5.jpg" height="200">
 
 ### Specyfikacja
 | Nazwa | Wartość |
@@ -82,7 +82,8 @@ Opis produktu: https://botland.com.pl/mikrofony-i-detektory-dzwieku/1614-modul-z
 
 Moduł z mikrofonem elektretowym i wzmacniaczem operacyjnym. Dzięki zastosowanemu układowi op-amp (OPA344), sygnał napięciowy pochodzący z mikrofonu wzmacniany jest 100-krotnie. Pozwala to na bezpośrednie podłączenie modułu do pinów wejściowych przetwornika analogowo-cyfrowego (np. wejść analogowych Arduino). Układ zasilany jest napięciem z zakresu od 2,7 V do 5,5 V.
 
-![image](https://cdn2.botland.com.pl/26875-large_default/modul-z-mikrofonem-elektretowym-i-wzmacniaczem-opa344-sparkfun-bob-12758.jpg)
+
+<img src="https://cdn2.botland.com.pl/26875-large_default/modul-z-mikrofonem-elektretowym-i-wzmacniaczem-opa344-sparkfun-bob-12758.jpg" height="200">
 
 ### Specyfikacja techniczna:
 - Napięcie zasilania: od 2,7 V do 5,5 V
@@ -116,7 +117,7 @@ https://allegro.pl/events/clicks?emission_unit_id=76c621c1-4cf8-41bd-85a8-806af5
 
 Moduł obsługuje dwa akumulatory
 
-## przetwornica impulsowa typu step-down
+## Przetwornica impulsowa typu step-down
 [Przetwornica LM2596 DC-DC Step-Down 3A 3-35V na 1,5-30V do FPV do Projektów](https://allegro.pl/produkt/przetwornica-abc-rc-lm2596-1e9aba40-4602-428a-b5be-f7c754625060?offerId=18660363316)
 
 > [!WARNING]  
