@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    image: detektor-frontend
+    container_name: detektor_frontend
+    environment:
+      # backend z backend/docker-compose.yml, wystawiony na porcie 8000 komputera
+      API_TARGET: http://host.docker.internal:8000
+      # Docker Desktop na Windowsie nie przekazuje zdarzeń zmian plików z bind mounta
+      CHOKIDAR_USEPOLLING: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: unless-stopped
