@@ -8,7 +8,6 @@ Celem jest rozpoznawanie zdarzeń mogących wskazywać na **nieuprawnione przemi
 
 - **Akcelerometr** – rejestruje przyspieszenia, wstrząsy i zmiany położenia.
 - **Mikrofon** – rejestruje dźwięki otoczenia, m.in. pracę pojazdów, uderzenia i odgłosy przemieszczanego drewna.
-- **Kontaktron** – dostarcza dyskretny sygnał zmiany stanu (otwarcie/zamknięcie styku); jego znaczenie zależy od tego, co konkretnie kontroluje.
 
 Urządzenie powinno oszczędzać energię, dlatego część danych może być rejestrowana **dopiero po wykryciu aktywności**. Zadaniem analizy nie jest automatyczne stwierdzenie kradzieży, lecz wykrycie podejrzanego zdarzenia i przekazanie go do dalszej weryfikacji, np. na podstawie harmonogramu dozwolonych prac.
 
@@ -51,7 +50,7 @@ Po wybudzeniu urządzenia sygnał można dzielić na zachodzące na siebie, kró
 
 #### 3.7. Sensor Fusion i analiza sekwencji zdarzeń
 
-Wyniki z mikrofonu, akcelerometru i kontaktronu można łączyć na podstawie znaczników czasu. Na przykład seria uderzeń, zmiana stanu kontaktronu i odgłosy pracy pojazdu w krótkim odstępie mogą być bardziej znaczące niż każdy sygnał osobno. Ponieważ początek zdarzenia może być ucięty, algorytm nie powinien wymagać wystąpienia **wszystkich** elementów sekwencji w ustalonej kolejności.
+Wyniki z mikrofonu i akcelerometru można łączyć na podstawie znaczników czasu. Na przykład seria uderzeń i odgłosy pracy pojazdu w krótkim odstępie mogą być bardziej znaczące niż każdy sygnał osobno. Ponieważ początek zdarzenia może być ucięty, algorytm nie powinien wymagać wystąpienia **wszystkich** elementów sekwencji w ustalonej kolejności.
 
 #### 3.8. Analiza brakujących fragmentów i jakości danych
 
