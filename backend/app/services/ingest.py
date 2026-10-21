@@ -100,3 +100,56 @@ async def _handle_alarm(
     return alarm, True
 
 
+async def ingest(
+    session: AsyncSession,
+    device: str,
+    payload_hex: str,
+    received_at: datetime,
+    rssi: int | None,
+) -> IngestResult:
+    frame = decode_hex(payload_hex)  # FrameError leci wyżej -> 422
+
+    sensor = await session.get(Sensor, device)
+    if sensor is None:
+        raise UnknownSensorError(device)
+
+    header = frame.header
+    if is_duplicate(sensor.last_counter, header.counter, header.msg_type):
+        log.info("Duplikat z %s: licznik %s (ostatni %s)", device, header.counter, sensor.last_counter)
+        return IngestResult(status="duplicate")
+
+    if sensor.last_counter is not None and header.msg_type is not MsgType.BOOT:
+        lost = (header.counter - sensor.last_counter) % COUNTER_MOD - 1
+        if lost > 0:
+            log.warning("Czujnik %s: zgubione ramki: %s", device, lost)
+
+    message = Message(
+        received_at=received_at,
+        sensor_id=sensor.id,
+        msg_type=header.msg_type.name,
+        counter=header.counter,
+        payload_hex=payload_hex.lower(),
+        decoded=to_dict(frame),
+        rssi=rssi,
+    )
+    session.add(message)
+
+    sensor.last_seen = received_at
+    sensor.last_counter = header.counter
+    sensor.battery_pct = frame.battery_pct  # każdy typ ramki niesie baterię
+
+    result = IngestResult(status="stored")
+
+    if isinstance(frame, AlarmFrame):
+        if await _is_muted(session, sensor, received_at):
+            log.info("Alarm z %s pominięty: czujnik wyciszony/wyłączony", device)
+            result.muted = True
+        else:
+            alarm, created = await _handle_alarm(session, sensor, frame, received_at)
+            result.alarm_created = created
+            await session.flush()
+            result.alarm_id = alarm.id
+
+    await session.commit()
+    result.message_id = message.id
+    return result
