@@ -8,6 +8,7 @@ Celem jest rozpoznawanie zdarzeń mogących wskazywać na **nieuprawnione przemi
 
 - **Akcelerometr** – rejestruje przyspieszenia, wstrząsy i zmiany położenia.
 - **Mikrofon** – rejestruje dźwięki otoczenia, m.in. pracę pojazdów, uderzenia i odgłosy przemieszczanego drewna.
+- **Czujnik wibracji** - wykrywa drgania i wstrząsy mechaniczne, które mogą powstawać podczas przemieszczania, uderzania i załadunku drewna.
 
 Urządzenie powinno oszczędzać energię, dlatego część danych może być rejestrowana **dopiero po wykryciu aktywności**. Zadaniem analizy nie jest automatyczne stwierdzenie kradzieży, lecz wykrycie podejrzanego zdarzenia i przekazanie go do dalszej weryfikacji, np. na podstawie harmonogramu dozwolonych prac.
 
@@ -24,7 +25,7 @@ W kontekście sygnałów z czujników chodzi przede wszystkim o **niepełne frag
 
 ### 3. Metody analizy
 
-#### 3.1. Threshold Detection z histerezą
+#### 3.1. Threshold Detection z histerezą <-
 
 Przekroczenie ustalonego progu przyspieszenia lub poziomu dźwięku może uruchamiać dokładniejszą rejestrację i analizę. Histereza (różne progi włączenia i wyłączenia) ogranicza częste przełączanie przy sygnale oscylującym w pobliżu progu. Metoda sprzyja oszczędzaniu energii, ale **nie rozpoznaje rodzaju zdarzenia** i może pomijać zdarzenia zbyt ciche lub słabe.
 
@@ -48,9 +49,9 @@ Model anomalii może uczyć się typowych wzorców spokoju, wiatru i zwykłego r
 
 Po wybudzeniu urządzenia sygnał można dzielić na zachodzące na siebie, krótkie okna i oceniać aktywność w każdym z nich. Pozwala to wykrywać powtarzalne uderzenia lub ciągłą pracę maszyny zamiast reagować wyłącznie na pojedynczy impuls. Ta metoda **nie wymaga stałego działania głównego procesora**: okna mogą być analizowane tylko podczas aktywnej rejestracji.
 
-#### 3.7. Sensor Fusion i analiza sekwencji zdarzeń
+#### 3.7. Sensor Fusion i analiza sekwencji zdarzeń <-
 
-Wyniki z mikrofonu i akcelerometru można łączyć na podstawie znaczników czasu. Na przykład seria uderzeń i odgłosy pracy pojazdu w krótkim odstępie mogą być bardziej znaczące niż każdy sygnał osobno. Ponieważ początek zdarzenia może być ucięty, algorytm nie powinien wymagać wystąpienia **wszystkich** elementów sekwencji w ustalonej kolejności.
+Wyniki z mikrofonu, czujniku wibracji i akcelerometru można łączyć na podstawie znaczników czasu. Na przykład seria uderzeń i odgłosy pracy pojazdu w krótkim odstępie mogą być bardziej znaczące niż każdy sygnał osobno. Ponieważ początek zdarzenia może być ucięty, algorytm nie powinien wymagać wystąpienia **wszystkich** elementów sekwencji w ustalonej kolejności.
 
 #### 3.8. Analiza brakujących fragmentów i jakości danych
 
