@@ -90,6 +90,7 @@ class Release(Base):
     carrier: Mapped[str | None] = mapped_column(String(100))
     log_count: Mapped[int | None]
     comment: Mapped[str | None] = mapped_column(String(500))
+    created_by: Mapped[str | None] = mapped_column(String(50))  # login leśniczego
 
 
 class Message(Base):
@@ -122,7 +123,10 @@ class Alarm(Base):
     repeats: Mapped[int] = mapped_column(default=1)  # ile ramek złożyło się na alarm
     status: Mapped[str] = mapped_column(
         String(16), default="new"
-    )  # new / theft / false
+    )  # new / theft / false_alarm
     response_by: Mapped[str | None] = mapped_column(String(50))
     response_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     response_comment: Mapped[str | None] = mapped_column(String(500))
+    # pozycja z telefonu leśniczego przy odpowiedzi (dowód obecności, nie jest sprawdzana)
+    response_lat: Mapped[float | None]
+    response_lon: Mapped[float | None]
