@@ -6,9 +6,6 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://detektor:detektor@localhost:5432/detektor"
 
-    # Tymczasowo: tabele tworzone przy starcie. Zniknie, gdy wejdą migracje Alembic.
-    db_create_all: bool = True
-
     # Powtórzenia ALARM (wysyłane 3x) z tego okna scalamy w jeden alarm.
     alarm_merge_window_s: int = 600
 
