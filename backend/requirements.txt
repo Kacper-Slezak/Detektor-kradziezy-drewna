@@ -12,5 +12,6 @@ alembic
 aiosqlite
 pytest
 pytest-asyncio
+pytest-cov
 httpx
 ruff

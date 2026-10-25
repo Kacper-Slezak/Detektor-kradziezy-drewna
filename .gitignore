@@ -53,3 +53,8 @@ detection/data/*
 
 # ---- Docker ----
 docker-data/
+
+# ---- Raporty testów (backend) ----
+.coverage
+backend/reports/
+htmlcov/
