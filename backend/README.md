@@ -8,9 +8,10 @@ API (FastAPI) + baza TimescaleDB. Pełna dokumentacja: [docs/backend/](../docs/b
 
 ```bash
 cd backend
-cp .env.example .env        # ustaw POSTGRES_PASSWORD
+cp .env.example .env        # ustaw POSTGRES_PASSWORD i JWT_SECRET
 docker compose up --build
 docker compose run --rm web alembic upgrade head   # schemat bazy (przy pierwszym uruchomieniu i po zmianach)
+docker compose run --rm web python -m app.seed     # konto admina (JWT_SECRET musi być w .env)
 curl localhost:8000/health  # {"status":"ok"}
 ```
 
@@ -24,6 +25,7 @@ Wymaga działającej bazy (np. `docker compose up timescaledb`) i odkomentowaneg
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
+python -m app.seed
 uvicorn app.main:app --reload
 ```
 
