@@ -16,6 +16,7 @@ Plik: `backend/docker-compose.yml`.
 ```bash
 docker compose up --build        # start (z przebudowaniem obrazu)
 docker compose up -d             # w tle
+docker compose run --rm web alembic upgrade head   # migracje schematu bazy
 docker compose logs -f web       # logi API
 docker compose ps                # stan i healthcheck
 docker compose down              # stop
