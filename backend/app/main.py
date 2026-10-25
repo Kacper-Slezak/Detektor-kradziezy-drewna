@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.db import Base, engine
+from app.routers import ingest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
