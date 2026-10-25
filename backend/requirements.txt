@@ -3,6 +3,10 @@ fastapi
 uvicorn[standard]
 pydantic-settings
 
+# --- Logowanie ---
+argon2-cffi
+pyjwt
+
 # --- Baza (PostgreSQL / TimescaleDB) ---
 sqlalchemy[asyncio]
 asyncpg
