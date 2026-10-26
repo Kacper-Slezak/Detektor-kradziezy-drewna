@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -20,5 +21,9 @@ export default defineConfig({
       // /api/... goes to FastAPI; in Docker the address comes from docker-compose.yml
       '/api': process.env.API_TARGET ?? 'http://localhost:8000',
     },
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
   },
 })
