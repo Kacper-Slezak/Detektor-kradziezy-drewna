@@ -10,8 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import SessionLocal, engine
-from app.models import User
+from app.models import Range, User
 from app.security import generate_temp_password, hash_password
+
+DEFAULT_RANGES = ["Leśnictwo Dąbrowa", "Leśnictwo Olszyny"]
+
+async def create_ranges(session: AsyncSession) -> int:
+    """Przykładowe leśnictwa. Zwraca, ile dodano."""
+    added = 0
+    for name in DEFAULT_RANGES:
+        if not await session.scalar(select(Range.id).where(Range.name == name)):
+            session.add(Range(name=name))
+            added += 1
+    await session.commit()
+    return added
 
 
 async def create_admin(session: AsyncSession) -> tuple[bool, str | None]:
@@ -36,6 +48,7 @@ async def create_admin(session: AsyncSession) -> tuple[bool, str | None]:
 
 async def main() -> None:
     async with SessionLocal() as session:
+        await create_ranges(session)
         created, generated = await create_admin(session)
     await engine.dispose()
 
