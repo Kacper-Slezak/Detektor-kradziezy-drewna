@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { me } from '@/api/auth'
 import { ApiError, getToken, setToken } from '@/api/client'
 import type { User } from '@/api/types'
+import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { Button } from '@/components/ui/button'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
@@ -110,7 +111,8 @@ function App() {
 
   return (
     <>
-      <div className="fixed top-2 right-2">
+      <div className="fixed top-2 right-2 flex items-center gap-2">
+        <InstallButton />
         <LanguageSwitcher />
       </div>
       {renderPage()}
