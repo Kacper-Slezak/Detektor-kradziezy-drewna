@@ -1,4 +1,4 @@
-// Dzięki temu TypeScript zna klucze z pl.json i zgłosi literówkę w t('...')
+// Lets TypeScript know the keys from pl.json and report typos in t('...')
 
 import 'i18next'
 

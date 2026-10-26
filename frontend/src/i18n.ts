@@ -1,5 +1,5 @@
-// Tłumaczenia interfejsu. Teksty są w src/locales/<język>.json.
-// Nowy język: dodaj plik i wpisz go do resources i LANGUAGES.
+// UI translations. Texts live in src/locales/<language>.json.
+// New language: add a file and register it in resources and LANGUAGES.
 
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
@@ -7,7 +7,7 @@ import { initReactI18next } from 'react-i18next'
 import enJson from './locales/en.json'
 import pl from './locales/pl.json'
 
-// Typ wymusza, żeby en.json miał wszystkie klucze z pl.json
+// The type forces en.json to have every key from pl.json
 const en: typeof pl = enJson
 
 export const resources = {
@@ -25,7 +25,7 @@ function savedLanguage(): Language {
     const saved = localStorage.getItem(LANGUAGE_KEY)
     if (saved && saved in resources) return saved as Language
   } catch {
-    // brak dostępu do localStorage, zostaje polski
+    // no access to localStorage, keep Polish
   }
   return 'pl'
 }
@@ -34,12 +34,12 @@ export function changeLanguage(lng: Language) {
   try {
     localStorage.setItem(LANGUAGE_KEY, lng)
   } catch {
-    // wybór działa do odświeżenia strony
+    // the choice lasts until the page is reloaded
   }
   i18n.changeLanguage(lng)
 }
 
-// Atrybut lang na <html> zgodny z wybranym językiem (czytniki ekranu, autokorekta)
+// Keep <html lang> in sync with the chosen language (screen readers, autocorrect)
 i18n.on('languageChanged', (lng) => {
   document.documentElement.lang = lng
 })
@@ -48,7 +48,7 @@ i18n.use(initReactI18next).init({
   resources,
   lng: savedLanguage(),
   fallbackLng: 'pl',
-  // React sam zabezpiecza tekst przed wstrzyknięciem HTML
+  // React already escapes text against HTML injection
   interpolation: { escapeValue: false },
 })
 

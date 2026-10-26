@@ -1,4 +1,4 @@
-// Typy zgodne z docs/backend/api.md (sekcja 1. Logowanie i hasło)
+// Types matching docs/backend/api.md (section 1. Logowanie i hasło)
 
 export type Role = 'forester' | 'district_manager' | 'admin'
 

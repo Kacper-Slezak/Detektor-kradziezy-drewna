@@ -12,7 +12,26 @@
   "home": {
     "welcome": "Welcome, {{name}}",
     "role": "Role: {{role}}",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "changePassword": "Change password",
+    "passwordChanged": "Your password has been changed."
+  },
+  "changePassword": {
+    "title": "Change password",
+    "description": "Enter your current password and choose a new one.",
+    "forcedDescription": "This is your first sign-in. Set your own password to continue.",
+    "oldPassword": "Current password",
+    "temporaryPassword": "Temporary password",
+    "newPassword": "New password",
+    "repeatPassword": "Repeat new password",
+    "submit": "Change password",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "errors": {
+      "tooShort": "The new password must be at least {{count}} characters long",
+      "mismatch": "The new passwords do not match",
+      "sameAsOld": "The new password must be different from the current one"
+    }
   },
   "role": {
     "forester": "Forester",

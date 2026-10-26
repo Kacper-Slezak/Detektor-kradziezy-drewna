@@ -1,4 +1,4 @@
-// Wspólna funkcja do zapytań: dokleja prefiks /api/v1 i token JWT
+// Shared request helper: adds the /api/v1 prefix and the JWT token
 
 import i18n from '@/i18n'
 
@@ -13,7 +13,7 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY)
 }
 
-// Błąd z backendu: kod HTTP + pole "detail" (patrz api.md, sekcja Błędy)
+// Backend error: HTTP status + "detail" field (see api.md, section Błędy)
 export class ApiError extends Error {
   status: number
 
@@ -37,7 +37,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     throw new ApiError(res.status, detail)
   }
 
-  // 204 nie ma treści (np. change-password)
+  // 204 has no body (e.g. change-password)
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }

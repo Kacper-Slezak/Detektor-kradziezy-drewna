@@ -14,10 +14,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    // w Dockerze na Windowsie zmiany plików wykrywamy odpytywaniem
+    // in Docker on Windows, file changes are detected by polling
     watch: { usePolling: process.env.CHOKIDAR_USEPOLLING === 'true' },
     proxy: {
-      // /api/... idzie do FastAPI; w Dockerze adres podaje docker-compose.yml
+      // /api/... goes to FastAPI; in Docker the address comes from docker-compose.yml
       '/api': process.env.API_TARGET ?? 'http://localhost:8000',
     },
   },

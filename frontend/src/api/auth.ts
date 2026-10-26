@@ -1,5 +1,5 @@
-// Endpointy logowania z api.md. Dopóki backend nie ma /auth, działa mock.
-// Prawdziwy backend: uruchom z VITE_USE_MOCK=false
+// Auth endpoints from api.md. Until the backend has /auth, the mock is used.
+// Real backend: run with VITE_USE_MOCK=false
 
 import { apiFetch, getToken } from './client'
 import { mockChangePassword, mockLogin, mockMe } from './mock'

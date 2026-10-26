@@ -1,9 +1,9 @@
-// Udawany backend dla logowania, dopóki /auth nie istnieje w FastAPI.
-// Konta testowe (login / hasło):
-//   blazej / tajne123          leśniczy
-//   bogdan / tajne123          nadleśniczy
+// Fake auth backend, until /auth exists in FastAPI.
+// Test accounts (login / password):
+//   blazej / tajne123          forester
+//   bogdan / tajne123          district manager
 //   admin / admin123           admin
-//   nowy.lesniczy / Tymczasowe123!   leśniczy, musi zmienić hasło
+//   nowy.lesniczy / Tymczasowe123!   forester, must change password
 
 import { ApiError } from './client'
 import type { LoginResponse, User } from './types'
