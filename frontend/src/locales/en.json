@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Timber Theft Detector"
+  },
+  "login": {
+    "description": "Sign in to see sensors and alarms.",
+    "login": "Login",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…"
+  },
+  "home": {
+    "welcome": "Welcome, {{name}}",
+    "role": "Role: {{role}}",
+    "logout": "Sign out"
+  },
+  "role": {
+    "forester": "Forester",
+    "district_manager": "District manager",
+    "admin": "Administrator"
+  },
+  "errors": {
+    "network": "Cannot connect to the server",
+    "http": "Error {{status}}"
+  },
+  "language": {
+    "label": "Language"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Detektor kradzieży drewna"
+  },
+  "login": {
+    "description": "Zaloguj się, aby zobaczyć czujniki i alarmy.",
+    "login": "Login",
+    "password": "Hasło",
+    "submit": "Zaloguj się",
+    "submitting": "Logowanie…"
+  },
+  "home": {
+    "welcome": "Witaj, {{name}}",
+    "role": "Rola: {{role}}",
+    "logout": "Wyloguj"
+  },
+  "role": {
+    "forester": "Leśniczy",
+    "district_manager": "Nadleśniczy",
+    "admin": "Administrator"
+  },
+  "errors": {
+    "network": "Brak połączenia z serwerem",
+    "http": "Błąd {{status}}"
+  },
+  "language": {
+    "label": "Język"
+  }
+}

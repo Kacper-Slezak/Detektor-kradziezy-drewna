@@ -60,14 +60,12 @@ const accounts: MockAccount[] = [
   },
 ]
 
-// Token w mocku to po prostu "mock-<id użytkownika>"
 function accountByToken(token: string | null): MockAccount {
   const account = accounts.find((a) => token === `mock-${a.user.id}`)
   if (!account) throw new ApiError(401, 'Sesja wygasła, zaloguj się ponownie')
   return account
 }
 
-// Krótkie opóźnienie, żeby było widać stan ładowania
 const delay = () => new Promise((resolve) => setTimeout(resolve, 400))
 
 export async function mockLogin(login: string, password: string): Promise<LoginResponse> {

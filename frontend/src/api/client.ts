@@ -1,5 +1,7 @@
 // Wspólna funkcja do zapytań: dokleja prefiks /api/v1 i token JWT
 
+import i18n from '@/i18n'
+
 const TOKEN_KEY = 'token'
 
 export function getToken(): string | null {
@@ -31,7 +33,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    const detail = typeof body?.detail === 'string' ? body.detail : `Błąd ${res.status}`
+    const detail = typeof body?.detail === 'string' ? body.detail : i18n.t('errors.http', { status: res.status })
     throw new ApiError(res.status, detail)
   }
 
