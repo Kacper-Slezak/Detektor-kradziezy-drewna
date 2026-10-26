@@ -1,0 +1,49 @@
+{
+  "app": {
+    "name": "Detektor kradzieży drewna",
+    "loading": "Ładowanie…"
+  },
+  "login": {
+    "description": "Zaloguj się, aby zobaczyć czujniki i alarmy.",
+    "login": "Login",
+    "password": "Hasło",
+    "submit": "Zaloguj się",
+    "submitting": "Logowanie…"
+  },
+  "home": {
+    "welcome": "Witaj, {{name}}",
+    "role": "Rola: {{role}}",
+    "logout": "Wyloguj",
+    "changePassword": "Zmień hasło",
+    "passwordChanged": "Hasło zostało zmienione."
+  },
+  "changePassword": {
+    "title": "Zmiana hasła",
+    "description": "Podaj obecne hasło i ustaw nowe.",
+    "forcedDescription": "To Twoje pierwsze logowanie. Ustaw własne hasło, aby kontynuować.",
+    "oldPassword": "Obecne hasło",
+    "temporaryPassword": "Hasło tymczasowe",
+    "newPassword": "Nowe hasło",
+    "repeatPassword": "Powtórz nowe hasło",
+    "submit": "Zmień hasło",
+    "submitting": "Zapisywanie…",
+    "cancel": "Anuluj",
+    "errors": {
+      "tooShort": "Nowe hasło musi mieć co najmniej {{count}} znaków",
+      "mismatch": "Nowe hasła nie są takie same",
+      "sameAsOld": "Nowe hasło musi być inne niż obecne"
+    }
+  },
+  "role": {
+    "forester": "Leśniczy",
+    "district_manager": "Nadleśniczy",
+    "admin": "Administrator"
+  },
+  "errors": {
+    "network": "Brak połączenia z serwerem",
+    "http": "Błąd {{status}}"
+  },
+  "language": {
+    "label": "Język"
+  }
+}
