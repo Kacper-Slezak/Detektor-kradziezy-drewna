@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "Detektor kradzieży drewna"
+    "name": "Detektor kradzieży drewna",
+    "loading": "Ładowanie…"
   },
   "login": {
     "description": "Zaloguj się, aby zobaczyć czujniki i alarmy.",

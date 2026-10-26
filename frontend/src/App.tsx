@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { setToken } from '@/api/client'
+import { me } from '@/api/auth'
+import { ApiError, getToken, setToken } from '@/api/client'
 import type { User } from '@/api/types'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,27 @@ function App() {
   const [user, setUser] = useState<User | null>(null)
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordChanged, setPasswordChanged] = useState(false)
+  // a saved token means we may still be signed in, so check it before showing the login page
+  const [restoring, setRestoring] = useState(() => getToken() !== null)
+
+  useEffect(() => {
+    if (!getToken()) return
+    let cancelled = false
+    me()
+      .then((restored) => {
+        if (!cancelled) setUser(restored)
+      })
+      .catch((err) => {
+        // 401: token expired or invalid; other errors (e.g. no network) keep the token
+        if (err instanceof ApiError && err.status === 401) setToken(null)
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function handleLoggedIn(loggedIn: User) {
     setPasswordChanged(false)
@@ -33,6 +55,16 @@ function App() {
   }
 
   function renderPage() {
+    if (restoring) {
+      return (
+        <main className="flex min-h-svh items-center justify-center p-4">
+          <p role="status" className="text-muted-foreground">
+            {t('app.loading')}
+          </p>
+        </main>
+      )
+    }
+
     if (!user) return <LoginPage onLoggedIn={handleLoggedIn} />
 
     if (user.must_change_password || changingPassword) {

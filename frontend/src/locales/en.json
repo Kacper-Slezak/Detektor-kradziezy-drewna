@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "Timber Theft Detector"
+    "name": "Timber Theft Detector",
+    "loading": "Loading…"
   },
   "login": {
     "description": "Sign in to see sensors and alarms.",
