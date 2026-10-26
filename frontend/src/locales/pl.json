@@ -43,6 +43,9 @@
     "network": "Brak połączenia z serwerem",
     "http": "Błąd {{status}}"
   },
+  "install": {
+    "button": "Zainstaluj aplikację"
+  },
   "language": {
     "label": "Język"
   }

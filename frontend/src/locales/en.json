@@ -43,6 +43,9 @@
     "network": "Cannot connect to the server",
     "http": "Error {{status}}"
   },
+  "install": {
+    "button": "Install app"
+  },
   "language": {
     "label": "Language"
   }
