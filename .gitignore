@@ -15,6 +15,7 @@ Thumbs.db
 .idea/
 *.swp
 
+
 # ---- Python (backend, detekcja) ----
 __pycache__/
 *.py[cod]
@@ -58,3 +59,6 @@ docker-data/
 .coverage
 backend/reports/
 htmlcov/
+# Obsidian 
+docs/.obsidian/
+docs/.trash/
