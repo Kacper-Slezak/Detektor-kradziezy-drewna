@@ -52,6 +52,7 @@ export default defineConfig({
     },
   },
   preview: {
+    allowedHosts: ['.loca.lt'],
     proxy: {
       '/api': process.env.API_TARGET ?? 'http://localhost:8000',
     },
