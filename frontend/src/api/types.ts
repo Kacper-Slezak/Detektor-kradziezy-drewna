@@ -21,3 +21,23 @@ export interface LoginResponse {
   expires_at: string
   user: User
 }
+
+// Types from section 2. Użytkownicy (admin only)
+
+export interface ManagedUser {
+  id: number
+  login: string
+  full_name: string
+  role: Role
+  range_id: number | null
+  active: boolean
+  must_change_password: boolean
+}
+
+export interface NewUser {
+  login: string
+  full_name: string
+  role: Role
+  range_id: number | null
+  password: string
+}

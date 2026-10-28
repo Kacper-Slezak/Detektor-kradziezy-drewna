@@ -2,6 +2,9 @@
 
 import i18n from '@/i18n'
 
+// Mock backend instead of FastAPI: run with VITE_USE_MOCK=true (tests always use it)
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 const TOKEN_KEY = 'token'
 
 export function getToken(): string | null {

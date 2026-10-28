@@ -31,9 +31,18 @@ npm run test:watch    # Vitest, po każdej zmianie
 npm run build
 ```
 
-## Logowanie na mocku
+## Backend i mock
 
-Backend nie ma jeszcze `/auth`, więc domyślnie działa mock z kontami testowymi opisanymi na górze `src/api/mock.ts` (np. `blazej` / `tajne123`). Prawdziwe API: `VITE_USE_MOCK=false`.
+Domyślnie front łączy się z backendem: zapytania `/api` idą na `localhost:8000` (uruchomienie backendu: [backend/README.md](../backend/README.md)).
+
+Bez backendu można użyć mocka z kontami testowymi opisanymi na górze `src/api/mock.ts` (np. `admin` / `admin123`, `blazej` / `tajne123`):
+
+```powershell
+$env:VITE_USE_MOCK = 'true'   # bash: VITE_USE_MOCK=true npm run dev
+npm run dev
+```
+
+Flaga jest wpisywana w kod przy budowaniu, więc przy `npm run build` też trzeba ją ustawić przed buildem. Testy (`npm test`) zawsze działają na mocku.
 
 ## PWA (instalacja na Androidzie)
 
@@ -51,7 +60,7 @@ Przez zwykłe Wi‑Fi (`http://<IP>:4173`) instalacja nie zadziała, bo potrzebn
 ```
 frontend/
 ├── src/
-│   ├── api/             # zapytania do backendu, typy, mock logowania
+│   ├── api/             # zapytania do backendu, typy, mock
 │   ├── components/      # komponenty aplikacji (przełącznik języka, przycisk instalacji)
 │   │   └── ui/          # komponenty shadcn/ui
 │   ├── lib/             # funkcje pomocnicze

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getToken, setToken } from './api/client'
 
-// The app runs on the mock backend here (VITE_USE_MOCK is not set).
+// The app runs on the mock backend here (VITE_USE_MOCK=true in vite.config.ts).
 // Changing a password edits mock state, so every test loads a fresh App.
 let App: typeof import('./App').default
 
