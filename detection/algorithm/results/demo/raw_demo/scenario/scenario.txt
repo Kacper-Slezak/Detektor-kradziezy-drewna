@@ -1,0 +1,7 @@
+0-20: background
+20-40: truck only (negative)
+40-50: background
+50-56: truck parked
+56-81: simulated loading impacts (positive)
+81-91: truck stays; no new impacts
+91-110: background

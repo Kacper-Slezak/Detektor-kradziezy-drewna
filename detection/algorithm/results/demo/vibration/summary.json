@@ -1,0 +1,27 @@
+{
+  "mode": "vibration",
+  "windows": 109,
+  "time_range_s": [
+    0.0,
+    110.0
+  ],
+  "state_counts": {
+    "BACKGROUND": 99,
+    "MOTION_DETECTED": 10
+  },
+  "engine_windows": 0,
+  "audio_impact_windows": 0,
+  "motion_windows": 10,
+  "alarm_count": 0,
+  "alarm_times_s": [],
+  "thresholds": {
+    "vibration_rms": 0.04,
+    "vibration_peak": 0.12210280901230008,
+    "accel_dynamic_rms": 0.015,
+    "accel_peak": 0.055
+  },
+  "calibration": "separate_quiet_baseline",
+  "warning": "Suspicious pattern only; NOT proof of theft. Thresholds require real data validation.",
+  "audio_file": null,
+  "sensor_file": "C:\\Kiryl_Workspace\\Studies\\IoT\\Detektor-kradziezy-drewna\\detection\\algorithm\\results\\demo\\raw_demo\\scenario\\sensors.csv"
+}

@@ -1,0 +1,33 @@
+{
+  "mode": "fusion",
+  "windows": 109,
+  "time_range_s": [
+    0.0,
+    110.0
+  ],
+  "state_counts": {
+    "BACKGROUND": 21,
+    "ENGINE_ONLY": 61,
+    "POSSIBLE_LOADING": 27
+  },
+  "engine_windows": 58,
+  "audio_impact_windows": 10,
+  "motion_windows": 10,
+  "alarm_count": 2,
+  "alarm_times_s": [
+    61.0,
+    77.0
+  ],
+  "thresholds": {
+    "audio_rms": 0.0164859599673714,
+    "audio_transient": 3.0,
+    "vibration_rms": 0.04,
+    "vibration_peak": 0.12210280901230008,
+    "accel_dynamic_rms": 0.015,
+    "accel_peak": 0.055
+  },
+  "calibration": "separate_quiet_baseline",
+  "warning": "Suspicious pattern only; NOT proof of theft. Thresholds require real data validation.",
+  "audio_file": "C:\\Kiryl_Workspace\\Studies\\IoT\\Detektor-kradziezy-drewna\\detection\\algorithm\\results\\demo\\raw_demo\\scenario\\microphone.wav",
+  "sensor_file": "C:\\Kiryl_Workspace\\Studies\\IoT\\Detektor-kradziezy-drewna\\detection\\algorithm\\results\\demo\\raw_demo\\scenario\\sensors.csv"
+}
