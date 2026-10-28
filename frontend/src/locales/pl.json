@@ -81,6 +81,12 @@
   "install": {
     "button": "Zainstaluj aplikację"
   },
+  "theme": {
+    "label": "Motyw",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Jak w systemie"
+  },
   "language": {
     "label": "Język"
   }

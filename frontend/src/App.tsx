@@ -6,6 +6,7 @@ import { ApiError, getToken, setToken } from '@/api/client'
 import type { User } from '@/api/types'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -113,6 +114,7 @@ function App() {
     <>
       <div className="fixed top-2 right-2 flex items-center gap-2">
         <InstallButton />
+        <ThemeSwitcher />
         <LanguageSwitcher />
       </div>
       {renderPage()}

@@ -81,6 +81,12 @@
   "install": {
     "button": "Install app"
   },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "language": {
     "label": "Language"
   }
