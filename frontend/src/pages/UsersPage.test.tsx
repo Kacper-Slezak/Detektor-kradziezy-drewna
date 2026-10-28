@@ -14,7 +14,7 @@ beforeEach(async () => {
 
 async function renderAsAdmin() {
   setToken('mock-1')
-  render(<UsersPage onBack={() => {}} />)
+  render(<UsersPage />)
   // wait for the list and the ranges from the mock
   await screen.findByText('Błażej Kowalski')
   return userEvent.setup()
@@ -113,7 +113,7 @@ describe('UsersPage', () => {
 
   it('shows an error when the user is not an admin', async () => {
     setToken('mock-3')
-    render(<UsersPage onBack={() => {}} />)
+    render(<UsersPage />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Brak uprawnień')
   })
 })

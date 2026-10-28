@@ -13,11 +13,8 @@ interface Credentials {
   password: string
 }
 
-interface UsersPageProps {
-  onBack: () => void
-}
-
-export function UsersPage({ onBack }: UsersPageProps) {
+// "Users" section of the admin panel (AdminLayout gives the frame)
+export function UsersPage() {
   const { t } = useTranslation()
   const [users, setUsers] = useState<ManagedUser[] | null>(null)
   const [ranges, setRanges] = useState<Range[]>([])
@@ -63,13 +60,8 @@ export function UsersPage({ onBack }: UsersPageProps) {
   const rangeName = (id: number | null) => ranges.find((r) => r.id === id)?.name
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-2xl flex-col gap-4 p-4 pt-14">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{t('users.title')}</h1>
-        <Button variant="outline" onClick={onBack}>
-          {t('users.back')}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-semibold">{t('users.title')}</h1>
 
       {created && (
         <Card role="status">
@@ -139,6 +131,6 @@ export function UsersPage({ onBack }: UsersPageProps) {
           )}
         </CardContent>
       </Card>
-    </main>
+    </div>
   )
 }

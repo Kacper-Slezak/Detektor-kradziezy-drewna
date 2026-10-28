@@ -4,18 +4,21 @@ import { useTranslation } from 'react-i18next'
 import { me } from '@/api/auth'
 import { ApiError, getToken, setToken } from '@/api/client'
 import type { User } from '@/api/types'
+import { AdminLayout, type AdminSection } from '@/components/AdminLayout'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { UsersPage } from '@/pages/UsersPage'
 
 function App() {
   const { t } = useTranslation()
   const [user, setUser] = useState<User | null>(null)
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordChanged, setPasswordChanged] = useState(false)
+  const [adminSection, setAdminSection] = useState<AdminSection>('users')
   // a saved token means we may still be signed in, so check it before showing the login page
   const [restoring, setRestoring] = useState(() => getToken() !== null)
 
@@ -56,6 +59,15 @@ function App() {
     setPasswordChanged(true)
   }
 
+  function startChangingPassword() {
+    setPasswordChanged(false)
+    setChangingPassword(true)
+  }
+
+  // the admin works in the panel with a side menu; it has its own language and theme switchers
+  const inAdminPanel =
+    !restoring && user?.role === 'admin' && !user.must_change_password && !changingPassword
+
   function renderPage() {
     if (restoring) {
       return (
@@ -80,6 +92,25 @@ function App() {
       )
     }
 
+    if (inAdminPanel) {
+      return (
+        <AdminLayout
+          user={user}
+          section={adminSection}
+          onSectionChange={setAdminSection}
+          onChangePassword={startChangingPassword}
+          onLogout={logout}
+        >
+          {passwordChanged && (
+            <p role="status" className="mb-4 text-sm">
+              {t('home.passwordChanged')}
+            </p>
+          )}
+          {adminSection === 'users' && <UsersPage />}
+        </AdminLayout>
+      )
+    }
+
     return (
       <main className="flex min-h-svh flex-col items-center justify-center gap-4 p-4">
         <h1 className="text-2xl font-semibold">{t('home.welcome', { name: user.full_name })}</h1>
@@ -93,13 +124,7 @@ function App() {
           </p>
         )}
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setPasswordChanged(false)
-              setChangingPassword(true)
-            }}
-          >
+          <Button variant="outline" onClick={startChangingPassword}>
             {t('home.changePassword')}
           </Button>
           <Button variant="outline" onClick={logout}>
@@ -112,11 +137,13 @@ function App() {
 
   return (
     <>
-      <div className="fixed top-2 right-2 flex items-center gap-2">
-        <InstallButton />
-        <ThemeSwitcher />
-        <LanguageSwitcher />
-      </div>
+      {!inAdminPanel && (
+        <div className="fixed top-2 right-2 flex items-center gap-2">
+          <InstallButton />
+          <ThemeSwitcher />
+          <LanguageSwitcher />
+        </div>
+      )}
       {renderPage()}
     </>
   )

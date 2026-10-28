@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Detektor kradzieży drewna",
-    "loading": "Ładowanie…"
+    "loading": "Ładowanie…",
+    "shortName": "Detektor"
   },
   "login": {
     "description": "Zaloguj się, aby zobaczyć czujniki i alarmy.",
@@ -34,9 +35,19 @@
       "sameAsOld": "Nowe hasło musi być inne niż obecne"
     }
   },
+  "admin": {
+    "menu": "Menu panelu",
+    "openMenu": "Otwórz menu",
+    "closeMenu": "Zamknij menu",
+    "soon": "wkrótce",
+    "nav": {
+      "users": "Użytkownicy",
+      "sensors": "Czujniki",
+      "ranges": "Leśnictwa"
+    }
+  },
   "users": {
     "title": "Użytkownicy",
-    "back": "Wróć",
     "form": {
       "title": "Nowe konto",
       "description": "Login uzupełnia się z imienia i nazwiska. Przy pierwszym logowaniu użytkownik ustawi własne hasło.",

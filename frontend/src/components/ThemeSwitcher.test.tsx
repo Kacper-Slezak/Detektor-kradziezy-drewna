@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The theme is module state read from localStorage on load, so each test loads it fresh
 let ThemeSwitcher: typeof import('./ThemeSwitcher').ThemeSwitcher
@@ -9,6 +9,12 @@ async function load() {
   vi.resetModules()
   ThemeSwitcher = (await import('./ThemeSwitcher')).ThemeSwitcher
 }
+
+// The first import (with the icons) is slow when all test files run at once,
+// so do it here, where the time limit is longer than in a single test
+beforeAll(async () => {
+  await import('./ThemeSwitcher')
+})
 
 const isDark = () => document.documentElement.classList.contains('dark')
 

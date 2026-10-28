@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Timber Theft Detector",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "shortName": "Detector"
   },
   "login": {
     "description": "Sign in to see sensors and alarms.",
@@ -34,9 +35,19 @@
       "sameAsOld": "The new password must be different from the current one"
     }
   },
+  "admin": {
+    "menu": "Panel menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "soon": "soon",
+    "nav": {
+      "users": "Users",
+      "sensors": "Sensors",
+      "ranges": "Forest ranges"
+    }
+  },
   "users": {
     "title": "Users",
-    "back": "Back",
     "form": {
       "title": "New account",
       "description": "The login is filled in from the full name. At first sign-in the user sets their own password.",
