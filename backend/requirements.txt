@@ -9,7 +9,9 @@ asyncpg
 alembic
 
 # --- Testy i jakość kodu ---
+aiosqlite
 pytest
 pytest-asyncio
+pytest-cov
 httpx
 ruff

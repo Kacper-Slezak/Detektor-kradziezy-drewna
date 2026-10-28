@@ -55,6 +55,10 @@ detection/data/*
 # ---- Docker ----
 docker-data/
 
+# ---- Raporty testów (backend) ----
+.coverage
+backend/reports/
+htmlcov/
 # Obsidian 
 docs/.obsidian/
 docs/.trash/

@@ -10,6 +10,7 @@ API (FastAPI) + baza TimescaleDB. Pełna dokumentacja: [docs/backend/](../docs/b
 cd backend
 cp .env.example .env        # ustaw POSTGRES_PASSWORD
 docker compose up --build
+docker compose run --rm web alembic upgrade head   # schemat bazy (przy pierwszym uruchomieniu i po zmianach)
 curl localhost:8000/health  # {"status":"ok"}
 ```
 
@@ -22,14 +23,23 @@ Wymaga działającej bazy (np. `docker compose up timescaledb`) i odkomentowaneg
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 ## Testy i lint
 
 ```bash
-pytest #Do wykonania w przyszłych tygodniach
+pytest                                           # testy
+pytest --cov=app --cov-report=term-missing       # testy + pokrycie (brakujące linie)
+pytest --junitxml=reports/junit.xml              # raport XML (np. dla CI)
 ruff check .
+```
+
+W kontenerze (po `docker compose build web`):
+
+```bash
+docker compose run --rm web pytest --cov=app --cov-report=term-missing
 ```
 
 ## Struktura
