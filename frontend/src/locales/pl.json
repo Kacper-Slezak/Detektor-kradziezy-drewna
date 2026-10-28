@@ -34,6 +34,41 @@
       "sameAsOld": "Nowe hasło musi być inne niż obecne"
     }
   },
+  "users": {
+    "title": "Użytkownicy",
+    "back": "Wróć",
+    "form": {
+      "title": "Nowe konto",
+      "description": "Login uzupełnia się z imienia i nazwiska. Przy pierwszym logowaniu użytkownik ustawi własne hasło.",
+      "fullName": "Imię i nazwisko",
+      "login": "Login",
+      "role": "Rola",
+      "range": "Leśnictwo",
+      "chooseRange": "Wybierz leśnictwo",
+      "password": "Hasło tymczasowe",
+      "generate": "Wylosuj",
+      "submit": "Utwórz konto",
+      "submitting": "Tworzenie…",
+      "errors": {
+        "passwordTooShort": "Hasło musi mieć co najmniej {{count}} znaków",
+        "rangeRequired": "Leśniczy musi mieć przypisane leśnictwo"
+      }
+    },
+    "created": {
+      "title": "Konto utworzone",
+      "description": "Przekaż te dane użytkownikowi. Hasła nie da się później podejrzeć.",
+      "login": "Login",
+      "password": "Hasło",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "done": "Gotowe"
+    },
+    "list": {
+      "title": "Konta",
+      "inactive": "Nieaktywne",
+      "mustChangePassword": "Hasło tymczasowe nie zostało jeszcze zmienione"
+    }
+  },
   "role": {
     "forester": "Leśniczy",
     "district_manager": "Nadleśniczy",

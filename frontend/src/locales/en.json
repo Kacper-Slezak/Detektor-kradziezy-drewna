@@ -34,6 +34,41 @@
       "sameAsOld": "The new password must be different from the current one"
     }
   },
+  "users": {
+    "title": "Users",
+    "back": "Back",
+    "form": {
+      "title": "New account",
+      "description": "The login is filled in from the full name. At first sign-in the user sets their own password.",
+      "fullName": "Full name",
+      "login": "Login",
+      "role": "Role",
+      "range": "Forest range",
+      "chooseRange": "Choose a forest range",
+      "password": "Temporary password",
+      "generate": "Generate",
+      "submit": "Create account",
+      "submitting": "Creating…",
+      "errors": {
+        "passwordTooShort": "The password must be at least {{count}} characters long",
+        "rangeRequired": "A forester must have a forest range"
+      }
+    },
+    "created": {
+      "title": "Account created",
+      "description": "Pass these details on to the user. The password cannot be viewed later.",
+      "login": "Login",
+      "password": "Password",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done"
+    },
+    "list": {
+      "title": "Accounts",
+      "inactive": "Inactive",
+      "mustChangePassword": "Has not changed the temporary password yet"
+    }
+  },
   "role": {
     "forester": "Forester",
     "district_manager": "District manager",
