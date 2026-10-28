@@ -48,6 +48,27 @@
   },
   "users": {
     "title": "Users",
+    "add": "Add account",
+    "search": "Search by name or login",
+    "noResults": "No accounts",
+    "stats": {
+      "all": "All accounts",
+      "foresters": "Foresters",
+      "temporaryPassword": "With a temporary password",
+      "inactive": "Inactive"
+    },
+    "table": {
+      "name": "Full name",
+      "login": "Login",
+      "role": "Role",
+      "range": "Forest range",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Active",
+      "temporaryPassword": "Temporary password",
+      "inactive": "Inactive"
+    },
     "form": {
       "title": "New account",
       "description": "The login is filled in from the full name. At first sign-in the user sets their own password.",
@@ -63,7 +84,8 @@
       "errors": {
         "passwordTooShort": "The password must be at least {{count}} characters long",
         "rangeRequired": "A forester must have a forest range"
-      }
+      },
+      "close": "Close"
     },
     "created": {
       "title": "Account created",
@@ -73,11 +95,6 @@
       "copy": "Copy",
       "copied": "Copied",
       "done": "Done"
-    },
-    "list": {
-      "title": "Accounts",
-      "inactive": "Inactive",
-      "mustChangePassword": "Has not changed the temporary password yet"
     }
   },
   "role": {

@@ -48,6 +48,27 @@
   },
   "users": {
     "title": "Użytkownicy",
+    "add": "Dodaj konto",
+    "search": "Szukaj po imieniu, nazwisku lub loginie",
+    "noResults": "Brak kont",
+    "stats": {
+      "all": "Wszystkie konta",
+      "foresters": "Leśniczy",
+      "temporaryPassword": "Z hasłem tymczasowym",
+      "inactive": "Nieaktywne"
+    },
+    "table": {
+      "name": "Imię i nazwisko",
+      "login": "Login",
+      "role": "Rola",
+      "range": "Leśnictwo",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Aktywne",
+      "temporaryPassword": "Hasło tymczasowe",
+      "inactive": "Nieaktywne"
+    },
     "form": {
       "title": "Nowe konto",
       "description": "Login uzupełnia się z imienia i nazwiska. Przy pierwszym logowaniu użytkownik ustawi własne hasło.",
@@ -63,7 +84,8 @@
       "errors": {
         "passwordTooShort": "Hasło musi mieć co najmniej {{count}} znaków",
         "rangeRequired": "Leśniczy musi mieć przypisane leśnictwo"
-      }
+      },
+      "close": "Zamknij"
     },
     "created": {
       "title": "Konto utworzone",
@@ -73,11 +95,6 @@
       "copy": "Kopiuj",
       "copied": "Skopiowano",
       "done": "Gotowe"
-    },
-    "list": {
-      "title": "Konta",
-      "inactive": "Nieaktywne",
-      "mustChangePassword": "Hasło tymczasowe nie zostało jeszcze zmienione"
     }
   },
   "role": {

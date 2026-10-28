@@ -113,10 +113,12 @@ describe('admin panel', () => {
     const user = await logIn('admin', 'admin123')
     await screen.findByText('Błażej Kowalski')
 
-    await user.type(screen.getByLabelText('Imię i nazwisko'), 'Anna Las')
-    await user.selectOptions(screen.getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
-    await user.type(screen.getByLabelText('Hasło tymczasowe'), 'Tymczasowe1')
-    await user.click(screen.getByRole('button', { name: 'Utwórz konto' }))
+    await user.click(screen.getByRole('button', { name: 'Dodaj konto' }))
+    const form = await screen.findByRole('dialog', { name: 'Nowe konto' })
+    await user.type(within(form).getByLabelText('Imię i nazwisko'), 'Anna Las')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.type(within(form).getByLabelText('Hasło tymczasowe'), 'Tymczasowe1')
+    await user.click(within(form).getByRole('button', { name: 'Utwórz konto' }))
     await screen.findByText('Konto utworzone')
 
     await user.click(screen.getByRole('button', { name: 'Wyloguj' }))
