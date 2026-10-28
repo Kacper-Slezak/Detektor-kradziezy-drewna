@@ -5,3 +5,4 @@
 | [koncepcja.md](koncepcja.md) | Co robi aplikacja, widoki, stack |
 | [docker.md](docker.md) | Serwis, komendy, proxy `/api`, typowe problemy |
 | [pwa.md](pwa.md) | Instalacja na Androidzie, ikony, aktualizacje, test na telefonie |
+| [panel-admina.md](panel-admina.md) | Panel admina (menu, zakładanie kont), motyw jasny i ciemny |

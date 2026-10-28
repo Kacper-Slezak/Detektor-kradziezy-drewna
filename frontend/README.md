@@ -55,17 +55,21 @@ npm run preview -- --host 127.0.0.1
 
 Przez zwykłe Wi‑Fi (`http://<IP>:4173`) instalacja nie zadziała, bo potrzebne jest HTTPS albo `localhost`. Test na telefonie (przez USB albo localtunnel) i ikony: [docs/frontend/pwa.md](../docs/frontend/pwa.md).
 
+## Panel admina i motyw
+
+Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie zakłada konta leśniczych. Cała aplikacja ma motyw jasny, ciemny albo systemowy. Szczegóły: [docs/frontend/panel-admina.md](../docs/frontend/panel-admina.md).
+
 ## Struktura
 
 ```
 frontend/
 ├── src/
 │   ├── api/             # zapytania do backendu, typy, mock
-│   ├── components/      # komponenty aplikacji (przełącznik języka, przycisk instalacji)
-│   │   └── ui/          # komponenty shadcn/ui
-│   ├── lib/             # funkcje pomocnicze
+│   ├── components/      # komponenty aplikacji (rama panelu admina, formularz konta, przełączniki)
+│   │   └── ui/          # komponenty shadcn/ui (sheet.tsx: panel wysuwany z prawej)
+│   ├── lib/             # funkcje pomocnicze (motyw, login z nazwiska, hasło tymczasowe)
 │   ├── locales/         # tłumaczenia pl.json, en.json
-│   ├── pages/           # ekrany (logowanie, zmiana hasła)
+│   ├── pages/           # ekrany (logowanie, zmiana hasła, użytkownicy)
 │   ├── test/            # konfiguracja testów
 │   ├── App.tsx
 │   ├── i18n.ts          # konfiguracja tłumaczeń

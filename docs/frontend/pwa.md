@@ -4,7 +4,22 @@ Aplikację można zainstalować na Androidzie jak zwykłą aplikację: ikona na 
 
 ## Aktualizacje
 
-Zainstalowana aplikacja aktualizuje się sama (`registerType: 'autoUpdate'`). Po wdrożeniu nowej wersji przy najbliższym otwarciu pobiera nowe pliki w tle i się przeładowuje. Zmiana ikony lub nazwy dociera wolniej, Chrome sprawdza manifest mniej więcej raz dziennie.
+Zainstalowana aplikacja aktualizuje się sama (`registerType: 'autoUpdate'`, rejestracja w `src/main.tsx`):
+
+1. Aplikacja sprawdza, czy na serwerze jest nowa wersja: przy każdym wczytaniu, **przy powrocie z tła** i co godzinę, gdy jest otwarta (`src/lib/pwa-update.ts`). Bez internetu nie sprawdza, działa zapisana wersja.
+2. Nowa wersja pobiera się w tle, a po pobraniu **strona sama się przeładowuje**.
+
+Samo zachowanie przeglądarki nie wystarcza: sprawdza ona nowy service worker tylko przy wczytaniu strony, a aplikacja na Androidzie zwykle wraca z tła bez wczytywania. Dlatego wcześniej nowa wersja pojawiała się dopiero po wejściu przez adres URL.
+
+Przeładowanie może przerwać wypełnianie formularza (np. zakładanie konta). Zdarza się to tylko przy pierwszym powrocie do aplikacji po wdrożeniu. Docelowo zamiast tego będzie pasek „Jest nowa wersja – Odśwież”.
+
+Zmiana ikony lub nazwy dociera wolniej, Chrome sprawdza manifest mniej więcej raz dziennie.
+
+### Test aktualizacji
+
+1. Zbuduj i zainstaluj aplikację (USB albo localtunnel, niżej) i zostaw ją w tle.
+2. Zmień coś widocznego, np. tekst w `src/locales/pl.json`, i uruchom ponownie `npm run build` oraz `npm run preview -- --host 127.0.0.1`.
+3. Wróć do aplikacji z listy ostatnich: po chwili powinna sama się przeładować i pokazać zmianę.
 
 ## Test na telefonie
 

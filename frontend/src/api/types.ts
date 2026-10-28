@@ -22,7 +22,7 @@ export interface LoginResponse {
   user: User
 }
 
-// Types from section 2. Użytkownicy (admin only)
+// Types from section 7. Użytkownicy (admin)
 
 export interface ManagedUser {
   id: number
