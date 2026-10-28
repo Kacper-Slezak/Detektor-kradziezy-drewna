@@ -1,7 +1,7 @@
 import machine
 import time
 import pycom
-
+## Plik startowy do sprawdzenia deepsleep
 # Wyłączenie migającej diody i opóźnienie na złapanie konsoli (zmniejszyłem do 2 sekund)
 time.sleep(2)  
 pycom.heartbeat(False)
