@@ -91,7 +91,11 @@ Każdy błąd ma ten sam kształt:
 }
 ```
 
-Złe hasło → `401`.
+Złe hasło, nieistniejący login i konto nieaktywne dają ten sam `401` (`"Błędny login lub hasło"`), żeby nie zdradzać, które loginy istnieją.
+
+Token jest ważny 24 h i wysyłamy go w nagłówku `Authorization: Bearer <token>`. W Swaggerze (`/docs`) wklej go po kliknięciu **Authorize**. Token przestaje działać, gdy admin dezaktywuje konto.
+
+**Wymuszona zmiana hasła.** Gdy `must_change_password` = `true`, token działa tylko na `/auth/me` i `/auth/change-password`. Pozostałe endpointy zwracają `403` z `"Najpierw zmień hasło"`. Po zmianie hasła ten sam token działa już wszędzie.
 
 ### `GET /api/v1/auth/me`
 
@@ -106,7 +110,7 @@ Zmiana własnego hasła (także wymuszona przy pierwszym logowaniu).
 { "old_password": "Tymczasowe123!", "new_password": "MojeNoweHaslo2026" }
 ```
  
-Odpowiedź `204`. Złe stare hasło → `400`. Po zmianie `must_change_password` = `false`.
+Odpowiedź `204`. Złe stare hasło → `400`. Nowe hasło takie samo jak stare → `400`. Nowe hasło krótsze niż 8 znaków → `422`. Po zmianie `must_change_password` = `false`.
  
 
 
@@ -405,10 +409,18 @@ Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszen
 ```
  
 Odpowiedź `201`: utworzony użytkownik (bez hasła), z `must_change_password: true`, więc przy pierwszym logowaniu musi ustawić własne hasło.
+
+- login zajęty → `409`
+- `forester` bez `range_id` albo nieistniejące leśnictwo → `400`
+- nieznana rola albo hasło krótsze niż 8 znaków → `422`
  
 ### `PATCH /api/v1/users/{id}`
  
-Zmiana roli, leśnictwa albo dezaktywacja: `{ "active": false }`.
+Zmiana roli, leśnictwa albo dezaktywacja: `{ "active": false }`. Można też zmienić `full_name`. Pola, których nie podasz, zostają bez zmian, a `"range_id": null` odpina leśnictwo. Dezaktywowany użytkownik nie zaloguje się, a jego token od razu przestaje działać.
+
+- `forester` bez leśnictwa albo nieistniejące leśnictwo → `400`
+- admin nie może dezaktywować ani zdegradować samego siebie → `409`
+- nie ma takiego użytkownika → `404`
  
 ### `POST /api/v1/users/{id}/reset-password`
  
@@ -423,7 +435,7 @@ Admin przekazuje hasło tymczasowe leśniczemu, a konto dostaje `must_change_pas
  
 ### `GET /api/v1/ranges`
  
-Lista leśnictw do formularza.
+Lista leśnictw do formularza. Dostępna tylko dla admina.
  
 ```json
 [ { "id": 1, "name": "Leśnictwo Dąbrowa" }, { "id": 2, "name": "Leśnictwo Olszyny" } ]

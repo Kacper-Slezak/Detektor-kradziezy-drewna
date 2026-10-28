@@ -5,11 +5,18 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.db import Base, get_session
 from app.main import app
 from app.models import Sensor
 
 SENSOR_ID = "70B3D57ED0051234"
+
+
+@pytest.fixture(autouse=True)
+def _jwt_secret(monkeypatch):
+    # niezależnie od tego, co jest w lokalnym .env
+    monkeypatch.setattr(settings, "jwt_secret", "tajny-klucz-do-testow-minimum-32-bajty")
 
 
 @pytest.fixture
