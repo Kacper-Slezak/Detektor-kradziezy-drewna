@@ -7,6 +7,15 @@
     <meta name="theme-color" content="#1f5130" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Detektor kradzieży drewna</title>
+    <script>
+      // Dark theme before the app loads, so the page does not flash white (logic: src/lib/theme.ts)
+      try {
+        const theme = localStorage.getItem('theme')
+        if (theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

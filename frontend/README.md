@@ -31,9 +31,18 @@ npm run test:watch    # Vitest, po każdej zmianie
 npm run build
 ```
 
-## Logowanie na mocku
+## Backend i mock
 
-Backend nie ma jeszcze `/auth`, więc domyślnie działa mock z kontami testowymi opisanymi na górze `src/api/mock.ts` (np. `blazej` / `tajne123`). Prawdziwe API: `VITE_USE_MOCK=false`.
+Domyślnie front łączy się z backendem: zapytania `/api` idą na `localhost:8000` (uruchomienie backendu: [backend/README.md](../backend/README.md)).
+
+Bez backendu można użyć mocka z kontami testowymi opisanymi na górze `src/api/mock.ts` (np. `admin` / `admin123`, `blazej` / `tajne123`):
+
+```powershell
+$env:VITE_USE_MOCK = 'true'   # bash: VITE_USE_MOCK=true npm run dev
+npm run dev
+```
+
+Flaga jest wpisywana w kod przy budowaniu, więc przy `npm run build` też trzeba ją ustawić przed buildem. Testy (`npm test`) zawsze działają na mocku.
 
 ## PWA (instalacja na Androidzie)
 
@@ -46,17 +55,21 @@ npm run preview -- --host 127.0.0.1
 
 Przez zwykłe Wi‑Fi (`http://<IP>:4173`) instalacja nie zadziała, bo potrzebne jest HTTPS albo `localhost`. Test na telefonie (przez USB albo localtunnel) i ikony: [docs/frontend/pwa.md](../docs/frontend/pwa.md).
 
+## Panel admina i motyw
+
+Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie zakłada konta leśniczych. Cała aplikacja ma motyw jasny, ciemny albo systemowy. Szczegóły: [docs/frontend/panel-admina.md](../docs/frontend/panel-admina.md).
+
 ## Struktura
 
 ```
 frontend/
 ├── src/
-│   ├── api/             # zapytania do backendu, typy, mock logowania
-│   ├── components/      # komponenty aplikacji (przełącznik języka, przycisk instalacji)
-│   │   └── ui/          # komponenty shadcn/ui
-│   ├── lib/             # funkcje pomocnicze
+│   ├── api/             # zapytania do backendu, typy, mock
+│   ├── components/      # komponenty aplikacji (rama panelu admina, formularz konta, przełączniki)
+│   │   └── ui/          # komponenty shadcn/ui (sheet.tsx: panel wysuwany z prawej)
+│   ├── lib/             # funkcje pomocnicze (motyw, login z nazwiska, hasło tymczasowe)
 │   ├── locales/         # tłumaczenia pl.json, en.json
-│   ├── pages/           # ekrany (logowanie, zmiana hasła)
+│   ├── pages/           # ekrany (logowanie, zmiana hasła, użytkownicy)
 │   ├── test/            # konfiguracja testów
 │   ├── App.tsx
 │   ├── i18n.ts          # konfiguracja tłumaczeń

@@ -1,11 +1,8 @@
-// Auth endpoints from api.md. Until the backend has /auth, the mock is used.
-// Real backend: run with VITE_USE_MOCK=false
+// Auth endpoints from api.md
 
-import { apiFetch, getToken } from './client'
+import { USE_MOCK, apiFetch, getToken } from './client'
 import { mockChangePassword, mockLogin, mockMe } from './mock'
 import type { LoginResponse, User } from './types'
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 
 export function login(login: string, password: string): Promise<LoginResponse> {
   if (USE_MOCK) return mockLogin(login, password)

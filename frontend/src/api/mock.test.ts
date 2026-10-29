@@ -57,3 +57,47 @@ describe('mockChangePassword', () => {
     await expect(mock.mockLogin('nowy.lesniczy', 'NoweHaslo1')).resolves.toBeDefined()
   })
 })
+
+describe('user management', () => {
+  const newForester = {
+    login: 'anna',
+    full_name: 'Anna Las',
+    role: 'forester' as const,
+    range_id: 2,
+    password: 'Kx7p-Qm2r-Zt9w',
+  }
+
+  it('is only for the admin (403 for others)', async () => {
+    await expect(mock.mockListUsers('mock-3')).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockCreateUser('mock-4', newForester)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockListRanges('mock-3')).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('lists users and ranges for the admin', async () => {
+    const users = await mock.mockListUsers('mock-1')
+    expect(users.map((u) => u.login)).toEqual(['admin', 'blazej', 'bogdan', 'nowy.lesniczy'])
+    expect(users.find((u) => u.login === 'blazej')?.range_id).toBe(1)
+    expect(await mock.mockListRanges('mock-1')).toHaveLength(2)
+  })
+
+  it('creates a user who must change the temporary password', async () => {
+    const created = await mock.mockCreateUser('mock-1', newForester)
+    expect(created).toMatchObject({ login: 'anna', range_id: 2, must_change_password: true })
+
+    const res = await mock.mockLogin('anna', 'Kx7p-Qm2r-Zt9w')
+    expect(res.user.range?.name).toBe('Leśnictwo Olszyny')
+    expect(res.user.must_change_password).toBe(true)
+  })
+
+  it('rejects a taken login with 409', async () => {
+    await expect(mock.mockCreateUser('mock-1', { ...newForester, login: 'blazej' })).rejects.toMatchObject({
+      status: 409,
+    })
+  })
+
+  it('rejects a forester without a range with 400', async () => {
+    await expect(mock.mockCreateUser('mock-1', { ...newForester, range_id: null })).rejects.toMatchObject({
+      status: 400,
+    })
+  })
+})

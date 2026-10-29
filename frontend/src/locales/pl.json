@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Detektor kradzieży drewna",
-    "loading": "Ładowanie…"
+    "loading": "Ładowanie…",
+    "shortName": "Detektor"
   },
   "login": {
     "description": "Zaloguj się, aby zobaczyć czujniki i alarmy.",
@@ -34,6 +35,68 @@
       "sameAsOld": "Nowe hasło musi być inne niż obecne"
     }
   },
+  "admin": {
+    "menu": "Menu panelu",
+    "openMenu": "Otwórz menu",
+    "closeMenu": "Zamknij menu",
+    "soon": "wkrótce",
+    "nav": {
+      "users": "Użytkownicy",
+      "sensors": "Czujniki",
+      "ranges": "Leśnictwa"
+    }
+  },
+  "users": {
+    "title": "Użytkownicy",
+    "add": "Dodaj konto",
+    "search": "Szukaj po imieniu, nazwisku lub loginie",
+    "noResults": "Brak kont",
+    "stats": {
+      "all": "Wszystkie konta",
+      "foresters": "Leśniczy",
+      "temporaryPassword": "Z hasłem tymczasowym",
+      "inactive": "Nieaktywne"
+    },
+    "table": {
+      "name": "Imię i nazwisko",
+      "login": "Login",
+      "role": "Rola",
+      "range": "Leśnictwo",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Aktywne",
+      "temporaryPassword": "Hasło tymczasowe",
+      "inactive": "Nieaktywne"
+    },
+    "form": {
+      "title": "Nowe konto",
+      "description": "Login uzupełnia się z imienia i nazwiska. Przy pierwszym logowaniu użytkownik ustawi własne hasło.",
+      "fullName": "Imię i nazwisko",
+      "login": "Login",
+      "role": "Rola",
+      "range": "Leśnictwo",
+      "chooseRange": "Wybierz leśnictwo",
+      "password": "Hasło tymczasowe",
+      "generate": "Wylosuj",
+      "submit": "Utwórz konto",
+      "submitting": "Tworzenie…",
+      "errors": {
+        "passwordTooShort": "Hasło musi mieć co najmniej {{count}} znaków",
+        "rangeRequired": "Leśniczy musi mieć przypisane leśnictwo"
+      },
+      "close": "Zamknij"
+    },
+    "created": {
+      "title": "Konto utworzone",
+      "description": "Przekaż te dane użytkownikowi. Hasła nie da się później podejrzeć.",
+      "login": "Login",
+      "password": "Hasło",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "done": "Gotowe"
+    }
+  },
   "role": {
     "forester": "Leśniczy",
     "district_manager": "Nadleśniczy",
@@ -45,6 +108,12 @@
   },
   "install": {
     "button": "Zainstaluj aplikację"
+  },
+  "theme": {
+    "label": "Motyw",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Jak w systemie"
   },
   "language": {
     "label": "Język"

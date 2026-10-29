@@ -59,6 +59,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // tests never call FastAPI
+    env: { VITE_USE_MOCK: 'true' },
     setupFiles: ['./src/test/setup.ts'],
   },
 })
