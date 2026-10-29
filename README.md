@@ -8,24 +8,30 @@ Przewoźnik jest w lesie legalnie, z dokumentami na wywóz jednej mygły, i przy
 
 ### Decyzje
 - Wykrywamy podbieranie drewna z mygieł na danym obszarze.
-- Główny czujnik to **mikrofon**. Akcelerometr zostaje jako zapasowy: pozwala na głęboki sen i może się okazać skuteczniejszy.
+- Główne czujniki to **mikrofon**. oraz **detektor wibracji**. Akcelerometr zostaje jako czujnik zapasowy. Jako wybudzacz wybraliśmy czujnik dźwięku.
 - Algorytm detekcji działa **na urządzeniu**. Wysyłamy tylko wynik, a transmisję ograniczamy do minimum.
 - Komunikacja **jednostronna** (urządzenie → serwer).
-- GPS jest w terminalu leśniczego, nie w urządzeniu.
+- GPS jest w terminalu leśniczego, nie w urządzeniu, co pozwala zlokalizować miejsce kradzieży.
 - Wydanie drewna: leśniczy przekazuje przewoźnikowi określoną liczbę kłód, potwierdza to w terminalu i w naszej aplikacji, potem odjeżdża.
 - Firmware: najpierw proof of concept w Pythonie, docelowo C. Oszczędzanie energii przez deep sleep i wybudzanie komponentów.
-- Łączność: z satelity zrezygnowaliśmy. Do wyboru zostały **LoRa i NB-IoT**.
-- Jeden prototyp. Na pierwszy prototyp bateria nie jest problemem.
+- Łączność: LoRa, WiFi
+- Tworzymy jeden prototyp, użyjemy otwartej bramki TTN do testów komunikacji oraz sygnału WiFi do testów połączenia z serwerem.
 - Język projektu: polski.
 
-### Największe wyzwania
-- Oszczędzanie energii: dwa procesory, mikrofon jako trigger wybudzający radio.
-
-
-### Rozważany sprzęt
-- Moduł z mikrofonem elektretowym i wzmacniaczem OPA344 - SparkFun
-- SparkFun MPU-9250 9DoF - 3-osiowy akcelerometr, żyroskop i magnetometr I2C
-- LoPy (ESP32 + LoRa, WiFi, BLE, API w Pythonie) z płytką Pycom Expansion Board v2
+### Wypożyczony sprzęt
+- LoPy + PyCom
+- Akcelerometr
+- Czujnik dźwięku
+- Czujnik drgań
+- Antena
+- Płytka rozwojowa
+- kable
+# Sprzęt do zakupienia
+- baterie
+- koszyczek
+- puszka hermetyczna
+- bms
+- mikrofon
 
 ## Zespół
 
