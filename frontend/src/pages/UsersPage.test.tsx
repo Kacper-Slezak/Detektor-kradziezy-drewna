@@ -14,7 +14,7 @@ beforeEach(async () => {
 
 async function renderAsAdmin() {
   setToken('mock-1')
-  render(<UsersPage />)
+  render(<UsersPage currentUserId={1} />)
   // wait for the table and the ranges from the mock
   await screen.findByText('Błażej Kowalski')
   return userEvent.setup()
@@ -26,13 +26,19 @@ async function openForm(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByRole('dialog', { name: 'Nowe konto' })
 }
 
+// Opens the "Edit account" side panel for a login and returns it
+async function openEdit(user: ReturnType<typeof userEvent.setup>, login: string) {
+  await user.click(screen.getByRole('button', { name: `Edytuj konto ${login}` }))
+  return screen.findByRole('dialog', { name: 'Edycja konta' })
+}
+
 const row = (name: string) => screen.getByRole('row', { name: new RegExp(name) })
 
 describe('UsersPage', () => {
   it('shows accounts in a table with role, range and status', async () => {
     await renderAsAdmin()
 
-    expect(within(row('Błażej Kowalski')).getAllByRole('cell').map((c) => c.textContent)).toEqual([
+    expect(within(row('Błażej Kowalski')).getAllByRole('cell').slice(0, 5).map((c) => c.textContent)).toEqual([
       'Błażej Kowalski',
       'blazej',
       'Leśniczy',
@@ -154,9 +160,72 @@ describe('UsersPage', () => {
     expect(await within(form).findByRole('alert')).toHaveTextContent('Login blazej jest już zajęty')
   })
 
+  it('changes the name and moves a forester to another range', async () => {
+    const user = await renderAsAdmin()
+    const form = await openEdit(user, 'blazej')
+
+    expect(within(form).getByText('blazej')).toBeInTheDocument()
+    await user.clear(within(form).getByLabelText('Imię i nazwisko'))
+    await user.type(within(form).getByLabelText('Imię i nazwisko'), 'Błażej Kowalski-Nowak')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.click(within(form).getByRole('button', { name: 'Zapisz' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Zapisano zmiany konta blazej')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const edited = row('Błażej Kowalski-Nowak')
+    expect(within(edited).getByText('Leśnictwo Olszyny')).toBeInTheDocument()
+  })
+
+  it('deactivates an account', async () => {
+    const user = await renderAsAdmin()
+    const form = await openEdit(user, 'bogdan')
+
+    await user.click(within(form).getByLabelText('Konto aktywne'))
+    await user.click(within(form).getByRole('button', { name: 'Zapisz' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Zapisano zmiany konta bogdan')
+    expect(within(row('Bogdan Nowak')).getByText('Nieaktywne')).toBeInTheDocument()
+    const tile = screen.getByText('Nieaktywne', { selector: 'dt' }).parentElement!
+    expect(tile).toHaveTextContent('1')
+  })
+
+  it('does not let the admin deactivate or demote their own account', async () => {
+    const user = await renderAsAdmin()
+    const form = await openEdit(user, 'admin')
+
+    expect(within(form).getByLabelText('Rola')).toBeDisabled()
+    expect(within(form).getByLabelText('Konto aktywne')).toBeDisabled()
+  })
+
+  it('resets the password after confirming and shows the new one once', async () => {
+    const user = await renderAsAdmin()
+    const form = await openEdit(user, 'blazej')
+
+    await user.click(within(form).getByRole('button', { name: 'Resetuj hasło' }))
+    await user.click(within(form).getByRole('button', { name: 'Tak, resetuj hasło' }))
+
+    const card = await screen.findByRole('status')
+    expect(card).toHaveTextContent('Hasło zresetowane')
+    expect(card).toHaveTextContent('blazej')
+    expect(card.textContent).toMatch(/\w{4}-\w{4}-\w{4}/)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(within(row('Błażej Kowalski')).getByText('Hasło tymczasowe')).toBeInTheDocument()
+  })
+
+  it('cancels the password reset', async () => {
+    const user = await renderAsAdmin()
+    const form = await openEdit(user, 'blazej')
+
+    await user.click(within(form).getByRole('button', { name: 'Resetuj hasło' }))
+    await user.click(within(form).getByRole('button', { name: 'Anuluj' }))
+
+    expect(within(form).getByRole('button', { name: 'Resetuj hasło' })).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('shows an error when the user is not an admin', async () => {
     setToken('mock-3')
-    render(<UsersPage />)
+    render(<UsersPage currentUserId={1} />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Brak uprawnień')
   })
 })

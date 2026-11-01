@@ -107,7 +107,7 @@ function App() {
               {t('home.passwordChanged')}
             </p>
           )}
-          {adminSection === 'users' && <UsersPage />}
+          {adminSection === 'users' && <UsersPage currentUserId={user.id} />}
           {adminSection === 'sensors' && <SensorsPage />}
         </AdminLayout>
       )

@@ -62,7 +62,8 @@
       "login": "Login",
       "role": "Role",
       "range": "Forest range",
-      "status": "Status"
+      "status": "Status",
+      "actions": "Actions"
     },
     "status": {
       "active": "Active",
@@ -87,8 +88,24 @@
       },
       "close": "Close"
     },
+    "edit": {
+      "open": "Edit account {{login}}",
+      "title": "Edit account",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Changes to account {{login}} saved.",
+      "active": "Account active",
+      "activeHint": "An inactive account cannot sign in and its session ends at once.",
+      "selfHint": "You cannot deactivate your own account or change your own role.",
+      "resetTitle": "Password",
+      "resetHint": "The backend draws a new temporary password. The current password stops working and the user sets their own at sign-in.",
+      "reset": "Reset password",
+      "resetConfirm": "Yes, reset the password",
+      "resetCancel": "Cancel"
+    },
     "created": {
       "title": "Account created",
+      "resetTitle": "Password reset",
       "description": "Pass these details on to the user. The password cannot be viewed later.",
       "login": "Login",
       "password": "Password",
