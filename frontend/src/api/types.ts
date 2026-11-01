@@ -41,3 +41,28 @@ export interface NewUser {
   range_id: number | null
   password: string
 }
+
+// Types from section 2. Czujniki (mapa)
+
+export type SensorState = 'ok' | 'muted' | 'alarm' | 'silent' | 'inactive'
+
+export interface Sensor {
+  id: string
+  name: string | null
+  lat: number | null
+  lon: number | null
+  range_id: number | null
+  active: boolean
+  state: SensorState
+  battery_pct: number | null
+  last_seen: string | null
+  muted_until: string | null
+  open_alarm_id: number | null
+}
+
+// Sensor registration by the admin: not in api.md yet, agreed with backend
+export interface NewSensor {
+  id: string
+  range_id: number
+  name: string | null
+}

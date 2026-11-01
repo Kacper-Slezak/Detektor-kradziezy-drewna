@@ -101,3 +101,45 @@ describe('user management', () => {
     })
   })
 })
+
+describe('sensor management', () => {
+  const newSensor = { id: '70b3d57ed0060001', range_id: 1, name: null }
+
+  it('is only for the admin (403 for others)', async () => {
+    await expect(mock.mockListSensors('mock-3')).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockCreateSensor('mock-4', newSensor)).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('adds an inactive, unmounted sensor with the ID in upper case', async () => {
+    const created = await mock.mockCreateSensor('mock-1', newSensor)
+    expect(created).toMatchObject({
+      id: '70B3D57ED0060001',
+      range_id: 1,
+      active: false,
+      state: 'inactive',
+      lat: null,
+    })
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).toContain('70B3D57ED0060001')
+  })
+
+  it('rejects an ID that is not 16 hex characters with 400', async () => {
+    await expect(mock.mockCreateSensor('mock-1', { ...newSensor, id: '70B3D57ED00' })).rejects.toMatchObject({
+      status: 400,
+    })
+    await expect(
+      mock.mockCreateSensor('mock-1', { ...newSensor, id: '70B3D57ED005XYZW' }),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects a sensor that is already added with 409', async () => {
+    await expect(
+      mock.mockCreateSensor('mock-1', { ...newSensor, id: '70b3d57ed0051234' }),
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('rejects an unknown range with 400', async () => {
+    await expect(mock.mockCreateSensor('mock-1', { ...newSensor, range_id: 99 })).rejects.toMatchObject({
+      status: 400,
+    })
+  })
+})
