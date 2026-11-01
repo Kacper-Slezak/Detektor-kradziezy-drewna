@@ -1,8 +1,20 @@
-// Sensor endpoints. GET and POST /sensors (admin) and range_id in PATCH are not in api.md yet, agreed with backend
+// Sensor endpoints. GET /czujniki is in api.md; GET and POST /sensors (admin) and range_id in PATCH are
+// not in api.md yet, agreed with backend
 
 import { USE_MOCK, apiFetch, getToken } from './client'
-import { mockCreateSensor, mockListSensors, mockUpdateSensor } from './mock'
-import type { NewSensor, Sensor, SensorChanges } from './types'
+import { mockCreateSensor, mockListMapSensors, mockListSensors, mockUpdateSensor } from './mock'
+import type { NewSensor, Sensor, SensorChanges, SensorFilters } from './types'
+
+// Sensors for the map: a forester gets their own range, a district manager gets everything
+export function listMapSensors(filters: SensorFilters = {}): Promise<Sensor[]> {
+  if (USE_MOCK) return mockListMapSensors(getToken(), filters)
+  const params = new URLSearchParams()
+  if (filters.state) params.set('state', filters.state)
+  if (filters.range_id !== undefined) params.set('range_id', String(filters.range_id))
+  if (filters.unmounted) params.set('unmounted', 'true')
+  const query = params.toString()
+  return apiFetch<Sensor[]>(query ? `/czujniki?${query}` : '/czujniki')
+}
 
 export function listSensors(): Promise<Sensor[]> {
   if (USE_MOCK) return mockListSensors(getToken())

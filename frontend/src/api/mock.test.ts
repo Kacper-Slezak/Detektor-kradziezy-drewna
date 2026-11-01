@@ -150,6 +150,34 @@ describe('editing users', () => {
   })
 })
 
+describe('sensors on the map', () => {
+  it('a forester gets only the sensors of their range', async () => {
+    const sensors = await mock.mockListMapSensors('mock-3', {})
+    expect(sensors.length).toBeGreaterThan(0)
+    expect(sensors.every((s) => s.range_id === 1)).toBe(true)
+  })
+
+  it('a district manager gets the sensors of all ranges', async () => {
+    const sensors = await mock.mockListMapSensors('mock-4', {})
+    expect(new Set(sensors.map((s) => s.range_id))).toEqual(new Set([1, 2]))
+  })
+
+  it('filters by state, range and missing location', async () => {
+    const alarms = await mock.mockListMapSensors('mock-4', { state: 'alarm' })
+    expect(alarms.map((s) => s.id)).toEqual(['70B3D57ED0051234'])
+
+    const olszyny = await mock.mockListMapSensors('mock-4', { range_id: 2 })
+    expect(olszyny.every((s) => s.range_id === 2)).toBe(true)
+
+    const unmounted = await mock.mockListMapSensors('mock-5', { unmounted: true })
+    expect(unmounted.map((s) => s.id)).toEqual(['70B3D57ED0059ABC'])
+  })
+
+  it('needs a signed-in user (401)', async () => {
+    await expect(mock.mockListMapSensors(null, {})).rejects.toMatchObject({ status: 401 })
+  })
+})
+
 describe('sensor management', () => {
   const newSensor = { id: '70b3d57ed0060001', range_id: 1, name: null }
 
