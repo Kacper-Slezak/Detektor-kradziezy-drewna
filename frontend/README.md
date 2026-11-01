@@ -55,6 +55,10 @@ npm run preview -- --host 127.0.0.1
 
 Przez zwykłe Wi‑Fi (`http://<IP>:4173`) instalacja nie zadziała, bo potrzebne jest HTTPS albo `localhost`. Test na telefonie (przez USB albo localtunnel) i ikony: [docs/frontend/pwa.md](../docs/frontend/pwa.md).
 
+## Mapa
+
+Leśniczy i nadleśniczy po zalogowaniu widzą mapę czujników (Leaflet + OpenStreetMap). Szczegóły: [docs/frontend/mapa.md](../docs/frontend/mapa.md).
+
 ## Panel admina i motyw
 
 Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie zakłada konta leśniczych i dodaje czujniki. Cała aplikacja ma motyw jasny, ciemny albo systemowy. Szczegóły: [docs/frontend/panel-admina.md](../docs/frontend/panel-admina.md).
@@ -65,11 +69,11 @@ Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie za
 frontend/
 ├── src/
 │   ├── api/             # zapytania do backendu, typy, mock
-│   ├── components/      # komponenty aplikacji (rama panelu admina, formularze konta i czujnika, przełączniki)
+│   ├── components/      # komponenty aplikacji (mapa, rama panelu admina, formularze, przełączniki)
 │   │   └── ui/          # komponenty shadcn/ui (sheet.tsx: panel wysuwany z prawej)
-│   ├── lib/             # funkcje pomocnicze (motyw, login z nazwiska, hasło tymczasowe)
+│   ├── lib/             # funkcje pomocnicze (motyw, stany czujników, login z nazwiska, hasło tymczasowe)
 │   ├── locales/         # tłumaczenia pl.json, en.json
-│   ├── pages/           # ekrany (logowanie, zmiana hasła, użytkownicy)
+│   ├── pages/           # ekrany (logowanie, zmiana hasła, mapa, użytkownicy, czujniki)
 │   ├── test/            # konfiguracja testów
 │   ├── App.tsx
 │   ├── i18n.ts          # konfiguracja tłumaczeń
