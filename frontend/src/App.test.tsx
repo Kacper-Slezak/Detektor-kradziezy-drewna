@@ -13,6 +13,9 @@ beforeEach(async () => {
   App = (await import('./App')).default
 })
 
+// after signing in, the map code is loaded separately and the sensors come from the mock
+const mapTimeout = { timeout: 3000 }
+
 async function logIn(login: string, password: string) {
   const user = userEvent.setup()
   await user.type(screen.getByLabelText('Login'), login)
@@ -26,8 +29,8 @@ describe('login', () => {
     render(<App />)
     await logIn('blazej', 'tajne123')
 
-    expect(await screen.findByRole('heading', { name: 'Witaj, Błażej Kowalski' })).toBeInTheDocument()
-    expect(screen.getByText(/Leśniczy · Leśnictwo Dąbrowa/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mapa czujników' }, mapTimeout)).toBeInTheDocument()
+    expect(screen.getByText('Błażej Kowalski · Leśnictwo Dąbrowa')).toBeInTheDocument()
     expect(getToken()).toBe('mock-3')
   })
 
@@ -55,7 +58,8 @@ describe('session restore', () => {
     render(<App />)
 
     expect(screen.getByRole('status')).toHaveTextContent('Ładowanie…')
-    expect(await screen.findByRole('heading', { name: 'Witaj, Bogdan Nowak' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mapa czujników' }, mapTimeout)).toBeInTheDocument()
+    expect(screen.getByText('Bogdan Nowak')).toBeInTheDocument()
   })
 
   it('drops an invalid token and shows the login page', async () => {
@@ -82,7 +86,7 @@ describe('forced password change', () => {
     await user.type(screen.getByLabelText('Powtórz nowe hasło'), 'NoweHaslo1')
     await user.click(screen.getByRole('button', { name: 'Zmień hasło' }))
 
-    expect(await screen.findByRole('heading', { name: 'Witaj, Jan Nowy' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mapa czujników' }, mapTimeout)).toBeInTheDocument()
     expect(screen.getByText('Hasło zostało zmienione.')).toBeInTheDocument()
   })
 
@@ -157,7 +161,46 @@ describe('admin panel', () => {
     render(<App />)
     await logIn('blazej', 'tajne123')
 
-    await screen.findByRole('heading', { name: 'Witaj, Błażej Kowalski' })
+    await screen.findByRole('heading', { name: 'Mapa czujników' }, mapTimeout)
     expect(screen.queryByRole('navigation', { name: 'Menu panelu' })).not.toBeInTheDocument()
+  })
+})
+
+describe('sensor map', () => {
+  it('a forester sees the pins of their range and a legend with counts', async () => {
+    render(<App />)
+    await logIn('blazej', 'tajne123')
+
+    expect(await screen.findByTitle('Skład przy drodze 5: Alarm', {}, mapTimeout)).toBeInTheDocument()
+    expect(screen.getByTitle('Skład przy szlabanie: Wyciszony')).toBeInTheDocument()
+    expect(screen.getByTitle('Skład przy paśniku: Działa')).toBeInTheDocument()
+    // another range
+    expect(screen.queryByTitle(/Skład przy leśniczówce/)).not.toBeInTheDocument()
+
+    const legend = screen.getByRole('region', { name: 'Legenda' })
+    expect(within(legend).getByText('Alarm').parentElement).toHaveTextContent('1')
+    expect(within(legend).getByText('Działa').parentElement).toHaveTextContent('1')
+  })
+
+  it('a district manager sees all ranges and the sensors waiting to be mounted', async () => {
+    render(<App />)
+    await logIn('bogdan', 'tajne123')
+
+    expect(await screen.findByTitle('Skład przy leśniczówce: Bez kontaktu', {}, mapTimeout)).toBeInTheDocument()
+    expect(screen.getByTitle('Skład przy drodze 5: Alarm')).toBeInTheDocument()
+    expect(screen.getByText('1 czujnik czeka na montaż')).toBeInTheDocument()
+  })
+
+  it('has a menu with password change and log out', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+
+    await user.click(await screen.findByRole('button', { name: 'Menu' }, mapTimeout))
+    const menu = await screen.findByRole('dialog', { name: 'Błażej Kowalski' })
+    expect(within(menu).getByRole('button', { name: 'Zmień hasło' })).toBeInTheDocument()
+
+    await user.click(within(menu).getByRole('button', { name: 'Wyloguj' }))
+    expect(screen.getByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
+    expect(getToken()).toBeNull()
   })
 })

@@ -12,8 +12,6 @@
     "submitting": "Logowanie…"
   },
   "home": {
-    "welcome": "Witaj, {{name}}",
-    "role": "Rola: {{role}}",
     "logout": "Wyloguj",
     "changePassword": "Zmień hasło",
     "passwordChanged": "Hasło zostało zmienione."
@@ -174,6 +172,13 @@
     }
   },
   "map": {
+    "title": "Mapa czujników",
+    "menu": "Menu",
+    "legend": "Legenda",
+    "noSensors": "Brak zamontowanych czujników",
+    "unmounted_one": "{{count}} czujnik czeka na montaż",
+    "unmounted_few": "{{count}} czujniki czekają na montaż",
+    "unmounted_many": "{{count}} czujników czeka na montaż",
     "mutedUntil": "do {{time}}"
   },
   "role": {
