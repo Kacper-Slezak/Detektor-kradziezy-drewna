@@ -57,7 +57,7 @@ Przez zwykłe Wi‑Fi (`http://<IP>:4173`) instalacja nie zadziała, bo potrzebn
 
 ## Panel admina i motyw
 
-Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie zakłada konta leśniczych. Cała aplikacja ma motyw jasny, ciemny albo systemowy. Szczegóły: [docs/frontend/panel-admina.md](../docs/frontend/panel-admina.md).
+Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie zakłada konta leśniczych i dodaje czujniki. Cała aplikacja ma motyw jasny, ciemny albo systemowy. Szczegóły: [docs/frontend/panel-admina.md](../docs/frontend/panel-admina.md).
 
 ## Struktura
 
@@ -65,7 +65,7 @@ Admin po zalogowaniu trafia do panelu z menu bocznym (w stylu Grafany), gdzie za
 frontend/
 ├── src/
 │   ├── api/             # zapytania do backendu, typy, mock
-│   ├── components/      # komponenty aplikacji (rama panelu admina, formularz konta, przełączniki)
+│   ├── components/      # komponenty aplikacji (rama panelu admina, formularze konta i czujnika, przełączniki)
 │   │   └── ui/          # komponenty shadcn/ui (sheet.tsx: panel wysuwany z prawej)
 │   ├── lib/             # funkcje pomocnicze (motyw, login z nazwiska, hasło tymczasowe)
 │   ├── locales/         # tłumaczenia pl.json, en.json
