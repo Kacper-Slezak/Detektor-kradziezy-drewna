@@ -42,6 +42,14 @@ export interface NewUser {
   password: string
 }
 
+// PATCH /users/{id}: only the fields being changed; range_id: null unassigns the range
+export interface UserChanges {
+  full_name?: string
+  role?: Role
+  range_id?: number | null
+  active?: boolean
+}
+
 // Types from section 2. Czujniki (mapa)
 
 export type SensorState = 'ok' | 'muted' | 'alarm' | 'silent' | 'inactive'

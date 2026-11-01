@@ -5,12 +5,26 @@
 //   admin / admin123           admin
 //   nowy.lesniczy / Tymczasowe123!   forester, must change password
 
+import { generateTempPassword } from '@/lib/password'
+
 import { ApiError } from './client'
-import type { LoginResponse, ManagedUser, NewSensor, NewUser, Range, Sensor, SensorChanges, User } from './types'
+import type {
+  LoginResponse,
+  ManagedUser,
+  NewSensor,
+  NewUser,
+  Range,
+  Sensor,
+  SensorChanges,
+  User,
+  UserChanges,
+} from './types'
 
 interface MockAccount {
   password: string
   user: User
+  // deactivated accounts cannot sign in (default: active)
+  active?: boolean
 }
 
 const ranges: Range[] = [
@@ -67,7 +81,7 @@ const accounts: MockAccount[] = [
 
 function accountByToken(token: string | null): MockAccount {
   const account = accounts.find((a) => token === `mock-${a.user.id}`)
-  if (!account) throw new ApiError(401, 'Sesja wygasła, zaloguj się ponownie')
+  if (!account || account.active === false) throw new ApiError(401, 'Sesja wygasła, zaloguj się ponownie')
   return account
 }
 
@@ -82,7 +96,7 @@ const delay = () => new Promise((resolve) => setTimeout(resolve, 400))
 export async function mockLogin(login: string, password: string): Promise<LoginResponse> {
   await delay()
   const account = accounts.find((a) => a.user.login === login && a.password === password)
-  if (!account) throw new ApiError(401, 'Nieprawidłowy login lub hasło')
+  if (!account || account.active === false) throw new ApiError(401, 'Nieprawidłowy login lub hasło')
   return {
     token: `mock-${account.user.id}`,
     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -107,14 +121,15 @@ export async function mockChangePassword(
   account.user.must_change_password = false
 }
 
-function toManagedUser({ user }: MockAccount): ManagedUser {
+function toManagedUser(account: MockAccount): ManagedUser {
+  const { user } = account
   return {
     id: user.id,
     login: user.login,
     full_name: user.full_name,
     role: user.role,
     range_id: user.range?.id ?? null,
-    active: true,
+    active: account.active !== false,
     must_change_password: user.must_change_password,
   }
 }
@@ -148,6 +163,38 @@ export async function mockCreateUser(token: string | null, newUser: NewUser): Pr
   }
   accounts.push(account)
   return toManagedUser(account)
+}
+
+export async function mockUpdateUser(token: string | null, id: number, changes: UserChanges): Promise<ManagedUser> {
+  await delay()
+  const admin = adminByToken(token)
+  const account = accounts.find((a) => a.user.id === id)
+  if (!account) throw new ApiError(404, 'Nie ma takiego użytkownika')
+  if (account === admin && (changes.active === false || (changes.role ?? 'admin') !== 'admin')) {
+    throw new ApiError(409, 'Nie możesz dezaktywować ani zdegradować własnego konta')
+  }
+
+  const role = changes.role ?? account.user.role
+  const rangeId = changes.range_id !== undefined ? changes.range_id : (account.user.range?.id ?? null)
+  const range = rangeId === null ? null : ranges.find((r) => r.id === rangeId)
+  if (range === undefined) throw new ApiError(400, `Nie ma leśnictwa o id ${rangeId}`)
+  if (role === 'forester' && !range) throw new ApiError(400, 'Leśniczy musi mieć przypisane leśnictwo')
+
+  if (changes.full_name !== undefined) account.user.full_name = changes.full_name
+  if (changes.active !== undefined) account.active = changes.active
+  account.user.role = role
+  account.user.range = range
+  return toManagedUser(account)
+}
+
+export async function mockResetPassword(token: string | null, id: number): Promise<string> {
+  await delay()
+  adminByToken(token)
+  const account = accounts.find((a) => a.user.id === id)
+  if (!account) throw new ApiError(404, 'Nie ma takiego użytkownika')
+  account.password = generateTempPassword()
+  account.user.must_change_password = true
+  return account.password
 }
 
 export async function mockListRanges(token: string | null): Promise<Range[]> {

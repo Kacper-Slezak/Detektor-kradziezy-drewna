@@ -102,6 +102,54 @@ describe('user management', () => {
   })
 })
 
+describe('editing users', () => {
+  it('changes the name, role and range', async () => {
+    const saved = await mock.mockUpdateUser('mock-1', 3, { full_name: 'Błażej Kowalski-Nowak', range_id: 2 })
+    expect(saved).toMatchObject({ full_name: 'Błażej Kowalski-Nowak', range_id: 2, role: 'forester' })
+
+    // a district manager has no range
+    const promoted = await mock.mockUpdateUser('mock-1', 3, { role: 'district_manager', range_id: null })
+    expect(promoted).toMatchObject({ role: 'district_manager', range_id: null })
+  })
+
+  it('a deactivated user cannot sign in and loses the session', async () => {
+    const saved = await mock.mockUpdateUser('mock-1', 3, { active: false })
+    expect(saved.active).toBe(false)
+
+    await expect(mock.mockLogin('blazej', 'tajne123')).rejects.toMatchObject({ status: 401 })
+    await expect(mock.mockMe('mock-3')).rejects.toMatchObject({ status: 401 })
+
+    await mock.mockUpdateUser('mock-1', 3, { active: true })
+    await expect(mock.mockLogin('blazej', 'tajne123')).resolves.toBeDefined()
+  })
+
+  it('rejects a forester without a range (400), an unknown range (400) and an unknown user (404)', async () => {
+    await expect(mock.mockUpdateUser('mock-1', 3, { range_id: null })).rejects.toMatchObject({ status: 400 })
+    await expect(mock.mockUpdateUser('mock-1', 3, { range_id: 99 })).rejects.toMatchObject({ status: 400 })
+    await expect(mock.mockUpdateUser('mock-1', 99, { active: false })).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('the admin cannot deactivate or demote their own account (409)', async () => {
+    await expect(mock.mockUpdateUser('mock-1', 1, { active: false })).rejects.toMatchObject({ status: 409 })
+    await expect(mock.mockUpdateUser('mock-1', 1, { role: 'forester', range_id: 1 })).rejects.toMatchObject({
+      status: 409,
+    })
+  })
+
+  it('is only for the admin (403 for others)', async () => {
+    await expect(mock.mockUpdateUser('mock-3', 4, { active: false })).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockResetPassword('mock-4', 3)).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('resets the password to a new temporary one', async () => {
+    const temporary = await mock.mockResetPassword('mock-1', 3)
+
+    await expect(mock.mockLogin('blazej', 'tajne123')).rejects.toMatchObject({ status: 401 })
+    const res = await mock.mockLogin('blazej', temporary)
+    expect(res.user.must_change_password).toBe(true)
+  })
+})
+
 describe('sensor management', () => {
   const newSensor = { id: '70b3d57ed0060001', range_id: 1, name: null }
 
