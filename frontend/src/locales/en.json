@@ -102,6 +102,26 @@
     "search": "Search by name or ID",
     "noResults": "No sensors",
     "noName": "no name",
+    "add": "Add sensor",
+    "added": "Sensor {{id}} added. The forester will mount it in the app.",
+    "addedDone": "OK",
+    "form": {
+      "title": "New sensor",
+      "description": "The sensor will show up on the forester’s list to mount. The phone saves its location when mounting.",
+      "id": "Sensor ID (DevEUI)",
+      "idHint": "16 characters from the sticker on the sensor. Spaces and dashes are removed.",
+      "range": "Forest range",
+      "chooseRange": "Choose a forest range",
+      "name": "Name (optional)",
+      "nameHint": "Usually the forester names it when mounting.",
+      "submit": "Add sensor",
+      "submitting": "Adding…",
+      "close": "Close",
+      "errors": {
+        "invalidId": "The sensor ID must have 16 characters: digits 0–9 and letters A–F",
+        "rangeRequired": "Choose a forest range"
+      }
+    },
     "stats": {
       "all": "All sensors",
       "alarm": "With an alarm",

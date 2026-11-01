@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
 import { listSensors } from '@/api/sensors'
 import type { Range, Sensor } from '@/api/types'
 import { listRanges } from '@/api/users'
+import { NewSensorForm } from '@/components/NewSensorForm'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 // State from api.md, plus "unmounted": registered but without a location yet
 type Status = Sensor['state'] | 'unmounted'
@@ -36,6 +39,8 @@ export function SensorsPage() {
   const [ranges, setRanges] = useState<Range[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [formOpen, setFormOpen] = useState(false)
+  const [added, setAdded] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -52,6 +57,12 @@ export function SensorsPage() {
       cancelled = true
     }
   }, [t])
+
+  function handleCreated(sensor: Sensor) {
+    setSensors((current) => [...(current ?? []), sensor])
+    setAdded(sensor.id)
+    setFormOpen(false)
+  }
 
   const rangeName = (id: number | null) => ranges.find((r) => r.id === id)?.name
   const formatDate = (iso: string) =>
@@ -71,7 +82,22 @@ export function SensorsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">{t('sensors.title')}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">{t('sensors.title')}</h1>
+        <Button onClick={() => setFormOpen(true)}>
+          <Plus />
+          {t('sensors.add')}
+        </Button>
+      </div>
+
+      {added && (
+        <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
+          <p>{t('sensors.added', { id: added })}</p>
+          <Button variant="ghost" size="sm" onClick={() => setAdded(null)}>
+            {t('sensors.addedDone')}
+          </Button>
+        </div>
+      )}
 
       {stats && (
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -162,6 +188,16 @@ export function SensorsPage() {
           </div>
         )}
       </Card>
+
+      <Sheet open={formOpen} onOpenChange={setFormOpen}>
+        <SheetContent closeLabel={t('sensors.form.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('sensors.form.title')}</SheetTitle>
+            <SheetDescription>{t('sensors.form.description')}</SheetDescription>
+          </SheetHeader>
+          <NewSensorForm ranges={ranges} onCreated={handleCreated} />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

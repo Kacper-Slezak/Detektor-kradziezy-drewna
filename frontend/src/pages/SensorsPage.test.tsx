@@ -1,9 +1,16 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setToken } from '@/api/client'
-import { SensorsPage } from './SensorsPage'
+
+// Adding a sensor edits mock state, so every test loads a fresh page and mock
+let SensorsPage: typeof import('./SensorsPage').SensorsPage
+
+beforeEach(async () => {
+  vi.resetModules()
+  SensorsPage = (await import('./SensorsPage')).SensorsPage
+})
 
 async function renderAsAdmin() {
   setToken('mock-1')
@@ -11,6 +18,12 @@ async function renderAsAdmin() {
   // wait for the table and the ranges from the mock
   await screen.findByText('Skład przy drodze 5')
   return userEvent.setup()
+}
+
+// Opens the "New sensor" side panel and returns it
+async function openForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Dodaj czujnik' }))
+  return screen.findByRole('dialog', { name: 'Nowy czujnik' })
 }
 
 const row = (text: string) => screen.getByRole('row', { name: new RegExp(text) })
@@ -59,6 +72,53 @@ describe('SensorsPage', () => {
     await user.clear(search)
     await user.type(search, 'xyz')
     expect(screen.getByText('Brak czujników')).toBeInTheDocument()
+  })
+
+  it('adds a sensor: cleans up the ID, closes the panel and shows it as not mounted', async () => {
+    const user = await renderAsAdmin()
+    const form = await openForm(user)
+
+    await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70-b3-d5-7e-d0-06-00-01')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Dodano czujnik 70B3D57ED0060001')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const added = row('70B3D57ED0060001')
+    expect(within(added).getByText('Leśnictwo Olszyny')).toBeInTheDocument()
+    expect(within(added).getByText('Niezamontowany')).toBeInTheDocument()
+  })
+
+  it('rejects an ID that is not 16 hex characters', async () => {
+    const user = await renderAsAdmin()
+    const form = await openForm(user)
+
+    await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70B3D57ED00')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
+
+    expect(within(form).getByRole('alert')).toHaveTextContent('ID czujnika musi mieć 16 znaków')
+  })
+
+  it('requires a range', async () => {
+    const user = await renderAsAdmin()
+    const form = await openForm(user)
+
+    await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70B3D57ED0060001')
+    await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
+
+    expect(within(form).getByRole('alert')).toHaveTextContent('Wybierz leśnictwo')
+  })
+
+  it('shows the backend error for a sensor that is already added', async () => {
+    const user = await renderAsAdmin()
+    const form = await openForm(user)
+
+    await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70B3D57ED0051234')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Dąbrowa')
+    await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
+
+    expect(await within(form).findByRole('alert')).toHaveTextContent('Czujnik 70B3D57ED0051234 jest już dodany')
   })
 
   it('shows an error when the user is not an admin', async () => {

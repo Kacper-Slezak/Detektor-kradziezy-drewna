@@ -102,6 +102,26 @@
     "search": "Szukaj po nazwie lub ID",
     "noResults": "Brak czujników",
     "noName": "bez nazwy",
+    "add": "Dodaj czujnik",
+    "added": "Dodano czujnik {{id}}. Leśniczy zamontuje go w aplikacji.",
+    "addedDone": "OK",
+    "form": {
+      "title": "Nowy czujnik",
+      "description": "Czujnik pojawi się u leśniczego na liście do montażu. Lokalizację zapisze telefon przy montażu.",
+      "id": "ID czujnika (DevEUI)",
+      "idHint": "16 znaków z naklejki na czujniku. Spacje i myślniki zostaną usunięte.",
+      "range": "Leśnictwo",
+      "chooseRange": "Wybierz leśnictwo",
+      "name": "Nazwa (opcjonalnie)",
+      "nameHint": "Zwykle nadaje ją leśniczy przy montażu.",
+      "submit": "Dodaj czujnik",
+      "submitting": "Dodawanie…",
+      "close": "Zamknij",
+      "errors": {
+        "invalidId": "ID czujnika musi mieć 16 znaków: cyfry 0–9 i litery A–F",
+        "rangeRequired": "Wybierz leśnictwo"
+      }
+    },
     "stats": {
       "all": "Wszystkie czujniki",
       "alarm": "Z alarmem",
