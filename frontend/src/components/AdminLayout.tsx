@@ -12,10 +12,10 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 
-export type AdminSection = 'users'
+export type AdminSection = 'users' | 'sensors'
 
 interface NavItem {
-  id: AdminSection | 'sensors' | 'ranges'
+  id: AdminSection | 'ranges'
   icon: LucideIcon
   // sections without a screen yet are shown greyed out
   ready: boolean
@@ -23,7 +23,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { id: 'users', icon: Users, ready: true },
-  { id: 'sensors', icon: Radio, ready: false },
+  { id: 'sensors', icon: Radio, ready: true },
   { id: 'ranges', icon: Trees, ready: false },
 ]
 

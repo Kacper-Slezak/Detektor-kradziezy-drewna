@@ -97,6 +97,34 @@
       "done": "Done"
     }
   },
+  "sensors": {
+    "title": "Sensors",
+    "search": "Search by name or ID",
+    "noResults": "No sensors",
+    "noName": "no name",
+    "stats": {
+      "all": "All sensors",
+      "alarm": "With an alarm",
+      "silent": "No contact",
+      "unmounted": "To be mounted"
+    },
+    "table": {
+      "name": "Name",
+      "id": "ID (DevEUI)",
+      "range": "Forest range",
+      "state": "State",
+      "battery": "Battery",
+      "lastSeen": "Last contact"
+    },
+    "status": {
+      "ok": "Working",
+      "muted": "Muted",
+      "alarm": "Alarm",
+      "silent": "No contact",
+      "inactive": "Turned off",
+      "unmounted": "Not mounted"
+    }
+  },
   "role": {
     "forester": "Forester",
     "district_manager": "District manager",

@@ -11,6 +11,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { SensorsPage } from '@/pages/SensorsPage'
 import { UsersPage } from '@/pages/UsersPage'
 
 function App() {
@@ -107,6 +108,7 @@ function App() {
             </p>
           )}
           {adminSection === 'users' && <UsersPage />}
+          {adminSection === 'sensors' && <SensorsPage />}
         </AdminLayout>
       )
     }

@@ -97,6 +97,34 @@
       "done": "Gotowe"
     }
   },
+  "sensors": {
+    "title": "Czujniki",
+    "search": "Szukaj po nazwie lub ID",
+    "noResults": "Brak czujników",
+    "noName": "bez nazwy",
+    "stats": {
+      "all": "Wszystkie czujniki",
+      "alarm": "Z alarmem",
+      "silent": "Bez kontaktu",
+      "unmounted": "Do zamontowania"
+    },
+    "table": {
+      "name": "Nazwa",
+      "id": "ID (DevEUI)",
+      "range": "Leśnictwo",
+      "state": "Stan",
+      "battery": "Bateria",
+      "lastSeen": "Ostatni kontakt"
+    },
+    "status": {
+      "ok": "Działa",
+      "muted": "Wyciszony",
+      "alarm": "Alarm",
+      "silent": "Bez kontaktu",
+      "inactive": "Wyłączony",
+      "unmounted": "Niezamontowany"
+    }
+  },
   "role": {
     "forester": "Leśniczy",
     "district_manager": "Nadleśniczy",
