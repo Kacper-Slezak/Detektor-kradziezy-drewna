@@ -173,6 +173,9 @@
       "unmounted": "Not mounted"
     }
   },
+  "map": {
+    "mutedUntil": "until {{time}}"
+  },
   "role": {
     "forester": "Forester",
     "district_manager": "District manager",
