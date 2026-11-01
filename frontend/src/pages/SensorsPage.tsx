@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search } from 'lucide-react'
+import { Pencil, Plus, Search } from 'lucide-react'
 import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
 import { listSensors } from '@/api/sensors'
 import type { Range, Sensor } from '@/api/types'
 import { listRanges } from '@/api/users'
+import { EditSensorForm } from '@/components/EditSensorForm'
 import { NewSensorForm } from '@/components/NewSensorForm'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -40,7 +41,9 @@ export function SensorsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
-  const [added, setAdded] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Sensor | null>(null)
+  // short confirmation above the tiles after adding or editing a sensor
+  const [notice, setNotice] = useState<{ kind: 'added' | 'saved'; id: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -60,8 +63,14 @@ export function SensorsPage() {
 
   function handleCreated(sensor: Sensor) {
     setSensors((current) => [...(current ?? []), sensor])
-    setAdded(sensor.id)
+    setNotice({ kind: 'added', id: sensor.id })
     setFormOpen(false)
+  }
+
+  function handleSaved(sensor: Sensor) {
+    setSensors((current) => (current ?? []).map((s) => (s.id === sensor.id ? sensor : s)))
+    setNotice({ kind: 'saved', id: sensor.id })
+    setEditing(null)
   }
 
   const rangeName = (id: number | null) => ranges.find((r) => r.id === id)?.name
@@ -90,10 +99,10 @@ export function SensorsPage() {
         </Button>
       </div>
 
-      {added && (
+      {notice && (
         <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
-          <p>{t('sensors.added', { id: added })}</p>
-          <Button variant="ghost" size="sm" onClick={() => setAdded(null)}>
+          <p>{t(`sensors.${notice.kind}`, { id: notice.id })}</p>
+          <Button variant="ghost" size="sm" onClick={() => setNotice(null)}>
             {t('sensors.addedDone')}
           </Button>
         </div>
@@ -143,6 +152,9 @@ export function SensorsPage() {
                   <th className="px-3 py-2 font-medium">{t('sensors.table.state')}</th>
                   <th className="px-3 py-2 text-right font-medium">{t('sensors.table.battery')}</th>
                   <th className="px-3 py-2 font-medium">{t('sensors.table.lastSeen')}</th>
+                  <th className="px-3 py-2">
+                    <span className="sr-only">{t('sensors.table.actions')}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -173,12 +185,22 @@ export function SensorsPage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         {sensor.last_seen ? formatDate(sensor.last_seen) : '—'}
                       </td>
+                      <td className="px-1 py-1 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t('sensors.edit.open', { id: sensor.id })}
+                          onClick={() => setEditing(sensor)}
+                        >
+                          <Pencil />
+                        </Button>
+                      </td>
                     </tr>
                   )
                 })}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                       {t('sensors.noResults')}
                     </td>
                   </tr>
@@ -196,6 +218,17 @@ export function SensorsPage() {
             <SheetDescription>{t('sensors.form.description')}</SheetDescription>
           </SheetHeader>
           <NewSensorForm ranges={ranges} onCreated={handleCreated} />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <SheetContent closeLabel={t('sensors.form.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('sensors.edit.title')}</SheetTitle>
+            <SheetDescription>{t('sensors.edit.description')}</SheetDescription>
+          </SheetHeader>
+          {/* key: a fresh form for every sensor */}
+          {editing && <EditSensorForm key={editing.id} sensor={editing} ranges={ranges} onSaved={handleSaved} />}
         </SheetContent>
       </Sheet>
     </div>

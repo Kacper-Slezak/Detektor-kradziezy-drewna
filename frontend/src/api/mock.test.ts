@@ -142,4 +142,24 @@ describe('sensor management', () => {
       status: 400,
     })
   })
+
+  it('moves a sensor to another range and renames it', async () => {
+    const saved = await mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { range_id: 2, name: 'Nowa nazwa' })
+    expect(saved).toMatchObject({ range_id: 2, name: 'Nowa nazwa', state: 'alarm' })
+
+    const listed = (await mock.mockListSensors('mock-1')).find((s) => s.id === '70B3D57ED0051234')
+    expect(listed?.range_id).toBe(2)
+  })
+
+  it('rejects editing by a non-admin (403), an unknown sensor (404) and an unknown range (400)', async () => {
+    await expect(mock.mockUpdateSensor('mock-3', '70B3D57ED0051234', { range_id: 2 })).rejects.toMatchObject({
+      status: 403,
+    })
+    await expect(mock.mockUpdateSensor('mock-1', '0000000000000000', { range_id: 2 })).rejects.toMatchObject({
+      status: 404,
+    })
+    await expect(mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { range_id: 99 })).rejects.toMatchObject({
+      status: 400,
+    })
+  })
 })

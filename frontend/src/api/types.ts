@@ -66,3 +66,10 @@ export interface NewSensor {
   range_id: number
   name: string | null
 }
+
+// PATCH /sensors/{id}: only the fields being changed. range_id is not in api.md yet, agreed with backend
+export interface SensorChanges {
+  name?: string | null
+  range_id?: number
+  active?: boolean
+}

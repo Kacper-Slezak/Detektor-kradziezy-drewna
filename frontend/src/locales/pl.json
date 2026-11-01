@@ -105,6 +105,7 @@
     "add": "Dodaj czujnik",
     "added": "Dodano czujnik {{id}}. Leśniczy zamontuje go w aplikacji.",
     "addedDone": "OK",
+    "saved": "Zapisano zmiany czujnika {{id}}.",
     "form": {
       "title": "Nowy czujnik",
       "description": "Czujnik pojawi się u leśniczego na liście do montażu. Lokalizację zapisze telefon przy montażu.",
@@ -122,6 +123,13 @@
         "rangeRequired": "Wybierz leśnictwo"
       }
     },
+    "edit": {
+      "open": "Edytuj czujnik {{id}}",
+      "title": "Edycja czujnika",
+      "description": "Po zmianie leśnictwa czujnik zobaczy leśniczy z nowego leśnictwa.",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…"
+    },
     "stats": {
       "all": "Wszystkie czujniki",
       "alarm": "Z alarmem",
@@ -134,7 +142,8 @@
       "range": "Leśnictwo",
       "state": "Stan",
       "battery": "Bateria",
-      "lastSeen": "Ostatni kontakt"
+      "lastSeen": "Ostatni kontakt",
+      "actions": "Akcje"
     },
     "status": {
       "ok": "Działa",

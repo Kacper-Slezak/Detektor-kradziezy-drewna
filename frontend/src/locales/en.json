@@ -105,6 +105,7 @@
     "add": "Add sensor",
     "added": "Sensor {{id}} added. The forester will mount it in the app.",
     "addedDone": "OK",
+    "saved": "Changes to sensor {{id}} saved.",
     "form": {
       "title": "New sensor",
       "description": "The sensor will show up on the forester’s list to mount. The phone saves its location when mounting.",
@@ -122,6 +123,13 @@
         "rangeRequired": "Choose a forest range"
       }
     },
+    "edit": {
+      "open": "Edit sensor {{id}}",
+      "title": "Edit sensor",
+      "description": "After changing the forest range, the sensor is shown to the forester of the new range.",
+      "save": "Save",
+      "saving": "Saving…"
+    },
     "stats": {
       "all": "All sensors",
       "alarm": "With an alarm",
@@ -134,7 +142,8 @@
       "range": "Forest range",
       "state": "State",
       "battery": "Battery",
-      "lastSeen": "Last contact"
+      "lastSeen": "Last contact",
+      "actions": "Actions"
     },
     "status": {
       "ok": "Working",

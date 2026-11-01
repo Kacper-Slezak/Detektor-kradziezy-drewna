@@ -6,7 +6,7 @@
 //   nowy.lesniczy / Tymczasowe123!   forester, must change password
 
 import { ApiError } from './client'
-import type { LoginResponse, ManagedUser, NewSensor, NewUser, Range, Sensor, User } from './types'
+import type { LoginResponse, ManagedUser, NewSensor, NewUser, Range, Sensor, SensorChanges, User } from './types'
 
 interface MockAccount {
   password: string
@@ -244,5 +244,17 @@ export async function mockCreateSensor(token: string | null, newSensor: NewSenso
     open_alarm_id: null,
   }
   sensors.push(sensor)
+  return { ...sensor }
+}
+
+export async function mockUpdateSensor(token: string | null, id: string, changes: SensorChanges): Promise<Sensor> {
+  await delay()
+  adminByToken(token)
+  const sensor = sensors.find((s) => s.id === id)
+  if (!sensor) throw new ApiError(404, `Nie ma czujnika ${id}`)
+  if (changes.range_id !== undefined && !ranges.some((r) => r.id === changes.range_id)) {
+    throw new ApiError(400, 'Nie ma takiego leśnictwa')
+  }
+  Object.assign(sensor, changes)
   return { ...sensor }
 }
