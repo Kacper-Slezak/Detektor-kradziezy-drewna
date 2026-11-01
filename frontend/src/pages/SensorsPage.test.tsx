@@ -33,7 +33,14 @@ describe('SensorsPage', () => {
     await renderAsAdmin()
 
     const cells = within(row('Skład przy drodze 5')).getAllByRole('cell').map((c) => c.textContent)
-    expect(cells.slice(0, 5)).toEqual(['Skład przy drodze 5', '70B3D57ED0051234', 'Leśnictwo Dąbrowa', 'Alarm', '64%'])
+    expect(cells.slice(0, 6)).toEqual([
+      'Skład przy drodze 5',
+      '70B3D57ED0051234',
+      'Leśnictwo Dąbrowa',
+      'Błażej Kowalski',
+      'Alarm',
+      '64%',
+    ])
     expect(within(row('Skład przy szlabanie')).getByText('Wyciszony')).toBeInTheDocument()
     expect(within(row('Skład przy leśniczówce')).getByText('8%')).toHaveClass('text-destructive')
   })
@@ -79,7 +86,7 @@ describe('SensorsPage', () => {
     const form = await openForm(user)
 
     await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70-b3-d5-7e-d0-06-00-01')
-    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny · Jan Nowy')
     await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Dodano czujnik 70B3D57ED0060001')
@@ -94,7 +101,7 @@ describe('SensorsPage', () => {
     const form = await openForm(user)
 
     await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70B3D57ED00')
-    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny · Jan Nowy')
     await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
 
     expect(within(form).getByRole('alert')).toHaveTextContent('ID czujnika musi mieć 16 znaków')
@@ -115,7 +122,7 @@ describe('SensorsPage', () => {
     const form = await openForm(user)
 
     await user.type(within(form).getByLabelText('ID czujnika (DevEUI)'), '70B3D57ED0051234')
-    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Dąbrowa')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Dąbrowa · Błażej Kowalski')
     await user.click(within(form).getByRole('button', { name: 'Dodaj czujnik' }))
 
     expect(await within(form).findByRole('alert')).toHaveTextContent('Czujnik 70B3D57ED0051234 jest już dodany')
@@ -129,9 +136,9 @@ describe('SensorsPage', () => {
     // the ID is shown as text, there is no field to change it
     expect(within(form).getByText('70B3D57ED0051234')).toBeInTheDocument()
     expect(within(form).queryByLabelText('ID czujnika (DevEUI)')).not.toBeInTheDocument()
-    expect(within(form).getByLabelText('Leśnictwo')).toHaveDisplayValue('Leśnictwo Dąbrowa')
+    expect(within(form).getByLabelText('Leśnictwo')).toHaveDisplayValue('Leśnictwo Dąbrowa · Błażej Kowalski')
 
-    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny')
+    await user.selectOptions(within(form).getByLabelText('Leśnictwo'), 'Leśnictwo Olszyny · Jan Nowy')
     await user.clear(within(form).getByLabelText('Nazwa (opcjonalnie)'))
     await user.type(within(form).getByLabelText('Nazwa (opcjonalnie)'), 'Skład przy moście')
     await user.click(within(form).getByRole('button', { name: 'Zapisz' }))
@@ -141,6 +148,8 @@ describe('SensorsPage', () => {
     const edited = row('70B3D57ED0051234')
     expect(within(edited).getByText('Skład przy moście')).toBeInTheDocument()
     expect(within(edited).getByText('Leśnictwo Olszyny')).toBeInTheDocument()
+    // the forester follows the range
+    expect(within(edited).getByText('Jan Nowy')).toBeInTheDocument()
   })
 
   it('shows an error when the user is not an admin', async () => {

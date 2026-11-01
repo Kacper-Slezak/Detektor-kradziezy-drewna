@@ -28,15 +28,17 @@ Endpointy: `GET /users`, `POST /users`, `GET /ranges` ([api.md, sekcja 7](../bac
 Czujnik trzeba dodać w panelu, zanim zacznie wysyłać dane. Backend odrzuca ramki od nieznanych urządzeń.
 
 - kafelki: wszystkie czujniki, z alarmem, bez kontaktu, do zamontowania
-- tabela z wyszukiwarką po nazwie i ID. Kolumny: nazwa, ID, leśnictwo, stan, bateria (poniżej 20% na czerwono), ostatni kontakt
+- tabela z wyszukiwarką po nazwie i ID. Kolumny: nazwa, ID, leśnictwo, leśniczy, stan, bateria (poniżej 20% na czerwono), ostatni kontakt
 - stany jak w [api.md](../backend/api.md#stan-czujnika-stan): działa, wyciszony, alarm, bez kontaktu, wyłączony. Czujnik bez lokalizacji front pokazuje jako **niezamontowany**
 - **„+ Dodaj czujnik”** otwiera panel z prawej:
   - ID (DevEUI) z naklejki: 16 znaków 0–9 i A–F. Spacje, myślniki i dwukropki są usuwane, litery zamieniane na wielkie
   - leśnictwo jest wymagane, bo bez niego żaden leśniczy nie zobaczy czujnika na liście do montażu
   - nazwa jest opcjonalna, zwykle nadaje ją leśniczy przy montażu
 - nowy czujnik jest nieaktywny i bez lokalizacji. Aktywny staje się po montażu przez leśniczego (`PUT /sensors/{id}/mount`)
+- **✏️ w wierszu** otwiera edycję: można zmienić leśnictwo i nazwę. ID się nie zmienia, bo pochodzi z urządzenia
+- **leśniczego przypisujemy przez leśnictwo.** Czujnik obsługują aktywni leśniczy jego leśnictwa, więc kolumna Leśniczy i listy leśnictw w formularzach („Leśnictwo Dąbrowa · Błażej Kowalski”) wynikają z kont użytkowników. Gdy leśniczy się zmieni, wystarczy przepiąć konto, a czujniki przejdą same
 
-Endpointy `GET /sensors` (wszystkie czujniki) i `POST /sensors` z polami `{ "id", "range_id", "name" }` są uzgodnione z backendem, ale jeszcze ich nie ma ani w `api.md`, ani w kodzie. Do tego czasu sekcja działa tylko na mocku (`VITE_USE_MOCK=true`), a na prawdziwym backendzie pokazuje błąd 404.
+Endpointy `GET /sensors` (wszystkie czujniki), `POST /sensors` z polami `{ "id", "range_id", "name" }` i pole `range_id` w `PATCH /sensors/{id}` są uzgodnione z backendem, ale jeszcze ich nie ma ani w `api.md`, ani w kodzie. Do tego czasu sekcja działa tylko na mocku (`VITE_USE_MOCK=true`), a na prawdziwym backendzie pokazuje błąd 404. Sekcja pobiera też `GET /users`, żeby pokazać leśniczych.
 
 ## Motyw
 

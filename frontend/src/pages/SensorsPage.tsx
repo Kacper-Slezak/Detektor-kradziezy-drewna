@@ -5,8 +5,8 @@ import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
 import { listSensors } from '@/api/sensors'
-import type { Range, Sensor } from '@/api/types'
-import { listRanges } from '@/api/users'
+import type { ManagedUser, Range, Sensor } from '@/api/types'
+import { listRanges, listUsers } from '@/api/users'
 import { EditSensorForm } from '@/components/EditSensorForm'
 import { NewSensorForm } from '@/components/NewSensorForm'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ export function SensorsPage() {
   const { t, i18n } = useTranslation()
   const [sensors, setSensors] = useState<Sensor[] | null>(null)
   const [ranges, setRanges] = useState<Range[]>([])
+  const [users, setUsers] = useState<ManagedUser[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
@@ -47,11 +48,13 @@ export function SensorsPage() {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([listSensors(), listRanges()])
-      .then(([loadedSensors, loadedRanges]) => {
+    // users: to show which forester looks after each range
+    Promise.all([listSensors(), listRanges(), listUsers()])
+      .then(([loadedSensors, loadedRanges, loadedUsers]) => {
         if (cancelled) return
         setSensors(loadedSensors)
         setRanges(loadedRanges)
+        setUsers(loadedUsers)
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof ApiError ? err.message : t('errors.network'))
@@ -74,6 +77,17 @@ export function SensorsPage() {
   }
 
   const rangeName = (id: number | null) => ranges.find((r) => r.id === id)?.name
+  // a sensor belongs to a range, so its foresters are the active foresters of that range
+  const foresters = (rangeId: number | null) =>
+    users
+      .filter((u) => u.role === 'forester' && u.active && u.range_id === rangeId)
+      .map((u) => u.full_name)
+      .join(', ')
+  // in the forms: "Leśnictwo Dąbrowa · Błażej Kowalski", so the admin sees who gets the sensor
+  const rangeChoices = ranges.map((r) => ({
+    ...r,
+    name: `${r.name} · ${foresters(r.id) || t('sensors.noForester')}`,
+  }))
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })
 
@@ -149,6 +163,7 @@ export function SensorsPage() {
                   <th className="px-3 py-2 font-medium">{t('sensors.table.name')}</th>
                   <th className="px-3 py-2 font-medium">{t('sensors.table.id')}</th>
                   <th className="px-3 py-2 font-medium">{t('sensors.table.range')}</th>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.forester')}</th>
                   <th className="px-3 py-2 font-medium">{t('sensors.table.state')}</th>
                   <th className="px-3 py-2 text-right font-medium">{t('sensors.table.battery')}</th>
                   <th className="px-3 py-2 font-medium">{t('sensors.table.lastSeen')}</th>
@@ -168,6 +183,9 @@ export function SensorsPage() {
                       </td>
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{sensor.id}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{rangeName(sensor.range_id) ?? '—'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {foresters(sensor.range_id) || <span className="text-muted-foreground">—</span>}
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5">
                           <span aria-hidden className={cn('size-2 rounded-full', STATUS_DOT[status])} />
@@ -200,7 +218,7 @@ export function SensorsPage() {
                 })}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
                       {t('sensors.noResults')}
                     </td>
                   </tr>
@@ -217,7 +235,7 @@ export function SensorsPage() {
             <SheetTitle>{t('sensors.form.title')}</SheetTitle>
             <SheetDescription>{t('sensors.form.description')}</SheetDescription>
           </SheetHeader>
-          <NewSensorForm ranges={ranges} onCreated={handleCreated} />
+          <NewSensorForm ranges={rangeChoices} onCreated={handleCreated} />
         </SheetContent>
       </Sheet>
 
@@ -228,7 +246,7 @@ export function SensorsPage() {
             <SheetDescription>{t('sensors.edit.description')}</SheetDescription>
           </SheetHeader>
           {/* key: a fresh form for every sensor */}
-          {editing && <EditSensorForm key={editing.id} sensor={editing} ranges={ranges} onSaved={handleSaved} />}
+          {editing && <EditSensorForm key={editing.id} sensor={editing} ranges={rangeChoices} onSaved={handleSaved} />}
         </SheetContent>
       </Sheet>
     </div>
