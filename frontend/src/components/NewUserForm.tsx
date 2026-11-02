@@ -9,13 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { loginFromName } from '@/lib/login'
 import { generateTempPassword } from '@/lib/password'
+import { SELECT_CLASS } from '@/lib/select'
 
 const MIN_PASSWORD_LENGTH = 8
 const ROLES: Role[] = ['forester', 'district_manager', 'admin']
-
-// Same look as <Input>, for a native <select> (works well on phones)
-const SELECT_CLASS =
-  'h-8 w-full rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30'
 
 interface NewUserFormProps {
   ranges: Range[]

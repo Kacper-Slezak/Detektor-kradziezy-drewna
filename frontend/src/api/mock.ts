@@ -6,7 +6,7 @@
 //   nowy.lesniczy / Tymczasowe123!   forester, must change password
 
 import { ApiError } from './client'
-import type { LoginResponse, ManagedUser, NewUser, Range, User } from './types'
+import type { LoginResponse, ManagedUser, NewSensor, NewUser, Range, Sensor, SensorChanges, User } from './types'
 
 interface MockAccount {
   password: string
@@ -154,4 +154,107 @@ export async function mockListRanges(token: string | null): Promise<Range[]> {
   await delay()
   adminByToken(token)
   return ranges.map((r) => ({ ...r }))
+}
+
+// Sensors from the examples in api.md, plus one silent and one registered but not mounted yet
+const sensors: Sensor[] = [
+  {
+    id: '70B3D57ED0051234',
+    name: 'Skład przy drodze 5',
+    lat: 50.0647,
+    lon: 19.945,
+    range_id: 1,
+    active: true,
+    state: 'alarm',
+    battery_pct: 64,
+    last_seen: '2026-10-16T09:58:12Z',
+    muted_until: null,
+    open_alarm_id: 41,
+  },
+  {
+    id: '70B3D57ED0055678',
+    name: 'Skład przy szlabanie',
+    lat: 50.0712,
+    lon: 19.9533,
+    range_id: 1,
+    active: true,
+    state: 'muted',
+    battery_pct: 91,
+    last_seen: '2026-10-16T10:01:00Z',
+    muted_until: '2026-10-16T18:00:00Z',
+    open_alarm_id: null,
+  },
+  {
+    id: '70B3D57ED005DEF0',
+    name: 'Skład przy leśniczówce',
+    lat: 50.0581,
+    lon: 19.9312,
+    range_id: 2,
+    active: true,
+    state: 'silent',
+    battery_pct: 8,
+    last_seen: '2026-10-14T21:40:00Z',
+    muted_until: null,
+    open_alarm_id: null,
+  },
+  {
+    id: '70B3D57ED0059ABC',
+    name: null,
+    lat: null,
+    lon: null,
+    range_id: 2,
+    active: false,
+    state: 'inactive',
+    battery_pct: null,
+    last_seen: null,
+    muted_until: null,
+    open_alarm_id: null,
+  },
+]
+
+// DevEUI: 16 hex characters
+const SENSOR_ID = /^[0-9A-F]{16}$/
+
+export async function mockListSensors(token: string | null): Promise<Sensor[]> {
+  await delay()
+  adminByToken(token)
+  return sensors.map((s) => ({ ...s }))
+}
+
+export async function mockCreateSensor(token: string | null, newSensor: NewSensor): Promise<Sensor> {
+  await delay()
+  adminByToken(token)
+  const id = newSensor.id.toUpperCase()
+  if (!SENSOR_ID.test(id)) throw new ApiError(400, 'ID czujnika musi mieć 16 znaków szesnastkowych')
+  if (sensors.some((s) => s.id === id)) throw new ApiError(409, `Czujnik ${id} jest już dodany`)
+  if (!ranges.some((r) => r.id === newSensor.range_id)) throw new ApiError(400, 'Nie ma takiego leśnictwa')
+
+  // a new sensor stays inactive until a forester mounts it
+  const sensor: Sensor = {
+    id,
+    name: newSensor.name,
+    lat: null,
+    lon: null,
+    range_id: newSensor.range_id,
+    active: false,
+    state: 'inactive',
+    battery_pct: null,
+    last_seen: null,
+    muted_until: null,
+    open_alarm_id: null,
+  }
+  sensors.push(sensor)
+  return { ...sensor }
+}
+
+export async function mockUpdateSensor(token: string | null, id: string, changes: SensorChanges): Promise<Sensor> {
+  await delay()
+  adminByToken(token)
+  const sensor = sensors.find((s) => s.id === id)
+  if (!sensor) throw new ApiError(404, `Nie ma czujnika ${id}`)
+  if (changes.range_id !== undefined && !ranges.some((r) => r.id === changes.range_id)) {
+    throw new ApiError(400, 'Nie ma takiego leśnictwa')
+  }
+  Object.assign(sensor, changes)
+  return { ...sensor }
 }

@@ -1,0 +1,254 @@
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Pencil, Plus, Search } from 'lucide-react'
+import { cn } from 'cn'
+
+import { ApiError } from '@/api/client'
+import { listSensors } from '@/api/sensors'
+import type { ManagedUser, Range, Sensor } from '@/api/types'
+import { listRanges, listUsers } from '@/api/users'
+import { EditSensorForm } from '@/components/EditSensorForm'
+import { NewSensorForm } from '@/components/NewSensorForm'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+
+// State from api.md, plus "unmounted": registered but without a location yet
+type Status = Sensor['state'] | 'unmounted'
+
+function statusOf(sensor: Sensor): Status {
+  if (sensor.state === 'inactive' && sensor.lat === null) return 'unmounted'
+  return sensor.state
+}
+
+const STATUS_DOT: Record<Status, string> = {
+  ok: 'bg-emerald-500',
+  muted: 'bg-sky-500',
+  alarm: 'bg-red-500',
+  silent: 'bg-amber-500',
+  inactive: 'bg-muted-foreground',
+  unmounted: 'bg-muted-foreground',
+}
+
+const LOW_BATTERY_PCT = 20
+
+// "Sensors" section of the admin panel (AdminLayout gives the frame)
+export function SensorsPage() {
+  const { t, i18n } = useTranslation()
+  const [sensors, setSensors] = useState<Sensor[] | null>(null)
+  const [ranges, setRanges] = useState<Range[]>([])
+  const [users, setUsers] = useState<ManagedUser[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<Sensor | null>(null)
+  // short confirmation above the tiles after adding or editing a sensor
+  const [notice, setNotice] = useState<{ kind: 'added' | 'saved'; id: string } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // users: to show which forester looks after each range
+    Promise.all([listSensors(), listRanges(), listUsers()])
+      .then(([loadedSensors, loadedRanges, loadedUsers]) => {
+        if (cancelled) return
+        setSensors(loadedSensors)
+        setRanges(loadedRanges)
+        setUsers(loadedUsers)
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof ApiError ? err.message : t('errors.network'))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [t])
+
+  function handleCreated(sensor: Sensor) {
+    setSensors((current) => [...(current ?? []), sensor])
+    setNotice({ kind: 'added', id: sensor.id })
+    setFormOpen(false)
+  }
+
+  function handleSaved(sensor: Sensor) {
+    setSensors((current) => (current ?? []).map((s) => (s.id === sensor.id ? sensor : s)))
+    setNotice({ kind: 'saved', id: sensor.id })
+    setEditing(null)
+  }
+
+  const rangeName = (id: number | null) => ranges.find((r) => r.id === id)?.name
+  // a sensor belongs to a range, so its foresters are the active foresters of that range
+  const foresters = (rangeId: number | null) =>
+    users
+      .filter((u) => u.role === 'forester' && u.active && u.range_id === rangeId)
+      .map((u) => u.full_name)
+      .join(', ')
+  // in the forms: "Leśnictwo Dąbrowa · Błażej Kowalski", so the admin sees who gets the sensor
+  const rangeChoices = ranges.map((r) => ({
+    ...r,
+    name: `${r.name} · ${foresters(r.id) || t('sensors.noForester')}`,
+  }))
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })
+
+  const query = search.trim().toLowerCase()
+  const shown = (sensors ?? []).filter(
+    (s) => !query || s.id.toLowerCase().includes(query) || s.name?.toLowerCase().includes(query),
+  )
+
+  const stats = sensors && [
+    { label: t('sensors.stats.all'), value: sensors.length },
+    { label: t('sensors.stats.alarm'), value: sensors.filter((s) => s.state === 'alarm').length },
+    { label: t('sensors.stats.silent'), value: sensors.filter((s) => s.state === 'silent').length },
+    { label: t('sensors.stats.unmounted'), value: sensors.filter((s) => statusOf(s) === 'unmounted').length },
+  ]
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">{t('sensors.title')}</h1>
+        <Button onClick={() => setFormOpen(true)}>
+          <Plus />
+          {t('sensors.add')}
+        </Button>
+      </div>
+
+      {notice && (
+        <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
+          <p>{t(`sensors.${notice.kind}`, { id: notice.id })}</p>
+          <Button variant="ghost" size="sm" onClick={() => setNotice(null)}>
+            {t('sensors.addedDone')}
+          </Button>
+        </div>
+      )}
+
+      {stats && (
+        <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {stats.map(({ label, value }) => (
+            <div key={label} className="flex flex-col-reverse gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="text-3xl font-semibold tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      <Card className="gap-0 py-0">
+        <div className="flex items-center gap-2 border-b p-3">
+          <Search className="size-4 shrink-0 text-muted-foreground" />
+          <Input
+            type="search"
+            aria-label={t('sensors.search')}
+            placeholder={t('sensors.search')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+          />
+        </div>
+
+        {loadError ? (
+          <p role="alert" className="p-4 text-sm text-destructive">
+            {loadError}
+          </p>
+        ) : sensors === null ? (
+          <p role="status" className="p-4 text-muted-foreground">
+            {t('app.loading')}
+          </p>
+        ) : (
+          // wide table scrolls sideways on phones
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.name')}</th>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.id')}</th>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.range')}</th>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.forester')}</th>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.state')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('sensors.table.battery')}</th>
+                  <th className="px-3 py-2 font-medium">{t('sensors.table.lastSeen')}</th>
+                  <th className="px-3 py-2">
+                    <span className="sr-only">{t('sensors.table.actions')}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {shown.map((sensor) => {
+                  const status = statusOf(sensor)
+                  const lowBattery = sensor.battery_pct !== null && sensor.battery_pct < LOW_BATTERY_PCT
+                  return (
+                    <tr key={sensor.id} className="hover:bg-muted/40">
+                      <td className="px-3 py-2 font-medium whitespace-nowrap">
+                        {sensor.name ?? <span className="font-normal text-muted-foreground">{t('sensors.noName')}</span>}
+                      </td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">{sensor.id}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{rangeName(sensor.range_id) ?? '—'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {foresters(sensor.range_id) || <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span aria-hidden className={cn('size-2 rounded-full', STATUS_DOT[status])} />
+                          {t(`sensors.status.${status}`)}
+                        </span>
+                      </td>
+                      <td
+                        className={cn(
+                          'px-3 py-2 text-right whitespace-nowrap tabular-nums',
+                          lowBattery && 'font-medium text-destructive',
+                        )}
+                      >
+                        {sensor.battery_pct === null ? '—' : `${sensor.battery_pct}%`}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {sensor.last_seen ? formatDate(sensor.last_seen) : '—'}
+                      </td>
+                      <td className="px-1 py-1 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t('sensors.edit.open', { id: sensor.id })}
+                          onClick={() => setEditing(sensor)}
+                        >
+                          <Pencil />
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                      {t('sensors.noResults')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Sheet open={formOpen} onOpenChange={setFormOpen}>
+        <SheetContent closeLabel={t('sensors.form.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('sensors.form.title')}</SheetTitle>
+            <SheetDescription>{t('sensors.form.description')}</SheetDescription>
+          </SheetHeader>
+          <NewSensorForm ranges={rangeChoices} onCreated={handleCreated} />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <SheetContent closeLabel={t('sensors.form.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('sensors.edit.title')}</SheetTitle>
+            <SheetDescription>{t('sensors.edit.description')}</SheetDescription>
+          </SheetHeader>
+          {/* key: a fresh form for every sensor */}
+          {editing && <EditSensorForm key={editing.id} sensor={editing} ranges={rangeChoices} onSaved={handleSaved} />}
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}

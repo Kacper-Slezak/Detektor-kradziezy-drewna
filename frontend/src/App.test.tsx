@@ -103,9 +103,21 @@ describe('admin panel', () => {
 
     const menu = await screen.findByRole('navigation', { name: 'Menu panelu' })
     expect(within(menu).getByRole('button', { name: 'Użytkownicy' })).toHaveAttribute('aria-current', 'page')
-    expect(within(menu).getByRole('button', { name: /Czujniki/ })).toBeDisabled()
+    expect(within(menu).getByRole('button', { name: /Leśnictwa/ })).toBeDisabled()
     expect(screen.getByRole('heading', { name: 'Użytkownicy' })).toBeInTheDocument()
     expect(await screen.findByText('Błażej Kowalski')).toBeInTheDocument()
+  })
+
+  it('switches to the sensors section from the menu', async () => {
+    render(<App />)
+    const user = await logIn('admin', 'admin123')
+    const menu = await screen.findByRole('navigation', { name: 'Menu panelu' })
+
+    await user.click(within(menu).getByRole('button', { name: 'Czujniki' }))
+
+    expect(within(menu).getByRole('button', { name: 'Czujniki' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { name: 'Czujniki' })).toBeInTheDocument()
+    expect(await screen.findByText('Skład przy drodze 5')).toBeInTheDocument()
   })
 
   it('a new forester can sign in with the temporary password', async () => {
