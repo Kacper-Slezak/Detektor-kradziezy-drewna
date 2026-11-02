@@ -276,7 +276,7 @@ const sensors: Sensor[] = [
 // DevEUI: 16 hex characters
 const SENSOR_ID = /^[0-9A-F]{16}$/
 
-export async function mockListMapSensors(token: string | null, filters: SensorFilters): Promise<Sensor[]> {
+export async function mockListSensors(token: string | null, filters: SensorFilters = {}): Promise<Sensor[]> {
   await delay()
   const { user } = accountByToken(token)
   return sensors
@@ -285,12 +285,6 @@ export async function mockListMapSensors(token: string | null, filters: SensorFi
     .filter((s) => filters.range_id === undefined || s.range_id === filters.range_id)
     .filter((s) => !filters.unmounted || s.lat === null)
     .map((s) => ({ ...s }))
-}
-
-export async function mockListSensors(token: string | null): Promise<Sensor[]> {
-  await delay()
-  adminByToken(token)
-  return sensors.map((s) => ({ ...s }))
 }
 
 export async function mockCreateSensor(token: string | null, newSensor: NewSensor): Promise<Sensor> {

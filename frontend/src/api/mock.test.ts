@@ -150,31 +150,33 @@ describe('editing users', () => {
   })
 })
 
-describe('sensors on the map', () => {
+describe('sensor list', () => {
   it('a forester gets only the sensors of their range', async () => {
-    const sensors = await mock.mockListMapSensors('mock-3', {})
+    const sensors = await mock.mockListSensors('mock-3', {})
     expect(sensors.length).toBeGreaterThan(0)
     expect(sensors.every((s) => s.range_id === 1)).toBe(true)
   })
 
-  it('a district manager gets the sensors of all ranges', async () => {
-    const sensors = await mock.mockListMapSensors('mock-4', {})
-    expect(new Set(sensors.map((s) => s.range_id))).toEqual(new Set([1, 2]))
+  it('a district manager and the admin get the sensors of all ranges', async () => {
+    for (const token of ['mock-4', 'mock-1']) {
+      const sensors = await mock.mockListSensors(token, {})
+      expect(new Set(sensors.map((s) => s.range_id))).toEqual(new Set([1, 2]))
+    }
   })
 
   it('filters by state, range and missing location', async () => {
-    const alarms = await mock.mockListMapSensors('mock-4', { state: 'alarm' })
+    const alarms = await mock.mockListSensors('mock-4', { state: 'alarm' })
     expect(alarms.map((s) => s.id)).toEqual(['70B3D57ED0051234'])
 
-    const olszyny = await mock.mockListMapSensors('mock-4', { range_id: 2 })
+    const olszyny = await mock.mockListSensors('mock-4', { range_id: 2 })
     expect(olszyny.every((s) => s.range_id === 2)).toBe(true)
 
-    const unmounted = await mock.mockListMapSensors('mock-5', { unmounted: true })
+    const unmounted = await mock.mockListSensors('mock-5', { unmounted: true })
     expect(unmounted.map((s) => s.id)).toEqual(['70B3D57ED0059ABC'])
   })
 
   it('needs a signed-in user (401)', async () => {
-    await expect(mock.mockListMapSensors(null, {})).rejects.toMatchObject({ status: 401 })
+    await expect(mock.mockListSensors(null, {})).rejects.toMatchObject({ status: 401 })
   })
 })
 
@@ -182,7 +184,7 @@ describe('sensor management', () => {
   const newSensor = { id: '70b3d57ed0060001', range_id: 1, name: null }
 
   it('is only for the admin (403 for others)', async () => {
-    await expect(mock.mockListSensors('mock-3')).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockCreateSensor('mock-3', newSensor)).rejects.toMatchObject({ status: 403 })
     await expect(mock.mockCreateSensor('mock-4', newSensor)).rejects.toMatchObject({ status: 403 })
   })
 

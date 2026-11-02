@@ -14,7 +14,7 @@ Leśniczy i nadleśniczy po zalogowaniu widzą mapę na cały ekran. Admin jej n
 
 ## Dane
 
-`GET /czujniki` ([api.md, sekcja 2](../backend/api.md#2-czujniki-mapa)). Leśniczy dostaje czujniki swojego leśnictwa, nadleśniczy wszystkie.
+`GET /sensors` ([api.md, sekcja 2](../backend/api.md#2-czujniki-mapa), gdzie jest jeszcze pod polską nazwą `/czujniki`). Leśniczy dostaje czujniki swojego leśnictwa, nadleśniczy wszystkie. Ten sam endpoint pobiera tabela w panelu admina.
 
 - lista odświeża się **co 60 s**, bez przeładowania mapy. Nowe alarmy mają też przychodzić pushem
 - gdy odświeżenie się nie uda, pinezki zostają, a nad mapą pojawia się komunikat

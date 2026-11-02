@@ -68,7 +68,7 @@ export interface Sensor {
   open_alarm_id: number | null
 }
 
-// Filters of GET /czujniki (all optional)
+// Filters of GET /sensors (all optional)
 export interface SensorFilters {
   state?: SensorState
   range_id?: number

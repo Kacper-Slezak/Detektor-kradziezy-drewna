@@ -4,7 +4,7 @@ import { KeyRound, LogOut, Menu } from 'lucide-react'
 import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
-import { listMapSensors } from '@/api/sensors'
+import { listSensors } from '@/api/sensors'
 import type { Sensor, User } from '@/api/types'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
@@ -37,7 +37,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   useEffect(() => {
     let cancelled = false
     function load() {
-      listMapSensors()
+      listSensors()
         .then((loaded) => {
           if (cancelled) return
           setSensors(loaded)
