@@ -62,7 +62,8 @@
       "login": "Login",
       "role": "Rola",
       "range": "Leśnictwo",
-      "status": "Status"
+      "status": "Status",
+      "actions": "Akcje"
     },
     "status": {
       "active": "Aktywne",
@@ -87,8 +88,24 @@
       },
       "close": "Zamknij"
     },
+    "edit": {
+      "open": "Edytuj konto {{login}}",
+      "title": "Edycja konta",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "saved": "Zapisano zmiany konta {{login}}.",
+      "active": "Konto aktywne",
+      "activeHint": "Nieaktywne konto nie może się zalogować, a jego sesja od razu wygasa.",
+      "selfHint": "Nie możesz wyłączyć własnego konta ani zmienić sobie roli.",
+      "resetTitle": "Hasło",
+      "resetHint": "Backend wylosuje nowe hasło tymczasowe. Obecne hasło przestanie działać, a użytkownik przy logowaniu ustawi własne.",
+      "reset": "Resetuj hasło",
+      "resetConfirm": "Tak, resetuj hasło",
+      "resetCancel": "Anuluj"
+    },
     "created": {
       "title": "Konto utworzone",
+      "resetTitle": "Hasło zresetowane",
       "description": "Przekaż te dane użytkownikowi. Hasła nie da się później podejrzeć.",
       "login": "Login",
       "password": "Hasło",

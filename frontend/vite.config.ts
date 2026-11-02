@@ -62,5 +62,7 @@ export default defineConfig({
     // tests never call FastAPI
     env: { VITE_USE_MOCK: 'true' },
     setupFiles: ['./src/test/setup.ts'],
+    // every mock request waits 400 ms, so longer flows can pass 5 s when tests run in parallel
+    testTimeout: 15_000,
   },
 })
