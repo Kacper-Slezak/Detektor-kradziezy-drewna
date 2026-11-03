@@ -87,11 +87,26 @@ class Simulator:
         }
         results = []
         for _ in range(2 if self.duplicate else 1):
-            r = await self.client.post(INGEST_PATH, json=body)
+            try:
+                r = await self.client.post(INGEST_PATH, json=body)
+            except httpx.TransportError as e:
+                # backend się restartuje (--reload) albo jeszcze nie wstał: ramka przepada,
+                # jak przy zgubionej transmisji LoRa, a symulator działa dalej
+                log.warning(
+                    "%s: backend nie odpowiada (%s)", sensor.id, type(e).__name__
+                )
+                continue
             if r.status_code == 404:
                 log.error(
                     "%s: backend nie zna czujnika. Uruchom seed --demo albo dodaj go w panelu.",
                     sensor.id,
+                )
+            elif r.status_code >= 500:
+                log.error(
+                    "%s: błąd serwera %s. Czy baza ma tabele? "
+                    "docker compose run --rm web alembic upgrade head",
+                    sensor.id,
+                    r.status_code,
                 )
             elif r.status_code >= 400:
                 log.error("%s: %s %s", sensor.id, r.status_code, r.text)
@@ -193,8 +208,30 @@ def save_state(path: Path, sensors: list[VirtualSensor]) -> None:
         log.warning("Nie zapisano stanu do %s: %s", path, e)
 
 
+async def wait_for_api(
+    client: httpx.AsyncClient, timeout_s: float = 60, step_s: float = 2
+) -> bool:
+    """Czeka, aż backend odpowie na /health (w Dockerze startuje chwilę po kontenerze)."""
+    waited = 0.0
+    while True:
+        try:
+            if (await client.get("/health")).status_code == 200:
+                return True
+        except httpx.TransportError:
+            pass
+        if waited >= timeout_s:
+            log.error("Backend nie odpowiada od %.0f s, kończę.", waited)
+            return False
+        if waited == 0:
+            log.info("Czekam na backend...")
+        await asyncio.sleep(step_s)
+        waited += step_s
+
+
 async def run(args: argparse.Namespace, client: httpx.AsyncClient) -> None:
     state_path = Path(args.state)
+    if not await wait_for_api(client, timeout_s=args.wait):
+        return
     sensors = load_state(state_path, args.sensors)
     for s in sensors:
         s.silent = False  # cisza dotyczy tylko jednego uruchomienia
@@ -262,6 +299,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--state", default=".simulator-state.json", help="plik z licznikami")
     p.add_argument("--seed", type=int, help="ziarno losowania (powtarzalne przebiegi)")
     p.add_argument("--once", action="store_true", help="jeden obrót i koniec")
+    p.add_argument(
+        "--wait", type=float, default=60, help="ile sekund czekać na start backendu"
+    )
     return p.parse_args(argv)
 
 

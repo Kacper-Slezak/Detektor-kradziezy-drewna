@@ -9,7 +9,7 @@ Jak przetestować całość (frontend, symulator, płytka, baza): [docs/testowan
 
 ```bash
 cd backend
-cp .env.example .env        # ustaw POSTGRES_PASSWORD i JWT_SECRET
+cp -n .env.example .env     # -n: nie nadpisze istniejącego .env; ustaw POSTGRES_PASSWORD i JWT_SECRET
 docker compose up --build
 docker compose run --rm web alembic upgrade head   # schemat bazy (przy pierwszym uruchomieniu i po zmianach)
 docker compose run --rm web python -m app.seed     # konto admina (JWT_SECRET musi być w .env)
@@ -23,6 +23,7 @@ Dokumentacja API (Swagger): http://localhost:8000/docs
 Żeby mapa i panel nie były puste bez sprzętu:
 
 ```bash
+docker compose run --rm web alembic upgrade head               # najpierw tabele (świeża baza / po zmianach)
 docker compose run --rm web python -m app.seed --demo          # konta demo + 10 czujników + historia 7 dni
 docker compose run --rm web python -m app.seed --demo --reset  # od nowa (stany "starzeją się" po kilku godzinach)
 ```
@@ -70,7 +71,10 @@ W kontenerze (po `docker compose build web`):
 
 ```bash
 docker compose run --rm web pytest --cov=app --cov-report=term-missing
+docker compose run --rm web ruff check app tests tools
 ```
+
+Kod jest montowany z `backend/`, więc po zmianie plików `.py` nie trzeba przebudowywać obrazu. Przebudowa (`docker compose build web`) jest potrzebna tylko po zmianie `requirements.txt`.
 
 ## Struktura
 
