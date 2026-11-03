@@ -23,20 +23,22 @@
 
 ### Czujnik: ID vs nazwa
 
-- **`id`** to identyfikator czujnika. Nadajemy go my i nie zmienia się.
+- **`id`** to identyfikator czujnika: DevEUI, 16 znaków szesnastkowych (np. `70B3D57ED0051234`). Wpisuje go admin przy rejestracji i nie zmienia się. Backend usuwa spacje, `:` i `-` oraz zamienia litery na wielkie, więc można go przepisać z naklejki.
 - **`name`** nadaje leśniczy, np. „Skład przy drodze 5”, i może ją zmieniać.
 
-### Stan czujnika (`stan`)
+### Stan czujnika (`state`)
 
-Wylicza go backend, a frontend tylko koloruje pinezkę:
+Wylicza go backend przy każdym odczycie (nie jest zapisany w bazie), a frontend tylko koloruje pinezkę. Sprawdzamy w tej kolejności, pierwszy pasujący wygrywa:
 
 | wartość | kiedy |
 |---|---|
-| `ok` | czuwa, działa, nic się nie dzieje |
-| `muted` | trwa wydanie drewna, alarmy wyłączone do `muted_until` |
-| `alarm` | jest otwarty alarm (bez odpowiedzi leśniczego) |
-| `silent` | brak heartbeatu dłużej niż ~12 h (zerwany, rozładowany, poza zasięgiem) |
 | `inactive` | czujnik wyłączony w apce albo jeszcze niezamontowany (brak lokalizacji) |
+| `alarm` | jest otwarty alarm (bez odpowiedzi leśniczego), także gdy potem zaczęło się wydanie |
+| `muted` | trwa wydanie drewna, alarmy wyłączone do `muted_until` |
+| `silent` | brak ramki dłużej niż 12 h albo czujnik jeszcze nic nie wysłał (zerwany, rozładowany, poza zasięgiem) |
+| `ok` | czuwa, działa, nic się nie dzieje |
+
+`open_alarm_id` i `muted_until` są wypełnione zawsze, gdy jest otwarty alarm albo trwa wydanie, niezależnie od `state`.
 
 
 
@@ -118,11 +120,21 @@ Odpowiedź `204`. Złe stare hasło → `400`. Nowe hasło takie samo jak stare 
 
 ## 2. Czujniki (mapa)
 
-### `GET /api/v1/czujniki`
+Kto co może:
 
-Parametry (opcjonalne): `?state=alarm&range_id=1&unmounted=true`
+| | leśniczy | nadleśniczy | admin |
+|---|---|---|---|
+| lista i szczegóły | swoje leśnictwo (cudzy czujnik → `403`) | wszystkie | wszystkie |
+| rejestracja (`POST`) | – | – | tak |
+| nazwa, włączenie (`PATCH`) | swoje leśnictwo | – | tak |
+| leśnictwo (`PATCH range_id`) | – | – | tak |
+| montaż (`PUT .../mount`) | swoje leśnictwo | – | – |
 
-Leśniczy dostaje tylko swoje leśnictwo, a nadleśniczy wszystko. `unmounted=true` zwraca czujniki bez lokalizacji (do listy przy montażu).
+### `GET /api/v1/sensors`
+
+Jedna lista dla mapy i dla tabeli w panelu admina. Parametry (opcjonalne): `?state=alarm&range_id=1&unmounted=true`
+
+Leśniczy dostaje tylko swoje leśnictwo (leśniczy bez leśnictwa dostaje pustą listę), a nadleśniczy i admin wszystko. `unmounted=true` zwraca czujniki bez lokalizacji (do listy przy montażu). Nieznany `state` → `422`.
  
 ```json
 // 200
@@ -158,7 +170,7 @@ Leśniczy dostaje tylko swoje leśnictwo, a nadleśniczy wszystko. `unmounted=tr
     "name": null,
     "lat": null,
     "lon": null,
-    "range_id": null,
+    "range_id": 1,
     "active": false,
     "state": "inactive",
     "battery_pct": 100,
@@ -171,7 +183,7 @@ Leśniczy dostaje tylko swoje leśnictwo, a nadleśniczy wszystko. `unmounted=tr
  
 ### `GET /api/v1/sensors/{id}`
  
-Jeden czujnik, ten sam kształt + ostatnie alarmy i wydania:
+Jeden czujnik, ten sam kształt + 5 ostatnich alarmów i 5 ostatnich wydań (od najnowszych). Brak czujnika → `404`, czujnik z innego leśnictwa → `403`.
  
 ```json
 {
@@ -188,6 +200,21 @@ Jeden czujnik, ten sam kształt + ostatnie alarmy i wydania:
 }
 ```
  
+### `POST /api/v1/sensors`
+
+Admin rejestruje nowy czujnik (np. po odebraniu partii od hardware). Leśnictwo jest wymagane, nazwa opcjonalna (zwykle nadaje ją leśniczy przy montażu).
+
+```json
+// zapytanie
+{ "id": "70B3D57ED0051234", "range_id": 1, "name": null }
+```
+
+Odpowiedź `201`: czujnik z `active: false`, bez lokalizacji, `state: "inactive"`. Pojawia się na liście `?unmounted=true` leśniczych tego leśnictwa.
+
+- czujnik o tym ID już jest → `409`
+- nie ma takiego leśnictwa → `400`
+- ID nie ma 16 znaków szesnastkowych → `422`
+
 ### `PUT /api/v1/sensors/{id}/mount`
  
 Leśniczy montuje czujnik na miejscu: wybiera czujnik z listy, telefon podaje GPS. Po tym czujnik staje się aktywny.
@@ -201,7 +228,7 @@ Odpowiedź `200`: czujnik z `active: true`. Leśnictwo bierzemy z konta leśnicz
  
 ### `PATCH /api/v1/sensors/{id}`
  
-Zmiana nazwy albo włączenie/wyłączenie czujnika:
+Zmiana nazwy, leśnictwa albo włączenie/wyłączenie. Pola, których nie podasz, zostają bez zmian. `"name": null` usuwa nazwę.
  
 ```json
 // zmiana nazwy
@@ -213,7 +240,16 @@ Zmiana nazwy albo włączenie/wyłączenie czujnika:
 { "active": false }
 ```
  
+```json
+// przeniesienie do innego leśnictwa (tylko admin)
+{ "range_id": 2 }
+```
+
 Odpowiedź `200`: zaktualizowany czujnik. Wyłączony czujnik dalej wysyła heartbeaty (widzimy baterię), ale nie generuje alarmów ani pushy.
+
+- leśniczy zmienia `range_id`, cudzy czujnik albo zapytanie od nadleśniczego → `403`
+- nie ma takiego leśnictwa → `400`
+- `"range_id": null`, `"active": null` albo pusta nazwa → `422` (leśnictwa nie da się odpiąć)
 
 ---
 
