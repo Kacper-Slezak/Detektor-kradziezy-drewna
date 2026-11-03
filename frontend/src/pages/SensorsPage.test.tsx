@@ -57,7 +57,7 @@ describe('SensorsPage', () => {
     await renderAsAdmin()
     const tile = (label: string) => screen.getByText(label, { selector: 'dt' }).parentElement!
 
-    expect(tile('Wszystkie czujniki')).toHaveTextContent('4')
+    expect(tile('Wszystkie czujniki')).toHaveTextContent('5')
     expect(tile('Z alarmem')).toHaveTextContent('1')
     expect(tile('Bez kontaktu')).toHaveTextContent('1')
     expect(tile('Do zamontowania')).toHaveTextContent('1')

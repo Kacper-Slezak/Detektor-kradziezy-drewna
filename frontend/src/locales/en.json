@@ -12,8 +12,6 @@
     "submitting": "Signing in…"
   },
   "home": {
-    "welcome": "Welcome, {{name}}",
-    "role": "Role: {{role}}",
     "logout": "Sign out",
     "changePassword": "Change password",
     "passwordChanged": "Your password has been changed."
@@ -172,6 +170,17 @@
       "inactive": "Turned off",
       "unmounted": "Not mounted"
     }
+  },
+  "map": {
+    "title": "Sensor map",
+    "menu": "Menu",
+    "legend": "Legend",
+    "noSensors": "No mounted sensors",
+    "unmounted_one": "{{count}} sensor waiting to be mounted",
+    "unmounted_other": "{{count}} sensors waiting to be mounted",
+    "unmounted_few": "{{count}} sensors waiting to be mounted",
+    "unmounted_many": "{{count}} sensors waiting to be mounted",
+    "mutedUntil": "until {{time}}"
   },
   "role": {
     "forester": "Forester",

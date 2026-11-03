@@ -131,3 +131,29 @@
     @apply font-sans;
     }
 }
+/* Sensor pins on the map (SensorMap.tsx); the alarm pin pulses */
+.sensor-pin--alarm::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--color-red-500);
+  border-radius: 9999px;
+  animation: sensor-pulse 1.5s ease-out infinite;
+}
+
+@keyframes sensor-pulse {
+  from {
+    opacity: 1;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sensor-pin--alarm::after {
+    animation: none;
+  }
+}

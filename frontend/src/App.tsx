@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { me } from '@/api/auth'
@@ -8,11 +8,13 @@ import { AdminLayout, type AdminSection } from '@/components/AdminLayout'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
-import { Button } from '@/components/ui/button'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SensorsPage } from '@/pages/SensorsPage'
 import { UsersPage } from '@/pages/UsersPage'
+
+// the map pulls in Leaflet, so it is loaded only for foresters and district managers
+const MapPage = lazy(() => import('@/pages/MapPage').then((m) => ({ default: m.MapPage })))
 
 function App() {
   const { t } = useTranslation()
@@ -65,20 +67,21 @@ function App() {
     setChangingPassword(true)
   }
 
-  // the admin works in the panel with a side menu; it has its own language and theme switchers
-  const inAdminPanel =
-    !restoring && user?.role === 'admin' && !user.must_change_password && !changingPassword
+  // the admin works in the panel with a side menu, the others on the map;
+  // both have their own menu with the language and theme switchers
+  const signedIn = !restoring && user !== null && !user.must_change_password && !changingPassword
+  const inAdminPanel = signedIn && user.role === 'admin'
+
+  const loading = (
+    <main className="flex min-h-svh items-center justify-center p-4">
+      <p role="status" className="text-muted-foreground">
+        {t('app.loading')}
+      </p>
+    </main>
+  )
 
   function renderPage() {
-    if (restoring) {
-      return (
-        <main className="flex min-h-svh items-center justify-center p-4">
-          <p role="status" className="text-muted-foreground">
-            {t('app.loading')}
-          </p>
-        </main>
-      )
-    }
+    if (restoring) return loading
 
     if (!user) return <LoginPage onLoggedIn={handleLoggedIn} />
 
@@ -114,32 +117,20 @@ function App() {
     }
 
     return (
-      <main className="flex min-h-svh flex-col items-center justify-center gap-4 p-4">
-        <h1 className="text-2xl font-semibold">{t('home.welcome', { name: user.full_name })}</h1>
-        <p className="text-muted-foreground">
-          {t('home.role', { role: t(`role.${user.role}`) })}
-          {user.range && ` · ${user.range.name}`}
-        </p>
-        {passwordChanged && (
-          <p role="status" className="text-sm">
-            {t('home.passwordChanged')}
-          </p>
-        )}
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={startChangingPassword}>
-            {t('home.changePassword')}
-          </Button>
-          <Button variant="outline" onClick={logout}>
-            {t('home.logout')}
-          </Button>
-        </div>
-      </main>
+      <Suspense fallback={loading}>
+        <MapPage
+          user={user}
+          passwordChanged={passwordChanged}
+          onChangePassword={startChangingPassword}
+          onLogout={logout}
+        />
+      </Suspense>
     )
   }
 
   return (
     <>
-      {!inAdminPanel && (
+      {!signedIn && (
         <div className="fixed top-2 right-2 flex items-center gap-2">
           <InstallButton />
           <ThemeSwitcher />

@@ -13,25 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-
-// State from api.md, plus "unmounted": registered but without a location yet
-type Status = Sensor['state'] | 'unmounted'
-
-function statusOf(sensor: Sensor): Status {
-  if (sensor.state === 'inactive' && sensor.lat === null) return 'unmounted'
-  return sensor.state
-}
-
-const STATUS_DOT: Record<Status, string> = {
-  ok: 'bg-emerald-500',
-  muted: 'bg-sky-500',
-  alarm: 'bg-red-500',
-  silent: 'bg-amber-500',
-  inactive: 'bg-muted-foreground',
-  unmounted: 'bg-muted-foreground',
-}
-
-const LOW_BATTERY_PCT = 20
+import { formatDateTime, LOW_BATTERY_PCT, STATUS_DOT, statusOf } from '@/lib/sensor-status'
 
 // "Sensors" section of the admin panel (AdminLayout gives the frame)
 export function SensorsPage() {
@@ -88,8 +70,6 @@ export function SensorsPage() {
     ...r,
     name: `${r.name} · ${foresters(r.id) || t('sensors.noForester')}`,
   }))
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })
 
   const query = search.trim().toLowerCase()
   const shown = (sensors ?? []).filter(
@@ -201,7 +181,7 @@ export function SensorsPage() {
                         {sensor.battery_pct === null ? '—' : `${sensor.battery_pct}%`}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        {sensor.last_seen ? formatDate(sensor.last_seen) : '—'}
+                        {sensor.last_seen ? formatDateTime(sensor.last_seen, i18n.language) : '—'}
                       </td>
                       <td className="px-1 py-1 text-right">
                         <Button

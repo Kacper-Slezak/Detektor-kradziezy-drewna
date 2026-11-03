@@ -18,7 +18,7 @@ Leśniczy oznacza w aplikacji, które mygły mają zostać w lesie, a które wyd
 | Widok | Dla kogo | Zawartość |
 |---|---|---|
 | Alarmy | leśniczy | lista alarmów „ruszono mygłę X”, powiadomienia, odpowiedź „fałszywy alarm” / „złapany” |
-| Mapa mygieł | leśniczy, nadleśniczy | mygły ze statusem: niewydana / wydana do wywozu / alarm / czujnik milczy |
+| Mapa czujników | leśniczy, nadleśniczy | czujniki (miejsca składowania) ze stanem: działa / wyciszony na wywóz / alarm / bez kontaktu ([mapa.md](mapa.md)) |
 | Raporty | nadleśniczy | zestawienie alarmów i zdarzeń, wykresy |
 | Panel administracyjny | administrator | użytkownicy i role |
 

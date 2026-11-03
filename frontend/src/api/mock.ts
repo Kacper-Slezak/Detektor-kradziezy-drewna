@@ -16,6 +16,7 @@ import type {
   Range,
   Sensor,
   SensorChanges,
+  SensorFilters,
   User,
   UserChanges,
 } from './types'
@@ -203,8 +204,21 @@ export async function mockListRanges(token: string | null): Promise<Range[]> {
   return ranges.map((r) => ({ ...r }))
 }
 
-// Sensors from the examples in api.md, plus one silent and one registered but not mounted yet
+// Sensors from the examples in api.md, plus one working, one silent and one registered but not mounted yet
 const sensors: Sensor[] = [
+  {
+    id: '70B3D57ED0052345',
+    name: 'Skład przy paśniku',
+    lat: 50.0598,
+    lon: 19.9605,
+    range_id: 1,
+    active: true,
+    state: 'ok',
+    battery_pct: 77,
+    last_seen: '2026-10-16T10:05:30Z',
+    muted_until: null,
+    open_alarm_id: null,
+  },
   {
     id: '70B3D57ED0051234',
     name: 'Skład przy drodze 5',
@@ -262,10 +276,15 @@ const sensors: Sensor[] = [
 // DevEUI: 16 hex characters
 const SENSOR_ID = /^[0-9A-F]{16}$/
 
-export async function mockListSensors(token: string | null): Promise<Sensor[]> {
+export async function mockListSensors(token: string | null, filters: SensorFilters = {}): Promise<Sensor[]> {
   await delay()
-  adminByToken(token)
-  return sensors.map((s) => ({ ...s }))
+  const { user } = accountByToken(token)
+  return sensors
+    .filter((s) => user.role !== 'forester' || s.range_id === user.range?.id)
+    .filter((s) => !filters.state || s.state === filters.state)
+    .filter((s) => filters.range_id === undefined || s.range_id === filters.range_id)
+    .filter((s) => !filters.unmounted || s.lat === null)
+    .map((s) => ({ ...s }))
 }
 
 export async function mockCreateSensor(token: string | null, newSensor: NewSensor): Promise<Sensor> {

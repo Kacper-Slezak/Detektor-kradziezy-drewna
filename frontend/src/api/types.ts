@@ -68,6 +68,14 @@ export interface Sensor {
   open_alarm_id: number | null
 }
 
+// Filters of GET /sensors (all optional)
+export interface SensorFilters {
+  state?: SensorState
+  range_id?: number
+  // only sensors without a location, for the list when mounting
+  unmounted?: boolean
+}
+
 // Sensor registration by the admin: not in api.md yet, agreed with backend
 export interface NewSensor {
   id: string
