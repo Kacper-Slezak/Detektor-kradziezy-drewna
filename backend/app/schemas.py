@@ -1,7 +1,8 @@
+import re
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class IngestIn(BaseModel):
@@ -108,3 +109,86 @@ class UserPatch(BaseModel):
 
 class TempPasswordOut(BaseModel):
     temporary_password: str
+
+
+# --- Czujniki ---
+
+SensorState = Literal["ok", "muted", "alarm", "silent", "inactive"]
+
+# ID czujnika = DevEUI: 16 znaków szesnastkowych. Na naklejkach bywa ze spacjami, myślnikami
+# albo dwukropkami, więc je usuwamy i zamieniamy na wielkie litery.
+SENSOR_ID_RE = re.compile(r"^[0-9A-F]{16}$")
+
+
+def normalize_sensor_id(value: str) -> str:
+    return re.sub(r"[\s:-]", "", value).upper()
+
+
+class SensorOut(BaseModel):
+    """Czujnik na mapie i w panelu admina. `state` wylicza backend (api.md, sekcja 2)."""
+
+    id: str
+    name: str | None
+    lat: float | None
+    lon: float | None
+    range_id: int | None
+    active: bool
+    state: SensorState
+    battery_pct: int | None
+    last_seen: datetime | None
+    muted_until: datetime | None
+    open_alarm_id: int | None
+
+
+class AlarmBrief(BaseModel):
+    id: int
+    detected_at: datetime
+    status: str
+    confidence: int
+
+
+class ReleaseBrief(BaseModel):
+    id: int
+    starts_at: datetime
+    ends_at: datetime
+    carrier: str | None
+    log_count: int | None
+
+
+class SensorDetailOut(SensorOut):
+    recent_alarms: list[AlarmBrief]
+    recent_releases: list[ReleaseBrief]
+
+
+class SensorCreate(BaseModel):
+    """Rejestracja czujnika przez admina. Nowy czujnik jest nieaktywny do montażu."""
+
+    id: str = Field(examples=["70B3D57ED0051234"])
+    range_id: int
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator("id")
+    @classmethod
+    def _sensor_id(cls, v: str) -> str:
+        v = normalize_sensor_id(v)
+        if not SENSOR_ID_RE.fullmatch(v):
+            raise ValueError("ID czujnika musi mieć 16 znaków szesnastkowych (DevEUI)")
+        return v
+
+
+class SensorPatch(BaseModel):
+    """Zmiana nazwy, leśnictwa (tylko admin) albo włączenie/wyłączenie.
+
+    `name: null` usuwa nazwę. Leśnictwa nie da się odpiąć (`range_id: null` → 422).
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    range_id: int | None = None
+    active: bool | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self):
+        for field in ("range_id", "active"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"Pole {field} nie może być null")
+        return self

@@ -6,59 +6,9 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.models import Range, User
-from app.security import ALGORITHM, create_token, hash_password
+from app.security import ALGORITHM, create_token
 from app.seed import create_admin
-
-PASSWORD = "Haslo-testowe-1"
-
-
-@pytest.fixture
-async def make_user(session_maker):
-    """Tworzy użytkownika w bazie i zwraca jego id."""
-
-    async def _make(login="blazej", role="forester", range_id=None, **kwargs) -> int:
-        kwargs.setdefault("must_change_password", False)
-        async with session_maker() as s:
-            user = User(
-                login=login,
-                password_hash=await hash_password(PASSWORD),
-                full_name=f"Imię {login}",
-                role=role,
-                range_id=range_id,
-                **kwargs,
-            )
-            s.add(user)
-            await s.commit()
-            return user.id
-
-    return _make
-
-
-@pytest.fixture
-async def range_id(session_maker) -> int:
-    async with session_maker() as s:
-        r = Range(name="Leśnictwo Dąbrowa")
-        s.add(r)
-        await s.commit()
-        return r.id
-
-
-async def login(client, login="blazej", password=PASSWORD):
-    return await client.post("/api/v1/auth/login", json={"login": login, "password": password})
-
-
-async def auth(client, user_login="blazej", password=PASSWORD) -> dict:
-    """Nagłówek Authorization po zalogowaniu."""
-    r = await login(client, user_login, password)
-    assert r.status_code == 200, r.text
-    return {"Authorization": f"Bearer {r.json()['token']}"}
-
-
-@pytest.fixture
-async def admin(client, make_user):
-    await make_user("admin", role="admin")
-    return await auth(client, "admin")
-
+from tests.utils import PASSWORD, auth, login
 
 # --- logowanie ---
 

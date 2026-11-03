@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.routers import auth, ingest, users
+from app.routers import auth, ingest, sensors, users
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -12,6 +12,7 @@ app = FastAPI(title="Detektor kradzieży drewna")
 app.include_router(ingest.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(sensors.router)
 
 
 @app.get("/health")
