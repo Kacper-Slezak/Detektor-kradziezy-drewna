@@ -3,6 +3,7 @@
 **Odpowiedzialny:** Kacper
 
 API (FastAPI) + baza TimescaleDB. Pełna dokumentacja: [docs/backend/](../docs/backend/README.md).
+Jak przetestować całość (frontend, symulator, płytka, baza): [docs/testowanie.md](../docs/testowanie.md).
 
 ## Szybki start (Docker)
 
@@ -16,6 +17,33 @@ curl localhost:8000/health  # {"status":"ok"}
 ```
 
 Dokumentacja API (Swagger): http://localhost:8000/docs
+
+## Dane demo i wirtualne czujniki
+
+Żeby mapa i panel nie były puste bez sprzętu:
+
+```bash
+docker compose run --rm web python -m app.seed --demo          # konta demo + 10 czujników + historia 7 dni
+docker compose run --rm web python -m app.seed --demo --reset  # od nowa (stany "starzeją się" po kilku godzinach)
+```
+
+| login | rola | leśnictwo |
+|---|---|---|
+| `blazej` | leśniczy | Dąbrowa (7 czujników) |
+| `ola` | leśniczy | Olszyny (3 czujniki) |
+| `bogdan` | nadleśniczy | wszystkie |
+
+Hasło wszystkich kont demo: `demo-haslo-1` (zmiana: `SEED_DEMO_PASSWORD` w `.env`). Czujniki demo mają ID `70B3D57ED00D....` i pokrywają każdy stan: ok, alarm, wyciszony (trwa wydanie), milczy, niska bateria, wyłączony, niezamontowany. Historia (heartbeaty, alarmy z odpowiedziami, wydania) przechodzi przez `/ingest`, tak jak prawdziwe ramki.
+
+Symulator wysyła ramki na żywo, spakowane jak w firmware ([tools/simulator.py](tools/simulator.py)):
+
+```bash
+docker compose --profile sim up simulator                       # czujniki demo, heartbeat co 30 s, czasem kradzież
+docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009
+docker compose run --rm simulator --scenario battery-drain --interval 5
+```
+
+Scenariusze: `normal`, `theft`, `false-alarm`, `battery-drain`, `silent`, `duplicate`. Wszystkie opcje: `docker compose run --rm simulator --help`. Liczniki czujników są zapisywane w `backend/.simulator-state.json` (poza repo).
 
 ## Uruchomienie bez Dockera
 
@@ -49,6 +77,7 @@ docker compose run --rm web pytest --cov=app --cov-report=term-missing
 ```
 backend/
 ├── app/            # kod aplikacji (punkt wejścia: app/main.py)
+├── tools/          # narzędzia deweloperskie (symulator czujników)
 ├── tests/
 ├── Dockerfile
 ├── docker-compose.yml

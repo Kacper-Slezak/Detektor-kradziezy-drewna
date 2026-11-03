@@ -17,6 +17,19 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
+  # Wirtualne czujniki. Nie startują z `docker compose up`, tylko:
+  #   docker compose --profile sim up simulator
+  #   docker compose run --rm simulator --scenario theft
+  simulator:
+    image: detektor-api
+    profiles: [sim]
+    depends_on:
+      - web
+    volumes:
+      - .:/app
+    entrypoint: ["python", "-m", "tools.simulator", "--api", "http://web:8000"]
+    restart: "no"
+
   timescaledb:
     image: timescale/timescaledb:latest-pg17
     environment:
