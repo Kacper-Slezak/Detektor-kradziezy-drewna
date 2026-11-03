@@ -299,8 +299,12 @@ Historia wydań: `?sensor_id=...&from=...&to=...`. Kształt jak wyżej, lista. P
  
 ### `GET /api/v1/alarms`
  
-Parametry: `?status=new&sensor_id=70B3D57ED0051234&from=2026-10-01T00:00:00Z&to=2026-10-31T23:59:59Z`
- 
+Parametry (wszystkie opcjonalne): `?status=new&sensor_id=70B3D57ED0051234&from=2026-10-01T00:00:00Z&to=2026-10-31T23:59:59Z&limit=100&offset=0`
+
+- `from` / `to` dotyczą chwili wykrycia (`detected_at`); czas bez strefy = UTC
+- `limit` 1–500 (domyślnie 100), `offset` do stronicowania
+- leśniczy dostaje alarmy swojego leśnictwa, nadleśniczy i admin wszystkie
+
 Sortowane od najnowszego.
  
 ```json
@@ -308,11 +312,14 @@ Sortowane od najnowszego.
   {
     "id": 41,
     "detected_at": "2026-10-16T09:57:40Z",
+    "last_frame_at": "2026-10-16T09:58:40Z",
     "sensor": { "id": "70B3D57ED0051234", "name": "Skład przy drodze 5", "lat": 50.0647, "lon": 19.9450 },
     "event_type": "theft",
     "sources": ["microphone", "vibration"],
     "confidence": 87,
     "duration_s": 40,
+    "energy": 180,
+    "repeats": 3,
     "possible_tampering": false,
     "status": "new",
     "response": null
@@ -320,11 +327,14 @@ Sortowane od najnowszego.
   {
     "id": 39,
     "detected_at": "2026-10-15T14:12:03Z",
+    "last_frame_at": "2026-10-15T14:13:03Z",
     "sensor": { "id": "70B3D57ED0051234", "name": "Skład przy drodze 5", "lat": 50.0647, "lon": 19.9450 },
     "event_type": "theft",
     "sources": ["vibration"],
     "confidence": 55,
     "duration_s": 12,
+    "energy": 60,
+    "repeats": 3,
     "possible_tampering": true,
     "status": "false_alarm",
     "response": {
@@ -338,16 +348,19 @@ Sortowane od najnowszego.
 ]
 ```
  
-- `sources` pochodzi z ramki: które czujniki zareagowały
-- `possible_tampering: true`, gdy były same wibracje bez dźwięku maszyny. Apka może wtedy pokazać „możliwa manipulacja przy czujniku”
+- `sources` pochodzi z ramki: które czujniki zareagowały (`microphone`, `vibration`)
+- `possible_tampering: true`, gdy `sources` to same wibracje (bez dźwięku). Apka może wtedy pokazać „możliwa manipulacja przy czujniku”
+- `event_type`: kod rodzaju zdarzenia z ramki zamieniony na nazwę. Na razie `1` → `theft`, a każdy inny kod → `unknown`. Listę ustala Kiryl
+- `repeats`: z ilu ramek złożył się alarm (urządzenie wysyła ALARM 3 razy, a backend scala ramki z 10 minut w jeden alarm); `last_frame_at` to czas ostatniej z nich
+- `confidence`, `duration_s`, `energy`: największe wartości ze scalonych ramek
 - alarmy w czasie wydania nie powstają wcale (backend je pomija), więc tej listy nie trzeba filtrować
 ### `GET /api/v1/alarms/{id}`
  
-Jeden alarm, ten sam kształt.
+Jeden alarm, ten sam kształt. Brak alarmu → `404`, alarm z innego leśnictwa → `403`.
  
 ### `POST /api/v1/alarms/{id}/response`
  
-Leśniczy po sprawdzeniu na miejscu.
+Leśniczy po sprawdzeniu na miejscu. Odpowiedzieć może leśniczy leśnictwa, w którym jest czujnik, oraz admin (np. żeby coś poprawić). Nadleśniczy → `403`.
  
 ```json
 // zapytanie
@@ -355,7 +368,9 @@ Leśniczy po sprawdzeniu na miejscu.
 ```
  
 - `result`: `theft` albo `false_alarm`
-- `comment`, `lat`, `lon` opcjonalne. **Lokalizacji nie sprawdzamy, ufamy leśniczemu.** Apka może jednak dosłać pozycję z telefonu, a serwer tylko ją zapisze jako dowód, że ktoś był na miejscu
+- `comment` (do 500 znaków), `lat`, `lon` opcjonalne. **Lokalizacji nie sprawdzamy, ufamy leśniczemu.** Apka może jednak dosłać pozycję z telefonu, a serwer tylko ją zapisze jako dowód, że ktoś był na miejscu
+- `lat` i `lon` podajemy razem albo wcale; jedna współrzędna albo wartość poza zakresem → `422`
+- `response.by` to login z tokena, `response.at` to czas serwera
 Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponowna odpowiedź na ten sam alarm zwraca `409`.
  
 > Odpowiedź **nie idzie do czujnika** (komunikacja jednostronna), tylko zostaje w bazie: zamyka alarm i jest etykietą dla algorytmu.

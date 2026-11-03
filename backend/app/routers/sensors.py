@@ -14,7 +14,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import Select, false, select
+from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,7 @@ from app.schemas import (
     SensorState,
     normalize_sensor_id,
 )
+from app.scope import check_range_access, range_filter
 from app.services.sensors import SensorStatus, as_utc, sensor_statuses
 
 log = logging.getLogger(__name__)
@@ -43,23 +44,8 @@ RECENT_LIMIT = 5
 
 
 def _scoped(query: Select, user: User) -> Select:
-    """Leśniczy widzi tylko swoje leśnictwo; bez leśnictwa nie widzi nic."""
-    if user.role == "forester":
-        if (
-            user.range_id is None
-        ):  # `range_id == None` dałoby IS NULL, czyli czujniki bez leśnictwa
-            return query.where(false())
-        return query.where(Sensor.range_id == user.range_id)
-    return query
-
-
-def _check_access(sensor: Sensor, user: User) -> None:
-    if user.role == "forester" and (
-        user.range_id is None or sensor.range_id != user.range_id
-    ):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "Czujnik należy do innego leśnictwa"
-        )
+    condition = range_filter(user)
+    return query if condition is None else query.where(condition)
 
 
 async def _get_sensor(session: AsyncSession, sensor_id: str, user: User) -> Sensor:
@@ -68,7 +54,7 @@ async def _get_sensor(session: AsyncSession, sensor_id: str, user: User) -> Sens
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"Czujnik o id {sensor_id} nie istnieje"
         )
-    _check_access(sensor, user)
+    check_range_access(sensor.range_id, user, "Czujnik należy do innego leśnictwa")
     return sensor
 
 
