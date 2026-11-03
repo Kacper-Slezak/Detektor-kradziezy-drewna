@@ -3,6 +3,7 @@
 **Odpowiedzialny:** Kacper
 
 API (FastAPI) + baza TimescaleDB. Pełna dokumentacja: [docs/backend/](../docs/backend/README.md).
+Jak przetestować całość (frontend, symulator, płytka, baza): [docs/testowanie.md](../docs/testowanie.md).
 
 ## Szybki start (Docker)
 

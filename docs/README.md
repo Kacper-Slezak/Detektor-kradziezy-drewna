@@ -1,7 +1,9 @@
 # Dokumentacja
 
+- **[Testowanie całego systemu](testowanie.md)** – backend + frontend, symulator, `curl`, płytka przez Wi-Fi, sprawdzanie bazy
 - [Persony](persony/README.md) – dla kogo budujemy system
-- [Backend](backend/README.md) – Docker, konfiguracja, (docelowo) API i model danych
+- [Backend](backend/README.md) – Docker, konfiguracja, API, model danych
+- [Frontend](frontend/README.md) – Docker, koncepcja, panel admina, mapa, PWA
 
 
 ## Research na branchach 
