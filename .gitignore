@@ -62,3 +62,6 @@ htmlcov/
 # Obsidian 
 docs/.obsidian/
 docs/.trash/
+
+# stan symulatora czujników (liczniki)
+.simulator-state.json

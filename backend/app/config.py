@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     # Konto admina tworzone przez `python -m app.seed`. Bez hasła zostanie wylosowane.
     seed_admin_login: str = "admin"
     seed_admin_password: str = ""
+    # Wspólne hasło kont demo z `python -m app.seed --demo`. Tylko do testów i prezentacji!
+    seed_demo_password: str = "demo-haslo-1"
 
     # Powtórzenia ALARM (wysyłane 3x) z tego okna scalamy w jeden alarm.
     alarm_merge_window_s: int = 600
