@@ -192,3 +192,58 @@ class SensorPatch(BaseModel):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"Pole {field} nie może być null")
         return self
+
+
+# --- Alarmy ---
+
+AlarmStatus = Literal["new", "theft", "false_alarm"]
+
+# kod rodzaju zdarzenia z ramki ALARM -> nazwa w API. Listę ustala Kiryl (docs/protocol.md),
+# nieznane kody pokazujemy jako "unknown", żeby nowy firmware nie psuł apki.
+EVENT_TYPES = {0: "unknown", 1: "theft"}
+
+
+class AlarmSensor(BaseModel):
+    id: str
+    name: str | None
+    lat: float | None
+    lon: float | None
+
+
+class AlarmResponse(BaseModel):
+    by: str
+    at: datetime
+    comment: str | None
+    lat: float | None
+    lon: float | None
+
+
+class AlarmOut(BaseModel):
+    id: int
+    detected_at: datetime
+    last_frame_at: datetime
+    sensor: AlarmSensor
+    event_type: str
+    sources: list[str]
+    confidence: int
+    duration_s: int
+    energy: int
+    repeats: int
+    possible_tampering: bool
+    status: AlarmStatus
+    response: AlarmResponse | None
+
+
+class AlarmResponseIn(BaseModel):
+    """Odpowiedź leśniczego po sprawdzeniu na miejscu. Pozycja z telefonu jest opcjonalna."""
+
+    result: Literal["theft", "false_alarm"]
+    comment: str | None = Field(default=None, max_length=500)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def _both_or_none(self):
+        if (self.lat is None) != (self.lon is None):
+            raise ValueError("Podaj obie współrzędne (lat i lon) albo żadnej")
+        return self
