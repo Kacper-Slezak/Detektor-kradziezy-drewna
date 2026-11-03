@@ -3,13 +3,22 @@
 import json
 import logging
 
+import httpx
 import pytest
 from sqlalchemy import select
 
 from app.demo import DEMO_SENSORS
 from app.models import Alarm, Message, Sensor
 from tests.conftest import SENSOR_ID
-from tools.simulator import DEFAULT_SENSORS, VirtualSensor, load_state, parse_args, run
+from tools.simulator import (
+    DEFAULT_SENSORS,
+    Simulator,
+    VirtualSensor,
+    load_state,
+    parse_args,
+    run,
+    wait_for_api,
+)
 
 SECOND = "70B3D57ED0005678"
 
@@ -139,3 +148,43 @@ def test_bateria_czujnikow_demo_z_seeda(tmp_path):
 def test_licznik_przekreca_sie():
     sensor = VirtualSensor(id=SENSOR_ID, counter=65535)
     assert sensor.next_counter() == 0
+
+
+def _down(request):
+    raise httpx.ConnectError("odmowa połączenia")
+
+
+async def test_backend_nie_odpowiada_symulator_dziala_dalej(caplog):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_down), base_url="http://x") as c:
+        sim = Simulator(c, [VirtualSensor(id=SENSOR_ID)])
+        with caplog.at_level(logging.WARNING, logger="simulator"):
+            assert await sim.heartbeat(sim.sensors[0]) == []
+    assert "nie odpowiada" in caplog.text
+
+
+async def test_blad_500_podpowiada_migracje(caplog):
+    transport = httpx.MockTransport(lambda r: httpx.Response(500, text="Internal Server Error"))
+    async with httpx.AsyncClient(transport=transport, base_url="http://x") as c:
+        sim = Simulator(c, [VirtualSensor(id=SENSOR_ID)])
+        with caplog.at_level(logging.ERROR, logger="simulator"):
+            await sim.boot(sim.sensors[0])
+    assert "alembic upgrade head" in caplog.text
+
+
+async def test_czekanie_na_backend():
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        if len(calls) < 3:
+            raise httpx.ConnectError("jeszcze nie")
+        return httpx.Response(200, json={"status": "ok"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://x") as c:
+        assert await wait_for_api(c, timeout_s=5, step_s=0) is True
+        assert len(calls) == 3
+
+
+async def test_czekanie_konczy_sie_po_czasie():
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_down), base_url="http://x") as c:
+        assert await wait_for_api(c, timeout_s=0, step_s=0) is False

@@ -21,7 +21,7 @@ Wszystkie komendy `docker compose` wykonuj w folderze, którego dotyczą (`backe
 
 ```bash
 cd backend
-cp .env.example .env     # tylko za pierwszym razem: ustaw POSTGRES_PASSWORD i JWT_SECRET
+cp -n .env.example .env  # -n: nie nadpisze istniejącego .env (inaczej zgubisz hasło do bazy); ustaw POSTGRES_PASSWORD i JWT_SECRET
 docker compose up -d --build
 docker compose run --rm web alembic upgrade head          # tabele (świeża baza i po każdej nowej migracji)
 docker compose run --rm web python -m app.seed --demo     # admin + konta demo + 10 czujników z historią
