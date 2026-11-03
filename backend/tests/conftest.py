@@ -8,7 +8,9 @@ from sqlalchemy.pool import StaticPool
 from app.config import settings
 from app.db import Base, get_session
 from app.main import app
-from app.models import Sensor
+from app.models import Range, Sensor, User
+from app.security import hash_password
+from tests.utils import PASSWORD, auth
 
 SENSOR_ID = "70B3D57ED0051234"
 
@@ -44,3 +46,40 @@ async def client(session_maker):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def make_user(session_maker):
+    """Tworzy użytkownika w bazie i zwraca jego id."""
+
+    async def _make(login="blazej", role="forester", range_id=None, **kwargs) -> int:
+        kwargs.setdefault("must_change_password", False)
+        async with session_maker() as s:
+            user = User(
+                login=login,
+                password_hash=await hash_password(PASSWORD),
+                full_name=f"Imię {login}",
+                role=role,
+                range_id=range_id,
+                **kwargs,
+            )
+            s.add(user)
+            await s.commit()
+            return user.id
+
+    return _make
+
+
+@pytest.fixture
+async def range_id(session_maker) -> int:
+    async with session_maker() as s:
+        r = Range(name="Leśnictwo Dąbrowa")
+        s.add(r)
+        await s.commit()
+        return r.id
+
+
+@pytest.fixture
+async def admin(client, make_user):
+    await make_user("admin", role="admin")
+    return await auth(client, "admin")

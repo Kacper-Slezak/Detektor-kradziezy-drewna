@@ -17,5 +17,8 @@ class Settings(BaseSettings):
     # Powtórzenia ALARM (wysyłane 3x) z tego okna scalamy w jeden alarm.
     alarm_merge_window_s: int = 600
 
+    # Brak ramki dłużej niż tyle godzin = stan "silent" (heartbeat co ~6 h, więc 2 zgubione).
+    sensor_silent_after_h: int = 12
+
 
 settings = Settings()
