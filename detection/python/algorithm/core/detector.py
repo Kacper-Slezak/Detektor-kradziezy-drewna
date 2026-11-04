@@ -1,7 +1,3 @@
-"""Threshold-based audio / vibration detection and temporal sensor fusion.
-
-A warning means a suspicious sensor pattern, NOT evidence of an actual theft.
-"""
 from __future__ import annotations
 
 import json
@@ -58,11 +54,6 @@ class Model:
 
 
 def calibrate(rows: list[dict], settings: Settings, *, quiet: bool = False) -> Model:
-    """Quiet data: full baseline; otherwise use lower tail as rough heuristic.
-
-    Self-calibration can fail when the entire recording is noisy / has an engine.
-    Prefer a separate quiet baseline (--baseline-audio / --baseline-sensors).
-    """
     if len(rows) < 5:
         raise ValueError("Need at least 5 analysis windows for calibration")
     floors = {"audio_rms": settings.min_audio_rms,

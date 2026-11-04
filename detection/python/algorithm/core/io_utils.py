@@ -1,4 +1,3 @@
-"""I/O for audio and accelerometer/vibration CSVs."""
 from __future__ import annotations
 
 import csv
@@ -10,7 +9,6 @@ import numpy as np
 
 
 def read_audio(path: str | Path, target_rate: int = 8000) -> tuple[int, np.ndarray]:
-    """Decode WAV or MP3 to mono float32 via bundled FFmpeg (no system install)."""
     import imageio_ffmpeg
 
     path = Path(path)
@@ -36,12 +34,6 @@ def read_audio(path: str | Path, target_rate: int = 8000) -> tuple[int, np.ndarr
 
 
 def read_sensors(path: str | Path, offset_s: float = 0.0) -> dict[str, np.ndarray]:
-    """Required time_s and at least vibration OR all accel_x/y/z.
-
-    Each optional measurement is retained in original units. Vibration may be
-    analog amplitude or a binary switching signal. Binary inputs need a suitable
-    detector configuration; see README.
-    """
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"Sensor CSV does not exist: {path}")

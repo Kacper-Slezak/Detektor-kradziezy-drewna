@@ -1,4 +1,3 @@
-"""Independent extraction of microphone and motion features in aligned windows."""
 from __future__ import annotations
 
 import math
@@ -11,7 +10,6 @@ def _rms(array: np.ndarray) -> float:
 
 
 def audio_window_features(samples: np.ndarray, sample_rate: int) -> dict[str, float]:
-    """RMS, bass fraction and short transient (impact) relative to steady audio."""
     centered = samples.astype(np.float64) - float(np.mean(samples))
     rms = _rms(centered)
     power = np.abs(np.fft.rfft(centered * np.hanning(len(centered)))) ** 2
@@ -32,7 +30,6 @@ def audio_window_features(samples: np.ndarray, sample_rate: int) -> dict[str, fl
 
 
 def motion_window_features(sensors: dict[str, np.ndarray], indices: slice) -> dict[str, float]:
-    """Detrended vibration, accelerometer dynamics; no assumptions about units."""
     values = {}
     if "vibration" in sensors:
         v = sensors["vibration"][indices]
