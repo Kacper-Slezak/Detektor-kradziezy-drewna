@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 class IngestIn(BaseModel):
     device: str = Field(min_length=1, max_length=32, examples=["70B3D57ED0051234"])
-    payload_hex: str = Field(min_length=2, max_length=128, examples=["11002A0101570028B440"])
+    payload_hex: str = Field(
+        min_length=2, max_length=128, examples=["11002A0101570028B440"]
+    )
     # bez czasu = "teraz" (bramka może go nie podać)
     received_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), examples=["2026-10-16T10:00:00Z"]
@@ -192,6 +194,47 @@ class SensorPatch(BaseModel):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"Pole {field} nie może być null")
         return self
+
+
+class SensorMount(BaseModel):
+    """Montaż w terenie: nazwa od leśniczego, pozycja z GPS telefonu."""
+
+    name: str = Field(min_length=1, max_length=100, examples=["Skład przy drodze 5"])
+    lat: float = Field(ge=-90, le=90, examples=[50.0647])
+    lon: float = Field(ge=-180, le=180, examples=[20.3105])
+
+    @field_validator("name")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Nazwa nie może być pusta")
+        return v
+
+
+# --- Wydania drewna ---
+
+
+class ReleaseCreate(BaseModel):
+    """Wyciszenie czujnika na czas wywozu. Bez `ends_at`: domyślna długość z configu (4 h)."""
+
+    ends_at: datetime | None = Field(default=None, examples=["2026-11-10T14:05:00Z"])
+    carrier: str | None = Field(default=None, max_length=100)
+    log_count: int | None = Field(default=None, ge=0, le=100_000)
+    comment: str | None = Field(default=None, max_length=500)
+
+
+class ReleaseOut(BaseModel):
+    id: int
+    sensor_id: str
+    sensor_name: str | None
+    starts_at: datetime
+    ends_at: datetime
+    active: bool
+    carrier: str | None
+    log_count: int | None
+    comment: str | None
+    created_by: str | None
 
 
 # --- Alarmy ---

@@ -54,7 +54,7 @@ async def _is_muted(session: AsyncSession, sensor: Sensor, at: datetime) -> bool
         select(Release.id).where(
             Release.sensor_id == sensor.id,
             Release.starts_at <= at,
-            Release.ends_at >= at,
+            Release.ends_at > at,
         ).limit(1)
     )
     return release is not None
