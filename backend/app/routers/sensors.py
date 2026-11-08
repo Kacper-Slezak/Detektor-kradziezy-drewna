@@ -5,8 +5,8 @@ Kto co widzi:
 - nadleśniczy i admin: wszystkie.
 
 Kto co zmienia:
-- admin: rejestruje czujniki, zmienia nazwę, leśnictwo, włącza/wyłącza,
-- leśniczy: nazwę i włączenie czujników swojego leśnictwa,
+- admin: rejestruje czujniki, zmienia nazwę, leśnictwo, włącza/wyłącza, montuje (poprawki),
+- leśniczy: montuje, zmienia nazwę i włącza/wyłącza czujniki swojego leśnictwa,
 - nadleśniczy: tylko odczyt.
 """
 
@@ -26,6 +26,7 @@ from app.schemas import (
     ReleaseBrief,
     SensorCreate,
     SensorDetailOut,
+    SensorMount,
     SensorOut,
     SensorPatch,
     SensorState,
@@ -226,4 +227,38 @@ async def update_sensor(
         setattr(sensor, field, value)
     await session.commit()
     log.info("%s zmienił czujnik %s: %s", user.login, sensor.id, sorted(changes))
+    return await _one_out(session, sensor)
+
+
+@router.put(
+    "/{sensor_id}/mount",
+    response_model=SensorOut,
+    responses={
+        403: {"description": "Nadleśniczy albo czujnik z innego leśnictwa"},
+        404: {"description": "Brak czujnika"},
+    },
+)
+async def mount_sensor(
+    sensor_id: str, body: SensorMount, user: SensorEditor, session: Session
+) -> SensorOut:
+    """Leśniczy przy stosie drewna: nazwa + GPS z telefonu, czujnik zaczyna czuwać.
+
+    Ponowny montaż (przeniesienie czujnika) nadpisuje nazwę i lokalizację.
+    """
+    sensor = await _get_sensor(session, sensor_id, user)
+    remount = sensor.lat is not None and sensor.lon is not None
+    sensor.name = body.name
+    sensor.lat = body.lat
+    sensor.lon = body.lon
+    sensor.active = True
+    await session.commit()
+    log.info(
+        "%s %s czujnik %s: %s (%.5f, %.5f)",
+        user.login,
+        "przeniósł" if remount else "zamontował",
+        sensor.id,
+        sensor.name,
+        sensor.lat,
+        sensor.lon,
+    )
     return await _one_out(session, sensor)

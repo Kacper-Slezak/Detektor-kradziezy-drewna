@@ -26,5 +26,9 @@ class Settings(BaseSettings):
     # Brak ramki dłużej niż tyle godzin = stan "silent" (heartbeat co ~6 h, więc 2 zgubione).
     sensor_silent_after_h: int = 12
 
+    # Wydanie drewna (wyciszenie czujnika): domyślna i najdłuższa długość w godzinach.
+    release_default_hours: int = 4
+    release_max_hours: int = 24
+
 
 settings = Settings()
