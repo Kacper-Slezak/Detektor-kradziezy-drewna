@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_expire_hours: int = 24
 
+    # Klucz, który urządzenia / bramka / symulator wysyłają w nagłówku X-Ingest-Key.
+    # Puste = /ingest bez zabezpieczenia (tylko lokalnie, przy starcie leci ostrzeżenie).
+    ingest_api_key: str = ""
+
     # Konto admina tworzone przez `python -m app.seed`. Bez hasła zostanie wylosowane.
     seed_admin_login: str = "admin"
     seed_admin_password: str = ""

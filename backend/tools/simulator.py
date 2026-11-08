@@ -26,6 +26,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import random
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -96,7 +97,12 @@ class Simulator:
                     "%s: backend nie odpowiada (%s)", sensor.id, type(e).__name__
                 )
                 continue
-            if r.status_code == 404:
+            if r.status_code == 401:
+                log.error(
+                    "%s: backend odrzucił klucz. Ustaw --ingest-key / INGEST_API_KEY.",
+                    sensor.id,
+                )
+            elif r.status_code == 404:
                 log.error(
                     "%s: backend nie zna czujnika. Uruchom seed --demo albo dodaj go w panelu.",
                     sensor.id,
@@ -298,6 +304,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument("--state", default=".simulator-state.json", help="plik z licznikami")
     p.add_argument("--seed", type=int, help="ziarno losowania (powtarzalne przebiegi)")
+    p.add_argument(
+        "--ingest-key",
+        default=os.environ.get("INGEST_API_KEY", ""),
+        help="klucz X-Ingest-Key (domyślnie INGEST_API_KEY ze środowiska / .env)",
+    )
     p.add_argument("--once", action="store_true", help="jeden obrót i koniec")
     p.add_argument(
         "--wait", type=float, default=60, help="ile sekund czekać na start backendu"
@@ -311,7 +322,10 @@ async def main(argv: list[str] | None = None) -> None:
         level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S"
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    async with httpx.AsyncClient(base_url=args.api, timeout=10) as client:
+    headers = {"X-Ingest-Key": args.ingest_key} if args.ingest_key else {}
+    async with httpx.AsyncClient(
+        base_url=args.api, timeout=10, headers=headers
+    ) as client:
         await run(args, client)
 
 
