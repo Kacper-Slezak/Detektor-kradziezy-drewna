@@ -23,6 +23,7 @@ services:
   simulator:
     image: detektor-api
     profiles: [sim]
+    env_file: .env  # INGEST_API_KEY dla nagłówka X-Ingest-Key
     depends_on:
       - web
     volumes:

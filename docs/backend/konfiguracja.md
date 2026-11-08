@@ -6,6 +6,7 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 |---|---|
 | `POSTGRES_PASSWORD` | Hasło użytkownika `detektor` w bazie; używane przez compose |
 | `DATABASE_URL` | Adres bazy dla aplikacji (sterownik async: `postgresql+asyncpg://`) |
+| `INGEST_API_KEY` | Klucz dla `POST /api/v1/ingest`: urządzenia, bramka i symulator wysyłają go w nagłówku `X-Ingest-Key`, bez niego dostają `401`. Pusty = endpoint bez zabezpieczenia, dopuszczalne tylko lokalnie (backend ostrzega przy starcie). Wygeneruj: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Klucz trzymamy tylko w `.env` (nie w repo) |
 | `TTN_WEBHOOK_SECRET` | Sekret webhooka z The Things Network |
 | `FIREBASE_CREDENTIALS_PATH` | Ścieżka do poświadczeń Firebase (powiadomienia) |
 | `JWT_SECRET` | Klucz do podpisywania tokenów JWT (wymagany, bez niego logowanie zwraca błąd 500). Wygeneruj: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Zmiana klucza wylogowuje wszystkich. |

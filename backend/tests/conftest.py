@@ -20,6 +20,8 @@ SENSOR_ID = "70B3D57ED0051234"
 def _jwt_secret(monkeypatch):
     # niezależnie od tego, co jest w lokalnym .env
     monkeypatch.setattr(settings, "jwt_secret", "tajny-klucz-do-testow-minimum-32-bajty")
+    # testy innych endpointów wysyłają ramki bez klucza; klucz sprawdza test_ingest_key.py
+    monkeypatch.setattr(settings, "ingest_api_key", "")
 
 
 @pytest.fixture
