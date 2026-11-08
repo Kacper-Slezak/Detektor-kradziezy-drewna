@@ -14,6 +14,8 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `SEED_ADMIN_PASSWORD` | Hasło tego admina. Puste = wylosowane i wypisane w konsoli. Konto i tak musi je zmienić przy pierwszym logowaniu |
 | `SEED_DEMO_PASSWORD` | Wspólne hasło kont demo z `python -m app.seed --demo` (domyślnie `demo-haslo-1`). Konta demo nie muszą zmieniać hasła, więc **nie używaj `--demo` na serwerze z prawdziwymi danymi** |
 | `SENSOR_SILENT_AFTER_H` | Po ilu godzinach bez żadnej ramki czujnik dostaje stan `silent` (domyślnie `12`, heartbeat leci co ~6 h) |
+| `RELEASE_DEFAULT_HOURS` | Długość wydania drewna (wyciszenia), gdy apka nie poda końca (domyślnie `4`) |
+| `RELEASE_MAX_HOURS` | Najdłuższe dopuszczalne wydanie w godzinach (domyślnie `24`); dłuższe → `422` |
 
 ## Konto admina (seed)
 

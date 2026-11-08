@@ -128,7 +128,9 @@ Kto co może:
 | rejestracja (`POST`) | – | – | tak |
 | nazwa, włączenie (`PATCH`) | swoje leśnictwo | – | tak |
 | leśnictwo (`PATCH range_id`) | – | – | tak |
-| montaż (`PUT .../mount`) | swoje leśnictwo | – | – |
+| montaż (`PUT .../mount`) | swoje leśnictwo | – | tak (poprawki) |
+| wydania: tworzenie i zakończenie | swoje leśnictwo | – | tak (poprawki) |
+| wydania: historia (`GET /releases`) | swoje leśnictwo | wszystkie | wszystkie |
 
 ### `GET /api/v1/sensors`
 
@@ -224,7 +226,13 @@ Leśniczy montuje czujnik na miejscu: wybiera czujnik z listy, telefon podaje GP
 { "name": "Skład przy drodze 5", "lat": 50.0647, "lon": 19.9450 }
 ```
  
-Odpowiedź `200`: czujnik z `active: true`. Leśnictwo bierzemy z konta leśniczego. Ponowny montaż (przeniesienie czujnika w inne miejsce) nadpisuje lokalizację.
+Odpowiedź `200`: czujnik jak w `GET /api/v1/sensors/{id}` (bez ostatnich alarmów i wydań), z `active: true`. Leśnictwo się nie zmienia: przypisuje je admin przy rejestracji.
+
+- `name` wymagane, 1–100 znaków (spacje na początku i końcu są obcinane); `lat` −90…90, `lon` −180…180
+- ponowny montaż (przeniesienie czujnika w inne miejsce) nadpisuje nazwę i lokalizację
+- montaż włącza też czujnik wyłączony wcześniej przez `PATCH`
+- świeżo zamontowany czujnik, który jeszcze nic nie wysłał, ma stan `silent`; po pierwszej ramce `ok`
+- czujnik z innego leśnictwa albo zapytanie od nadleśniczego → `403`, brak czujnika → `404`, złe dane → `422`
  
 ### `PATCH /api/v1/sensors/{id}`
  
@@ -267,15 +275,19 @@ Leśniczy wydaje drewno przewoźnikowi i potwierdza to w apce. **W apce wybiera 
 ```
  
 - `starts_at` nie trzeba podawać, backend wpisze „teraz”,
-- bez `ends_at` backend przyjmie domyślne 4 h,
-- opcjonalnie do ewidencji: `carrier` (przewoźnik), `log_count` (liczba kłód), `comment`.
+- bez `ends_at` backend przyjmie domyślne 4 h (`RELEASE_DEFAULT_HOURS`),
+- `ends_at` musi być w przyszłości i najwyżej 24 h od teraz (`RELEASE_MAX_HOURS`), inaczej `422`; czas bez strefy = UTC,
+- opcjonalnie do ewidencji: `carrier` (przewoźnik, do 100 znaków), `log_count` (liczba kłód, ≥ 0), `comment` (do 500 znaków),
+- `created_by` to login z tokena.
 ```json
 // 201
 {
   "id": 8,
   "sensor_id": "70B3D57ED0055678",
+  "sensor_name": "Skład przy drodze 5",
   "starts_at": "2026-10-16T10:05:00Z",
   "ends_at": "2026-10-16T14:05:00Z",
+  "active": true,
   "carrier": null,
   "log_count": null,
   "comment": null,
@@ -283,15 +295,25 @@ Leśniczy wydaje drewno przewoźnikowi i potwierdza to w apce. **W apce wybiera 
 }
 ```
  
-Jeśli wydanie dla tego czujnika już trwa, zwracamy `409`.
+- `active`: czy wydanie trwa w chwili odpowiedzi
+- wydanie dla tego czujnika już trwa → `409` (w `detail` jest jego `id`, żeby apka mogła je zakończyć)
+- czujnik niezamontowany (bez lokalizacji) → `409`; dwa równoczesne wydania dla jednego czujnika nie powstaną (blokada wiersza czujnika)
+- czujnik z innego leśnictwa albo zapytanie od nadleśniczego → `403`, brak czujnika → `404`
+
+W trakcie wydania `/ingest` zapisuje ramki, ale nie tworzy alarmów, a czujnik ma stan `muted` z `muted_until` = `ends_at`.
  
 ### `POST /api/v1/releases/{id}/end`
  
-Przewoźnik odjechał wcześniej, więc leśniczy kończy wyciszenie od razu i czujnik wraca do czuwania. Odpowiedź `200`: wydanie z `ends_at` ustawionym na „teraz”.
+Przewoźnik odjechał wcześniej, więc leśniczy kończy wyciszenie od razu i czujnik wraca do czuwania. Odpowiedź `200`: wydanie z `ends_at` ustawionym na „teraz” i `active: false`. Wydanie już zakończone → `409`, brak → `404`, cudze leśnictwo / nadleśniczy → `403`.
  
 ### `GET /api/v1/releases`
  
-Historia wydań: `?sensor_id=...&from=...&to=...`. Kształt jak wyżej, lista. Przydaje się w raportach i przy wyjaśnianiu sporów z przewoźnikiem.
+Historia wydań: `?sensor_id=...&active=true&from=...&to=...&limit=100&offset=0`. Kształt jak wyżej, lista od najnowszych. Przydaje się w raportach i przy wyjaśnianiu sporów z przewoźnikiem.
+
+- `active=true` tylko trwające, `active=false` tylko zakończone
+- `from` / `to`: wydania, które choć częściowo trwały w tym przedziale; czas bez strefy = UTC
+- `limit` 1–500 (domyślnie 100)
+- leśniczy dostaje wydania swojego leśnictwa, nadleśniczy i admin wszystkie
  
 ---
  
