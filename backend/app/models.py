@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -52,12 +53,19 @@ class User(Base):
 
 
 class PushSubscription(Base):
-    """Token FCM urządzenia użytkownika do powiadomień o alarmach."""
+    """Subskrypcja Web Push (VAPID) przeglądarki użytkownika, do powiadomień o alarmach.
+
+    Pola jak w `PushSubscription.toJSON()` z przeglądarki: `endpoint` i `keys.p256dh`, `keys.auth`.
+    """
 
     __tablename__ = "push_subscriptions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    fcm_token: Mapped[str] = mapped_column(String(255), unique=True)
+    # adres usługi push przeglądarki (FCM, Mozilla, Apple); długość nieustalona w standardzie
+    endpoint: Mapped[str] = mapped_column(Text, unique=True)
+    # klucz publiczny ECDH P-256 (87 zn.) i sekret uwierzytelniający (22 zn.), base64url
+    p256dh: Mapped[str] = mapped_column(String(100))
+    auth: Mapped[str] = mapped_column(String(50))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     device_label: Mapped[str | None] = mapped_column(String(100))
 
