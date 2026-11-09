@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// tunnels for testing on a phone (docs/frontend/pwa.md): localtunnel and Cloudflare quick tunnel
+const TUNNEL_HOSTS = ['.loca.lt', '.trycloudflare.com']
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -44,6 +47,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // without this the dev server rejects requests coming through a tunnel ("Blocked request")
+    allowedHosts: TUNNEL_HOSTS,
     // in Docker on Windows, file changes are detected by polling
     watch: { usePolling: process.env.CHOKIDAR_USEPOLLING === 'true' },
     proxy: {
@@ -52,7 +57,7 @@ export default defineConfig({
     },
   },
   preview: {
-    allowedHosts: ['.loca.lt'],
+    allowedHosts: TUNNEL_HOSTS,
     proxy: {
       '/api': process.env.API_TARGET ?? 'http://localhost:8000',
     },

@@ -10,10 +10,10 @@ Komendy `docker compose` wykonuje się w folderze, którego dotyczą: `backend/`
 |---|---|
 | ramka → `POST /api/v1/ingest` → baza (`messages`, `alarms`, stan czujnika) | działa |
 | symulator czujników → backend → mapa | działa |
-| LoPy przez Wi-Fi → backend (bez TTN) | działa, skrypt [firmware/przyklady/wyslij_wifi.py](../firmware/przyklady/wyslij_wifi.py) |
+| LoPy przez Wi-Fi → backend (bez TTN) | działa w tej samej sieci i przez tunel HTTPS (Cloudflare), skrypt [firmware/przyklady/wyslij_wifi.py](../firmware/przyklady/wyslij_wifi.py) |
 | logowanie, konta, rejestracja czujników w panelu admina, mapa | działa |
 | lista alarmów i odpowiedź leśniczego | API gotowe (`/api/v1/alarms`), brak widoku w aplikacji; alarm widoczny jako czerwona pinezka |
-| montaż czujnika (lokalizacja z telefonu), wydania drewna | brak; montaż można zastąpić zapytaniem SQL ([sekcja 6](#6-płytka-lopy-przez-wi-fi)) |
+| montaż czujnika, wydania drewna | API gotowe (`PUT /api/v1/sensors/{id}/mount`, `/api/v1/sensors/{id}/releases`, `/api/v1/releases`), widoki w aplikacji w przygotowaniu; do tego czasu Swagger |
 | LoPy → TTN → webhook → backend | brak adaptera `/ingest/ttn` |
 | powiadomienia push | brak |
 
@@ -26,6 +26,13 @@ docker compose up -d --build
 docker compose run --rm web alembic upgrade head          # tabele: przy nowej bazie i po każdej nowej migracji
 docker compose run --rm web python -m app.seed --demo     # admin, konta demo, 10 czujników z historią 7 dni
 curl localhost:8000/health                                # {"status":"ok"}
+```
+
+Klucz dla `/ingest` (`INGEST_API_KEY` w `.env`, opis: [konfiguracja.md](backend/konfiguracja.md)): bez niego endpoint jest otwarty, co wystarcza tylko lokalnie. Przy wystawianiu backendu przez tunel klucz jest obowiązkowy:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # wynik wpisać w .env jako INGEST_API_KEY=...
+docker compose up -d                                             # backend wczytuje nowy .env
 ```
 
 - W `.env` muszą być ustawione `POSTGRES_PASSWORD` i `JWT_SECRET`. Zmiana `POSTGRES_PASSWORD` po utworzeniu bazy wymaga `docker compose down -v` (kasuje dane), bo hasło zapisuje się w wolumenie przy pierwszym starcie.
@@ -99,17 +106,26 @@ Scenariusze:
 | `docker compose run --rm simulator --scenario duplicate --once` | – | w logu `duplicate`: backend odrzuca drugą kopię ramki |
 | `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0003 --once` | `blazej` | czujnik z trwającym wydaniem zostaje niebieski; w logu `alarm pominięty (wyciszony/wyłączony)`, ramka zapisana bez alarmu |
 
+Wydanie drewna na dowolnym czujniku (Swagger, konto leśniczego):
+
+1. `POST /api/v1/sensors/70B3D57ED00D0009/releases` z body `{}` (jako `ola`): wydanie na 4 h, pinezka zmienia kolor na niebieski.
+2. `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once`: w logu `alarm pominięty (wyciszony/wyłączony)`.
+3. `POST /api/v1/releases/{id}/end`: koniec wydania; kolejny `theft` tworzy alarm.
+
 Liczniki czujników są zapisywane w `backend/.simulator-state.json` (plik poza repozytorium). Po `seed --demo --reset` plik nie przeszkadza, bo symulator zawsze zaczyna od ramki BOOT.
 
 ## 4. Ręczne wysyłanie ramek
 
-Endpoint `POST /api/v1/ingest` jest wspólny dla symulatora, płytki i testów ręcznych:
+Endpoint `POST /api/v1/ingest` jest wspólny dla symulatora, płytki i testów ręcznych. Gdy w `backend/.env` jest ustawiony `INGEST_API_KEY`, każde zapytanie musi mieć nagłówek `X-Ingest-Key` z tym kluczem (bez niego: `401`). Przy pustym `INGEST_API_KEY` nagłówek nie jest wymagany.
 
 ```bash
 curl -X POST localhost:8000/api/v1/ingest \
   -H "Content-Type: application/json" \
+  -H "X-Ingest-Key: <INGEST_API_KEY>" \
   -d '{"device": "70B3D57ED00D0008", "payload_hex": "1200FF5A0000"}'
 ```
+
+W Swaggerze klucz wpisuje się w **Authorize** → `APIKeyHeader (X-Ingest-Key)`. Symulator bierze klucz z `INGEST_API_KEY` w `.env` (serwis `simulator` czyta ten plik) albo z opcji `--ingest-key`.
 
 `payload_hex` to ramka z protokołu zapisana szesnastkowo. Przykłady:
 
@@ -138,6 +154,7 @@ Odpowiedzi `/ingest`:
 | 201 | `stored` | zapisane; przy ALARM `alarm_created: true` (nowy alarm) albo `false` (doklejony do otwartego alarmu z ostatnich 10 min) |
 | 201 | `stored`, `muted: true` | czujnik wyłączony albo trwa wydanie: ramka zapisana, alarm nie powstaje |
 | 200 | `duplicate` | licznik nie większy niż ostatni zapisany dla czujnika; nic nie zapisano |
+| 401 | `Brak lub zły klucz X-Ingest-Key` | ustawiony `INGEST_API_KEY`, a nagłówka brak albo klucz się nie zgadza |
 | 404 | `Nieznany czujnik` | brak czujnika o tym ID w bazie |
 | 422 | `Błędna ramka: …` | zła długość, wersja, typ albo wartość procentowa > 100 |
 
@@ -196,7 +213,34 @@ Test sprzętu bez TTN: LoPy łączy się z Wi-Fi i wysyła ramki na `POST /api/v
 
 ### Sieć
 
-Płytka i laptop muszą być w jednej sieci. Sieci uczelniane (eduroam) zwykle blokują ruch między urządzeniami, dlatego zalecany jest hotspot z telefonu.
+Płytka musi dosięgnąć backendu. Adres ustawia się w `API_URL` w skrypcie. Są dwa sposoby:
+
+| Sposób | `API_URL` | Kiedy |
+|---|---|---|
+| A. tunel Cloudflare (zalecany) | `https://<losowa-nazwa>.trycloudflare.com` | płytka w dowolnej sieci z internetem (hotspot, eduroam); bez konfiguracji Windows |
+| B. ta sama sieć | `http://<IP laptopa>:8000` | gdy TLS na płytce nie działa albo nie ma internetu; laptop i płytka w jednej sieci |
+
+#### A. Tunel Cloudflare (quick tunnel)
+
+Quick tunnel daje tymczasowy publiczny adres HTTPS prowadzący do backendu na laptopie. Nie wymaga konta ani hasła (w przeciwieństwie do localtunnel). Adres zmienia się przy każdym uruchomieniu, a tunel działa, dopóki działa komenda.
+
+1. Klucz `INGEST_API_KEY` ustawiony w `backend/.env` ([sekcja 1](#1-backend)). Tunel wystawia `/ingest` do internetu.
+2. Tunel (osobny terminal, Docker, bez instalacji):
+   ```bash
+   docker run --rm --network host cloudflare/cloudflared:2025.10.0 tunnel --no-autoupdate --url http://127.0.0.1:8000
+   ```
+   W logu pojawi się adres, np. `https://oct-commitment-vital-satellite.trycloudflare.com`.
+3. Kontrola z laptopa (ten sam skrypt, zwykły Python):
+   ```bash
+   python3 firmware/przyklady/wyslij_wifi.py https://<adres>.trycloudflare.com <INGEST_API_KEY>
+   ```
+   Oczekiwane: pięć linii `-> 201`.
+
+Skrypt na płytce łączy się po TLS z SNI (`ussl.wrap_socket(..., server_hostname=...)`), bez sprawdzania certyfikatu (brak pliku CA na płytce). Połączenie jest szyfrowane, więc klucz nie idzie otwartym tekstem.
+
+#### B. Ta sama sieć
+
+Sieci uczelniane (eduroam) zwykle blokują ruch między urządzeniami, dlatego zalecany jest hotspot z telefonu.
 
 Konfiguracja laptopa (Windows + WSL + Docker Desktop):
 
@@ -210,12 +254,18 @@ Konfiguracja laptopa (Windows + WSL + Docker Desktop):
 
 ### Uruchomienie na płytce
 
-1. W skrypcie ustawić `WIFI_SSID`, `WIFI_HASLO`, `API_HOST` (IP laptopa) i `DEVICE_ID`.
+1. W skrypcie ustawić `WIFI_SSID`, `WIFI_HASLO`, `API_URL` (adres tunelu albo `http://<IP laptopa>:8000`), `DEVICE_ID` i `INGEST_KEY` (wartość `INGEST_API_KEY` z `backend/.env`, pusty, gdy backend działa bez klucza).
 2. Wgrać i uruchomić: Pymakr (*Upload*, *Run*) albo w REPL `exec(open('wyslij_wifi.py').read())`.
 3. Oczekiwane odpowiedzi w konsoli płytki: `201 {"status":"stored", ...}`, przy pierwszym alarmie `"alarm_created":true`.
 4. Wynik w bazie: [sekcja 5](#5-sprawdzanie-zapisu), na mapie: [sekcja 2](#2-frontend).
 
-Ten sam skrypt uruchomiony zwykłym Pythonem na laptopie (`python firmware/przyklady/wyslij_wifi.py`) wysyła ramki na `localhost`, co pozwala oddzielić problemy sieci od problemów backendu.
+Ten sam skrypt uruchomiony zwykłym Pythonem na laptopie wysyła ramki na podany adres (domyślnie `http://127.0.0.1:8000`), co pozwala oddzielić problemy sieci i płytki od problemów backendu:
+
+```bash
+python3 firmware/przyklady/wyslij_wifi.py                                  # lokalny backend, bez klucza
+python3 firmware/przyklady/wyslij_wifi.py http://127.0.0.1:8000 <klucz>
+python3 firmware/przyklady/wyslij_wifi.py https://<adres>.trycloudflare.com <klucz>
+```
 
 ### Własne ID płytki
 
@@ -225,16 +275,17 @@ DevEUI płytki (REPL):
 from network import LoRa; import ubinascii; print(ubinascii.hexlify(LoRa().mac()).upper())
 ```
 
-Czujnik z tym ID rejestruje się w panelu admina (Czujniki → Dodaj czujnik). Nowy czujnik jest nieaktywny i bez lokalizacji. Do czasu wprowadzenia montażu (`PUT /api/v1/sensors/{id}/mount`) lokalizację i włączenie ustawia się w bazie:
+Czujnik z tym ID rejestruje się w panelu admina (Czujniki → Dodaj czujnik). Nowy czujnik jest nieaktywny i bez lokalizacji. Montaż (nazwa, lokalizacja, włączenie) robi leśniczy tego leśnictwa albo admin; do czasu ekranu montażu w aplikacji przez Swagger, `PUT /api/v1/sensors/{id}/mount`:
 
-```sql
-UPDATE sensors SET lat = 50.0647, lon = 20.3105, active = true, name = 'Czujnik testowy'
-WHERE id = '<DevEUI>';
+```json
+{ "name": "Czujnik testowy", "lat": 50.0647, "lon": 20.3105 }
 ```
+
+Po montażu czujnik ma pinezkę na mapie (stan `silent` do pierwszej ramki).
 
 ## 7. Telefon
 
-Dostęp do aplikacji z telefonu (localtunnel albo USB): [docs/frontend/pwa.md](frontend/pwa.md). Tunel obejmuje tylko port frontendu, zapytania `/api` przechodzą przez proxy Vite.
+Dostęp do aplikacji z telefonu (tunel Cloudflare, localtunnel albo USB): [docs/frontend/pwa.md](frontend/pwa.md). Tunel obejmuje tylko port frontendu, zapytania `/api` przechodzą przez proxy Vite. Do płytki służy osobny tunel na port backendu ([sekcja 6](#6-płytka-lopy-przez-wi-fi)).
 
 ## 8. Testy automatyczne
 
@@ -266,11 +317,16 @@ Kod jest montowany do kontenerów, zmiany w plikach nie wymagają przebudowy obr
 | brak hasła admina | hasło wypisane tylko przy pierwszym seedzie | `SEED_ADMIN_PASSWORD` w `.env` i nowa baza (`down -v`) albo reset hasła w bazie |
 | brak tabeli czujników po zalogowaniu | konto nie jest adminem | logowanie jako `admin` |
 | `/ingest` zwraca `duplicate` dla każdej ramki | licznik nie rośnie | ramka BOOT przed pozostałymi albo większy licznik |
+| `/ingest` zwraca 401 | brak nagłówka `X-Ingest-Key` albo inny klucz niż `INGEST_API_KEY` w `backend/.env` | nagłówek z kluczem; w symulatorze `INGEST_API_KEY` w `.env` albo `--ingest-key`; na płytce `INGEST_KEY`; po zmianie `.env`: `docker compose up -d` |
+| wydanie (`POST …/releases`) zwraca 409 | czujnik niezamontowany albo wydanie dla niego już trwa (`id` w `detail`) | montaż przez `PUT /api/v1/sensors/{id}/mount`; trwające wydanie zakończyć `POST /api/v1/releases/{id}/end` |
 | `/ingest` zwraca 404 | brak czujnika w bazie | `seed --demo` albo rejestracja w panelu admina |
 | mapa nie pokazuje nowego alarmu | odświeżanie co 60 s albo konto z innego leśnictwa | odczekać lub F5; konto właściwego leśnictwa |
 | tabela czujników w panelu się nie zmienia | panel nie odświeża się automatycznie | F5 |
 | frontend: błąd sieci, `/api` zwraca 502 | backend nie działa | `docker compose ps` w `backend/` |
 | nietypowe stany czujników demo po kilku godzinach | dane demo liczone od chwili seeda | `seed --demo --reset` |
 | `curl localhost:8000/health` działa przy zatrzymanym kontenerze | port 8000 zajęty przez lokalny `uvicorn` | `ss -ltnp \| grep 8000`, zatrzymać proces |
-| płytka nie łączy się z backendem | inna sieć, zapora, izolacja klientów w sieci | test `/health` z telefonu; reguła zapory; hotspot |
+| płytka nie łączy się z backendem (`http://IP:8000`) | inna sieć, zapora, izolacja klientów w sieci | test `/health` z telefonu; reguła zapory; hotspot albo tunel |
+| skrypt przez tunel: `Connection refused`, 502 albo 530 | tunel zamknięty, nieaktualny adres albo backend nie działa | uruchomić tunel ponownie i wziąć nowy adres z logu; `curl localhost:8000/health` |
+| płytka: `TypeError` przy `wrap_socket` albo `OSError` przy `connect` po `https://` | stary firmware Pycom (brak SNI, stary mbedTLS) | aktualizacja firmware (Pycom Firmware Updater); wersja: `import os; os.uname()` w REPL; awaryjnie sposób B (`http://`) |
+| płytka: `MemoryError` przy `https://` | handshake TLS potrzebuje ok. 40–50 KB RAM | uruchomić skrypt zaraz po resecie, bez innego kodu w `main.py` |
 | `docker` nie istnieje w WSL | brak integracji WSL | Docker Desktop → Settings → Resources → WSL integration |

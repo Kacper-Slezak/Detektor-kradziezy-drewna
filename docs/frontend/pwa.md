@@ -25,8 +25,22 @@ Zmiana ikony lub nazwy dociera wolniej, Chrome sprawdza manifest mniej więcej r
 
 Instalacja wymaga HTTPS albo `localhost`. Przez zwykłe Wi‑Fi (`http://<IP laptopa>:4173`) Chrome nie uruchomi service workera, więc zamiast aplikacji powstanie tylko skrót otwierający się w przeglądarce. Są dwa sposoby:
 
-- **przez localtunnel:** publiczny adres HTTPS, bez kabla i bez debugowania.
+- **przez tunel Cloudflare** (zalecany) albo **localtunnel:** publiczny adres HTTPS, bez kabla i bez debugowania.
 
+
+## Test przez tunel Cloudflare
+
+Cloudflare quick tunnel daje tymczasowy adres `https://…trycloudflare.com` bez konta i bez hasła. Adres zmienia się przy każdym uruchomieniu.
+
+1. Laptop, pierwszy terminal: `npm run build` i `npm run preview -- --host 127.0.0.1` w `frontend/` (jak w localtunnel, niżej).
+2. Drugi terminal:
+   ```bash
+   docker run --rm --network host cloudflare/cloudflared:2025.10.0 tunnel --no-autoupdate --url http://127.0.0.1:4173
+   ```
+   W logu pojawi się adres `https://….trycloudflare.com`.
+3. W Chrome na telefonie wejdź na ten adres i stuknij **„Zainstaluj aplikację”**.
+
+Domena `.trycloudflare.com` jest dopuszczona w `allowedHosts` w `vite.config.ts` (dev i preview).
 
 ## Test przez localtunnel
 
