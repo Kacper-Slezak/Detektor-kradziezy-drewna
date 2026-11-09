@@ -17,6 +17,14 @@ SENSOR_ID = "70B3D57ED0051234"
 
 
 @pytest.fixture(autouse=True)
+def _login_failures():
+    # liczniki nieudanych logowań żyją w module, więc między testami je czyścimy
+    from app.routers import auth
+
+    auth._failures.clear()
+
+
+@pytest.fixture(autouse=True)
 def _jwt_secret(monkeypatch):
     # niezależnie od tego, co jest w lokalnym .env
     monkeypatch.setattr(settings, "jwt_secret", "tajny-klucz-do-testow-minimum-32-bajty")

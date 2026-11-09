@@ -440,3 +440,46 @@ def test_brak_jwt_secret_to_blad(monkeypatch):
     monkeypatch.setattr(settings, "jwt_secret", "")
     with pytest.raises(RuntimeError, match="JWT_SECRET"):
         create_token(1)
+
+
+# --- limit nieudanych logowań ---
+
+
+async def test_limit_nieudanych_logowan_429(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "login_max_failures", 3)
+    await make_user()
+    for _ in range(3):
+        assert (await login(client, password="zle-haslo")).status_code == 401
+
+    r = await login(client)  # nawet dobre hasło czeka do końca okna
+    assert r.status_code == 429
+    assert 0 < int(r.headers["Retry-After"]) <= settings.login_window_s + 1
+
+
+async def test_limit_dotyczy_jednego_loginu(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "login_max_failures", 2)
+    await make_user("blazej")
+    await make_user("ola")
+    for _ in range(2):
+        await login(client, "blazej", "zle-haslo")
+    assert (await login(client, "blazej")).status_code == 429
+    assert (await login(client, "ola")).status_code == 200
+
+
+async def test_udane_logowanie_zeruje_licznik(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "login_max_failures", 3)
+    await make_user()
+    for _ in range(2):
+        await login(client, password="zle-haslo")
+    assert (await login(client)).status_code == 200
+    for _ in range(2):
+        assert (await login(client, password="zle-haslo")).status_code == 401
+    assert (await login(client)).status_code == 200
+
+
+async def test_limit_mija_po_oknie(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "login_max_failures", 1)
+    monkeypatch.setattr(settings, "login_window_s", 0)
+    await make_user()
+    await login(client, password="zle-haslo")
+    assert (await login(client)).status_code == 200
