@@ -10,7 +10,7 @@ Komendy `docker compose` wykonuje się w folderze, którego dotyczą: `backend/`
 |---|---|
 | ramka → `POST /api/v1/ingest` → baza (`messages`, `alarms`, stan czujnika) | działa |
 | symulator czujników → backend → mapa | działa |
-| LoPy przez Wi-Fi → backend (bez TTN) | działa w tej samej sieci i przez tunel HTTPS (Cloudflare), skrypt [firmware/przyklady/wyslij_wifi.py](../firmware/przyklady/wyslij_wifi.py) |
+| LoPy przez Wi-Fi → backend (bez TTN) | działa w tej samej sieci, przez tunel HTTPS (Cloudflare) i przez tunel TCP (bore), skrypt [firmware/przyklady/wyslij_wifi.py](../firmware/przyklady/wyslij_wifi.py) |
 | logowanie, konta, rejestracja czujników w panelu admina, mapa | działa |
 | lista alarmów i odpowiedź leśniczego | API gotowe (`/api/v1/alarms`), brak widoku w aplikacji; alarm widoczny jako czerwona pinezka |
 | montaż czujnika, wydania drewna | API gotowe (`PUT /api/v1/sensors/{id}/mount`, `/api/v1/sensors/{id}/releases`, `/api/v1/releases`), widoki w aplikacji w przygotowaniu; do tego czasu Swagger |
@@ -213,12 +213,13 @@ Test sprzętu bez TTN: LoPy łączy się z Wi-Fi i wysyła ramki na `POST /api/v
 
 ### Sieć
 
-Płytka musi dosięgnąć backendu. Adres ustawia się w `API_URL` w skrypcie. Są dwa sposoby:
+Płytka musi dosięgnąć backendu. Adres ustawia się w `API_URL` w skrypcie. Są trzy sposoby:
 
 | Sposób | `API_URL` | Kiedy |
 |---|---|---|
 | A. tunel Cloudflare (zalecany) | `https://<losowa-nazwa>.trycloudflare.com` | płytka w dowolnej sieci z internetem (hotspot, eduroam); bez konfiguracji Windows |
 | B. ta sama sieć | `http://<IP laptopa>:8000` | gdy TLS na płytce nie działa albo nie ma internetu; laptop i płytka w jednej sieci |
+| C. tunel bore (TCP, bez TLS) | `http://bore.pub:<port>` | gdy TLS na płytce nie działa (np. `MBEDTLS_ERR_SSL_ALLOC_FAILED`), a płytka i laptop są w różnych sieciach |
 
 #### A. Tunel Cloudflare (quick tunnel)
 
@@ -251,6 +252,23 @@ Konfiguracja laptopa (Windows + WSL + Docker Desktop):
    ```
    Sieć hotspotu musi mieć w Windows profil **prywatny**.
 3. Kontrola: `http://<IP laptopa>:8000/health` otwarty na telefonie w tej samej sieci zwraca `{"status":"ok"}`. Bez tego płytka również nie połączy się z backendem.
+
+#### C. Tunel bore (bez TLS)
+
+[bore](https://github.com/ekzhang/bore) przekazuje zwykły TCP przez publiczny serwer `bore.pub`, bez konta. Płytka łączy się po zwykłym HTTP, więc TLS na płytce nie jest potrzebny. Port zmienia się przy każdym uruchomieniu.
+
+Ruch nie jest szyfrowany: ramki i `X-Ingest-Key` idą otwartym tekstem przez cudzy serwer. Tylko do testów, z osobnym kluczem testowym w `INGEST_API_KEY`, zmienionym po testach.
+
+1. Tunel (osobny terminal, Docker, bez instalacji):
+   ```bash
+   docker run --rm -it --init --network host ekzhang/bore:0.6.0 local 8000 --local-host 127.0.0.1 --to bore.pub
+   ```
+   W logu pojawi się adres, np. `listening at bore.pub:41235`.
+2. Kontrola z laptopa:
+   ```bash
+   python3 firmware/przyklady/wyslij_wifi.py http://bore.pub:41235 <INGEST_API_KEY>
+   ```
+3. Na płytce `API_URL = "http://bore.pub:41235"`.
 
 ### Uruchomienie na płytce
 
@@ -327,6 +345,6 @@ Kod jest montowany do kontenerów, zmiany w plikach nie wymagają przebudowy obr
 | `curl localhost:8000/health` działa przy zatrzymanym kontenerze | port 8000 zajęty przez lokalny `uvicorn` | `ss -ltnp \| grep 8000`, zatrzymać proces |
 | płytka nie łączy się z backendem (`http://IP:8000`) | inna sieć, zapora, izolacja klientów w sieci | test `/health` z telefonu; reguła zapory; hotspot albo tunel |
 | skrypt przez tunel: `Connection refused`, 502 albo 530 | tunel zamknięty, nieaktualny adres albo backend nie działa | uruchomić tunel ponownie i wziąć nowy adres z logu; `curl localhost:8000/health` |
-| płytka: `TypeError` przy `wrap_socket` albo `OSError` przy `connect` po `https://` | stary firmware Pycom (brak SNI, stary mbedTLS) | aktualizacja firmware (Pycom Firmware Updater); wersja: `import os; os.uname()` w REPL; awaryjnie sposób B (`http://`) |
-| płytka: `MemoryError` przy `https://` | handshake TLS potrzebuje ok. 40–50 KB RAM | uruchomić skrypt zaraz po resecie, bez innego kodu w `main.py` |
+| płytka: `TypeError` przy `wrap_socket` albo `OSError` przy `connect` po `https://` | stary firmware Pycom (brak SNI, stary mbedTLS) | aktualizacja firmware (Pycom Firmware Updater); wersja: `import os; os.uname()` w REPL; awaryjnie sposób C albo B (`http://`) |
+| płytka: `MemoryError` albo `MBEDTLS_ERR_SSL_ALLOC_FAILED` przy `https://` | za mało RAM na bufory TLS (mbedTLS, ok. 40–50 KB) | uruchomić skrypt zaraz po resecie, bez innego kodu w `main.py`; jeśli dalej to samo: sposób C (bore) albo B, oba bez TLS |
 | `docker` nie istnieje w WSL | brak integracji WSL | Docker Desktop → Settings → Resources → WSL integration |

@@ -3,10 +3,11 @@
 To samo co `curl`, tylko z płytki. Ramki są pakowane wg protokołu
 (ten sam układ co backend/app/protocol/encoder.py), więc backend zapisze je jak prawdziwe.
 
-Backend jest osiągalny na dwa sposoby (API_URL):
+Backend jest osiągalny na trzy sposoby (API_URL):
 - ta sama sieć:  http://192.168.1.20:8000  (IP laptopa),
 - tunel HTTPS:   https://xyz.trycloudflare.com  (cloudflared tunnel --url http://localhost:8000),
-  wtedy płytka może być w dowolnej sieci z internetem (np. hotspot z telefonu).
+  wtedy płytka może być w dowolnej sieci z internetem (np. hotspot z telefonu),
+- tunel TCP bez TLS: http://bore.pub:41235  (gdy TLS na płytce nie działa, np. MBEDTLS_ERR_SSL_ALLOC_FAILED).
 
 Jak użyć:
 1. Uzupełnij WIFI_SSID, WIFI_HASLO, API_URL, DEVICE_ID i INGEST_KEY
