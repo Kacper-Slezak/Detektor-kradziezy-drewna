@@ -8,7 +8,9 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `DATABASE_URL` | Adres bazy dla aplikacji (sterownik async: `postgresql+asyncpg://`) |
 | `INGEST_API_KEY` | Klucz dla `POST /api/v1/ingest`: urządzenia, bramka i symulator wysyłają go w nagłówku `X-Ingest-Key`, bez niego dostają `401`. Pusty = endpoint bez zabezpieczenia, dopuszczalne tylko lokalnie (backend ostrzega przy starcie). Wygeneruj: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Klucz trzymamy tylko w `.env` (nie w repo) |
 | `TTN_WEBHOOK_SECRET` | Sekret webhooka z The Things Network |
-| `FIREBASE_CREDENTIALS_PATH` | Ścieżka do poświadczeń Firebase (powiadomienia) |
+| `VAPID_PUBLIC_KEY` | Klucz publiczny Web Push (VAPID), base64url. Front pobiera go z `GET /api/v1/push/vapid-public-key` jako `applicationServerKey`. Para kluczy: `npx web-push generate-vapid-keys` |
+| `VAPID_PRIVATE_KEY` | Klucz prywatny VAPID z tej samej pary; podpisuje wysyłane pushe. Tylko w `.env`, nigdy we froncie ani w repo. Zmiana pary unieważnia wszystkie subskrypcje |
+| `VAPID_SUBJECT` | Kontakt dla usług push przeglądarek, `mailto:adres@…` albo `https://…` |
 | `JWT_SECRET` | Klucz do podpisywania tokenów JWT (wymagany, bez niego logowanie zwraca błąd 500). Wygeneruj: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Zmiana klucza wylogowuje wszystkich. |
 | `SEED_ADMIN_LOGIN` | Login admina tworzonego przez `python -m app.seed` (domyślnie `admin`) |
 | `SEED_ADMIN_PASSWORD` | Hasło tego admina. Puste = wylosowane i wypisane w konsoli. Konto i tak musi je zmienić przy pierwszym logowaniu |

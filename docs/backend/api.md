@@ -406,38 +406,61 @@ Plik CSV z alarmami i wydaniami (do Excela). `Content-Type: text/csv`, a fronten
  
 ---
  
-## 6. Powiadomienia push (FCM)
+## 6. Powiadomienia push (Web Push, VAPID)
  
-Pushe dostaje tylko leśniczy (`forester`). Nadleśniczy korzysta z raportów.
+Standardowy Web Push przeglądarki z kluczami VAPID, bez Firebase. Pushe dostaje tylko leśniczy (`forester`). Nadleśniczy korzysta z raportów.
+ 
+Działa tylko po HTTPS albo na `localhost`. Android (Chrome, Edge, Firefox): w przeglądarce i w zainstalowanej PWA. iPhone (iOS 16.4+): tylko w aplikacji dodanej do ekranu początkowego.
+ 
+### `GET /api/v1/push/vapid-public-key`
+ 
+Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno.
+ 
+```json
+// 200
+{ "public_key": "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U" }
+```
+ 
+Klucz jest w base64url, a `applicationServerKey` przyjmuje go po zamianie na `Uint8Array`.
  
 ### `POST /api/v1/push/subscriptions`
  
-Apka po zgodzie użytkownika na powiadomienia wysyła token FCM.
+Po zgodzie użytkownika (prośba po kliknięciu przycisku, nie przy wejściu) apka wysyła to, co zwraca `subscription.toJSON()`, plus opcjonalną etykietę urządzenia.
  
 ```json
 // zapytanie
-{ "fcm_token": "fGx1...:APA91b...", "device_label": "Android – Chrome" }
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/dXk0...:APA91b...",
+  "expirationTime": null,
+  "keys": { "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "auth": "tBHItJI5svbpez7KI4CCXg" },
+  "device_label": "Android – Chrome"
+}
 ```
  
-Odpowiedź `201`. Ten sam token wysłany ponownie niczego nie psuje.
+- odpowiedź `201`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma,
+- `expirationTime` backend ignoruje,
+- konto inne niż leśniczy → `403`.
  
-### `DELETE /api/v1/push/subscriptions/{fcm_token}`
+### `DELETE /api/v1/push/subscriptions?endpoint=…`
  
-Przy wylogowaniu. Odpowiedź `204`.
+Przy wylogowaniu, razem z `subscription.unsubscribe()` w przeglądarce. `endpoint` w zapytaniu zakodowany przez `encodeURIComponent`. Odpowiedź `204`, także gdy subskrypcji już nie ma. Usunąć można tylko własną subskrypcję.
  
-**Co przychodzi w pushu** (pole `data` w wiadomości FCM):
+**Co przychodzi w pushu** (treść wiadomości, w service workerze `event.data.json()`):
  
 ```json
 {
   "type": "alarm",
-  "alarm_id": "41",
+  "alarm_id": 41,
   "sensor_id": "70B3D57ED0051234",
   "title": "Alarm: Skład przy drodze 5",
-  "body": "Możliwe podbieranie drewna, pewność 87%"
+  "body": "Możliwe podbieranie drewna, pewność 87%",
+  "url": "/alarms/41"
 }
 ```
  
-Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszenie się skończyło). Kliknięcie otwiera ekran alarmu albo czujnika.
+Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`. Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszenie się skończyło); `url` prowadzi wtedy do czujnika.
+ 
+Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję.
  
 ---
  
