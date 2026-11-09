@@ -115,6 +115,17 @@ async def test_wyciszony_czujnik_bez_alarmu(client, session_maker):
     assert await count(session_maker, Alarm) == 0
 
 
+async def test_ramka_w_chwili_konca_wydania_tworzy_alarm(client, session_maker):
+    # koniec wydania rozłącznie: starts_at <= t < ends_at
+    async with session_maker() as s:
+        s.add(Release(sensor_id=SENSOR_ID, starts_at=T0 - timedelta(hours=1), ends_at=T0))
+        await s.commit()
+
+    r = await post(client, ALARM)
+    assert r.json()["muted"] is False
+    assert await count(session_maker, Alarm) == 1
+
+
 async def test_wylaczony_czujnik_bez_alarmu(client, session_maker):
     async with session_maker() as s:
         (await s.get(Sensor, SENSOR_ID)).active = False

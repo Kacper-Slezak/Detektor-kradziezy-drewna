@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.routers import alarms, auth, ingest, sensors, users
+from app.routers import alarms, auth, ingest, releases, sensors, users
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -14,6 +14,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(sensors.router)
 app.include_router(alarms.router)
+app.include_router(releases.router)
 
 
 @app.get("/health")

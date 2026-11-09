@@ -80,7 +80,7 @@ async def sensor_statuses(
             .where(
                 Release.sensor_id.in_(ids),
                 Release.starts_at <= now,
-                Release.ends_at >= now,
+                Release.ends_at > now,
             )
             .group_by(Release.sensor_id)
         )

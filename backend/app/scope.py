@@ -1,4 +1,4 @@
-"""Kto widzi które leśnictwo. Wspólne dla czujników, alarmów i (później) wydań.
+"""Kto widzi które leśnictwo. Wspólne dla czujników, alarmów i wydań.
 
 - leśniczy: tylko swoje leśnictwo; bez przypisanego leśnictwa nie widzi nic,
 - nadleśniczy i admin: wszystko.
