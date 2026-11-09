@@ -1,0 +1,84 @@
+# Testy i lint przy każdym PR i po merge'u do main.
+# Backend: ruff + pytest (SQLite w pamięci) oraz migracje na prawdziwym TimescaleDB.
+# Frontend: oxlint + vitest + build (ten sam build, który trafia do obrazu).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: ruff check app tests tools
+      - run: pytest -q
+
+  migracje:
+    # Testy idą na SQLite, więc migracje (hypertable, constrainty) sprawdzamy tu na Postgresie
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: timescale/timescaledb:latest-pg17
+        env:
+          POSTGRES_USER: detektor
+          POSTGRES_PASSWORD: detektor
+          POSTGRES_DB: detektor
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U detektor -d detektor"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://detektor:detektor@localhost:5432/detektor
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: upgrade head
+        run: alembic upgrade head
+      - name: model zgodny z migracjami
+        run: alembic check
+      - name: downgrade do zera i ponownie upgrade
+        run: alembic downgrade base && alembic upgrade head
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
