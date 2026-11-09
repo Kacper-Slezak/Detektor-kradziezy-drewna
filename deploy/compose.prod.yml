@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/kacper-slezak/detektor-api:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/kacper-slezak}/detektor-api:${TAG:-latest}
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://detektor:${POSTGRES_PASSWORD}@db:5432/detektor
@@ -46,7 +46,7 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: ghcr.io/kacper-slezak/detektor-web:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/kacper-slezak}/detektor-web:${TAG:-latest}
     ports:
       - "${PUBLIC_PORT:?ustaw PUBLIC_PORT w .env (port z panelu Mikrusa, np. 20123)}:80"
     depends_on:

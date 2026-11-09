@@ -73,6 +73,8 @@ docker compose -f compose.prod.yml run --rm web alembic upgrade head
 docker compose -f compose.prod.yml run --rm web python -m app.seed      # hasło admina w konsoli, jeśli SEED_ADMIN_PASSWORD puste
 ```
 
+Pierwsze trzy komendy robi też `./auto-update.sh` (pobranie, migracje, start), tak samo jak potem przy każdej aktualizacji.
+
 `seed --demo` tylko na serwerze do prezentacji: konta demo mają wspólne, znane hasło.
 
 **Gotowe, gdy:**
@@ -87,22 +89,47 @@ docker compose -f compose.prod.yml run --rm web python -m app.seed      # hasło
 - Webhook TTN (gdy powstanie `/ingest/ttn`): `https://srvNN-PORT.wykr.es/api/v1/ingest/ttn`.
 - Telefony: aplikacja z `https://srvNN-PORT.wykr.es`, „Zainstaluj aplikację” w Chrome.
 
-## 3. Aktualizacja
+## 3. Aktualizacja (automatyczna)
 
-Po merge'u do `main` GitHub Actions buduje nowe obrazy (zakładka **Actions** → „Obrazy”, ok. 3–5 min). Potem na serwerze:
+Po merge'u do `main` GitHub Actions buduje nowe obrazy (zakładka **Actions** → „Obrazy”, ok. 3–5 min), a serwer sam je wdraża: [deploy/auto-update.sh](../deploy/auto-update.sh) uruchamiany z crona co 5 min. Od merge'a do nowej wersji na serwerze mija zwykle 8–10 min.
 
-```bash
-cd ~/Detektor-kradziezy-drewna && git pull                        # nowe pliki deploy/
-cd deploy
-docker compose -f compose.prod.yml pull
-docker compose -f compose.prod.yml up -d
-docker compose -f compose.prod.yml run --rm web alembic upgrade head
-docker image prune -f                                             # stare obrazy, dysk ma 10 GB
+Cron (`crontab -e`, raz, po pierwszym wdrożeniu):
+
+```
+*/5 * * * * $HOME/Detektor-kradziezy-drewna/deploy/auto-update.sh >> $HOME/deploy.log 2>&1
 ```
 
-Migracje są potrzebne tylko wtedy, gdy PR dodał plik w `backend/alembic/versions/`, ale uruchomienie bez nowych migracji niczego nie psuje.
+Co robi skrypt przy każdym uruchomieniu:
 
-**Cofnięcie wersji:** każdy obraz ma też tag `sha-<7 znaków commita>`. W `.env` ustaw `TAG=sha-abc1234` i `docker compose -f compose.prod.yml up -d`. Migracji nie cofamy automatycznie: jeśli nowa wersja zmieniła bazę, najpierw `alembic downgrade` o tyle kroków, ile dodała.
+1. `git pull` plików `deploy/` z `main` i `docker compose pull` obrazów `web` i `caddy`.
+2. Gdy nic się nie zmieniło: koniec, bez wpisu w logu.
+3. Gdy jest nowa wersja: działającą wersję taguje jako `:previous`, robi **backup**, uruchamia **migracje nowym obrazem** (stare kontenery dalej działają), podmienia kontenery i czeka do 90 s na `/health`.
+4. Gdy `/health` nie odpowiada: wraca do `:previous` i zapisuje tę wersję w `deploy/.auto-update-failed`, żeby nie próbować jej co 5 minut. Następna nowa wersja (np. poprawka) wdroży się normalnie. **Migracji nie cofa**: jeśli zepsuta wersja zmieniła bazę, do ręcznej decyzji (`alembic downgrade` albo backup sprzed wdrożenia, sekcja 4).
+5. Gdy migracje się nie udadzą: nic nie podmienia, zostaje poprzednia wersja.
+
+Dwa uruchomienia naraz nie są możliwe (`flock`). Obraz bazy (`timescaledb`) automat pomija: jego aktualizacja to ręczny `docker compose -f compose.prod.yml pull db && docker compose -f compose.prod.yml up -d db`.
+
+Log:
+
+```bash
+tail -n 30 ~/deploy.log
+```
+
+```
+2026-11-09T19:21:24+01:00 nowa wersja: web=1992f086af05 caddy=2da49f6df0e4
+2026-11-09T19:21:24+01:00 OK /root/backups/detektor-20261109-192124.dump 32K
+2026-11-09T19:21:34+01:00 OK: wdrożone (web=1992f086af05 caddy=2da49f6df0e4 )
+```
+
+**Nie edytuj plików repo na serwerze** (poza `deploy/.env`): `git pull --ff-only` odmówi wtedy aktualizacji i automat będzie co 5 min kończył się błędem w logu.
+
+**Zatrzymanie na konkretnej wersji:** każdy obraz ma też tag `sha-<7 znaków commita>`. W `.env` ustaw `TAG=sha-abc1234` i uruchom `./auto-update.sh` (albo poczekaj na cron). Automat zostaje przy tej wersji, dopóki `TAG` nie wróci do `latest`. Migracji nie cofa: jeśli nowsza wersja zmieniła bazę, najpierw `alembic downgrade` o tyle kroków, ile dodała.
+
+**Ręcznie, bez czekania na cron:**
+
+```bash
+~/Detektor-kradziezy-drewna/deploy/auto-update.sh
+```
 
 ## 4. Kopie zapasowe
 
@@ -152,5 +179,5 @@ Monitoring z zewnątrz: darmowy [UptimeRobot](https://uptimerobot.com/) (HTTP(s)
 | `web` ciągle `unhealthy`, w logach `password authentication failed` | zmienione `POSTGRES_PASSWORD` po pierwszym starcie bazy | przywrócić stare hasło; nowe hasło działa tylko z nową bazą (`down -v` kasuje dane) |
 | serwis znika i wraca, `docker inspect` pokazuje `OOMKilled: true` | przekroczony `mem_limit` | `docker stats`; podnieść limit w `compose.prod.yml` albo plan Mikrusa 3.0 |
 | `relation "…" does not exist` | brak migracji | `run --rm web alembic upgrade head` |
-| aplikacja pokazuje starą wersję | nowy obraz nie pobrany albo PWA trzyma cache | `pull` + `up -d`; w aplikacji powrót z tła przeładowuje ją ([pwa.md](frontend/pwa.md)) |
+| aplikacja pokazuje starą wersję | obraz jeszcze się buduje, automat nie zdążył albo wersja nie wstała | Actions → „Obrazy”; `tail ~/deploy.log`; `cat deploy/.auto-update-failed`; w aplikacji powrót z tła przeładowuje ją ([pwa.md](frontend/pwa.md)) |
 | logi | – | `docker compose -f compose.prod.yml logs -f --tail 100 web` |
