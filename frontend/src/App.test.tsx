@@ -203,4 +203,20 @@ describe('sensor map', () => {
     expect(screen.getByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
     expect(getToken()).toBeNull()
   })
+
+  it('switches between the map and the alarm list', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await screen.findByTitle('Skład przy drodze 5: Alarm', {}, mapTimeout)
+    const views = screen.getByRole('navigation', { name: 'Widok' })
+
+    // the number of open alarms is in the name of the button
+    await user.click(within(views).getByRole('button', { name: 'Alarmy, 1 otwarty' }))
+    expect(screen.getByRole('heading', { name: 'Alarmy' })).toBeInTheDocument()
+    expect(await screen.findByRole('list', { name: 'Alarmy' })).toHaveTextContent('Skład przy drodze 5')
+
+    await user.click(within(views).getByRole('button', { name: 'Mapa' }))
+    expect(screen.getByRole('heading', { name: 'Mapa czujników' })).toBeInTheDocument()
+    expect(within(views).getByRole('button', { name: 'Mapa' })).toHaveAttribute('aria-current', 'page')
+  })
 })

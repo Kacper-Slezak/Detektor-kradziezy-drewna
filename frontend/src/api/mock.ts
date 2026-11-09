@@ -9,6 +9,8 @@ import { generateTempPassword } from '@/lib/password'
 
 import { ApiError } from './client'
 import type {
+  Alarm,
+  AlarmFilters,
   LoginResponse,
   ManagedUser,
   NewSensor,
@@ -324,3 +326,93 @@ export async function mockUpdateSensor(token: string | null, id: string, changes
   Object.assign(sensor, changes)
   return { ...sensor }
 }
+
+// Alarms from the examples in api.md, plus a confirmed theft and a new one in the other range.
+// Alarm 41 is the open alarm of "Skład przy drodze 5" (open_alarm_id above)
+function alarmSensor(id: string) {
+  const { name, lat, lon } = sensors.find((s) => s.id === id)!
+  return { id, name, lat, lon }
+}
+
+const alarms: Alarm[] = [
+  {
+    id: 41,
+    detected_at: '2026-10-16T09:57:40Z',
+    last_frame_at: '2026-10-16T09:58:40Z',
+    sensor: alarmSensor('70B3D57ED0051234'),
+    event_type: 'theft',
+    sources: ['microphone', 'vibration'],
+    confidence: 87,
+    duration_s: 40,
+    energy: 180,
+    repeats: 3,
+    possible_tampering: false,
+    status: 'new',
+    response: null,
+  },
+  {
+    id: 40,
+    detected_at: '2026-10-15T20:10:12Z',
+    last_frame_at: '2026-10-15T20:12:12Z',
+    sensor: alarmSensor('70B3D57ED0052345'),
+    event_type: 'theft',
+    sources: ['microphone', 'vibration'],
+    confidence: 93,
+    duration_s: 95,
+    energy: 240,
+    repeats: 3,
+    possible_tampering: false,
+    status: 'theft',
+    response: {
+      by: 'blazej',
+      at: '2026-10-15T21:05:00Z',
+      comment: 'przewoźnik ładował 5 dodatkowych kłód',
+      lat: 50.0599,
+      lon: 19.9603,
+    },
+  },
+  {
+    id: 39,
+    detected_at: '2026-10-15T14:12:03Z',
+    last_frame_at: '2026-10-15T14:13:03Z',
+    sensor: alarmSensor('70B3D57ED0051234'),
+    event_type: 'theft',
+    sources: ['vibration'],
+    confidence: 55,
+    duration_s: 12,
+    energy: 60,
+    repeats: 3,
+    possible_tampering: true,
+    status: 'false_alarm',
+    response: { by: 'blazej', at: '2026-10-15T14:40:00Z', comment: 'zwierzę przy stosie', lat: 50.0646, lon: 19.9452 },
+  },
+  {
+    id: 38,
+    detected_at: '2026-10-14T21:35:50Z',
+    last_frame_at: '2026-10-14T21:35:50Z',
+    sensor: alarmSensor('70B3D57ED005DEF0'),
+    event_type: 'theft',
+    sources: ['vibration'],
+    confidence: 48,
+    duration_s: 8,
+    energy: 35,
+    repeats: 1,
+    possible_tampering: true,
+    status: 'new',
+    response: null,
+  },
+]
+
+export async function mockListAlarms(token: string | null, filters: AlarmFilters = {}): Promise<Alarm[]> {
+  await delay()
+  const { user } = accountByToken(token)
+  const rangeOf = (sensorId: string) => sensors.find((s) => s.id === sensorId)?.range_id
+  return alarms
+    .filter((a) => user.role !== 'forester' || rangeOf(a.sensor.id) === user.range?.id)
+    .filter((a) => !filters.status || a.status === filters.status)
+    .filter((a) => !filters.sensor_id || a.sensor.id === filters.sensor_id)
+    .slice(0, filters.limit ?? 100)
+    .map(copyAlarm)
+}
+
+const copyAlarm = (a: Alarm): Alarm => ({ ...a, sensor: { ...a.sensor }, response: a.response && { ...a.response } })

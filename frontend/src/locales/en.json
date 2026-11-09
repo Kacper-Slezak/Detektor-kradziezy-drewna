@@ -180,7 +180,39 @@
     "unmounted_other": "{{count}} sensors waiting to be mounted",
     "unmounted_few": "{{count}} sensors waiting to be mounted",
     "unmounted_many": "{{count}} sensors waiting to be mounted",
-    "mutedUntil": "until {{time}}"
+    "mutedUntil": "until {{time}}",
+    "views": "View",
+    "viewMap": "Map",
+    "viewAlarms": "Alarms",
+    "viewAlarmsOpen_one": "Alarms, {{count}} open",
+    "viewAlarmsOpen_other": "Alarms, {{count}} open",
+    "viewAlarmsOpen_few": "Alarms, {{count}} open",
+    "viewAlarmsOpen_many": "Alarms, {{count}} open"
+  },
+  "alarms": {
+    "title": "Alarms",
+    "filter": "Show alarms",
+    "filters": {
+      "new": "New",
+      "theft": "Theft",
+      "false_alarm": "False",
+      "all": "All"
+    },
+    "status": {
+      "new": "New",
+      "theft": "Theft",
+      "false_alarm": "False alarm"
+    },
+    "sources": {
+      "microphone": "sound",
+      "vibration": "vibration"
+    },
+    "confidence": "confidence {{value}}%",
+    "tampering": "Possible tampering with the sensor (vibration only, no sound)",
+    "responded": "Checked by {{by}}, {{time}}",
+    "comment": "“{{comment}}”",
+    "noNew": "No new alarms",
+    "empty": "No alarms"
   },
   "role": {
     "forester": "Forester",

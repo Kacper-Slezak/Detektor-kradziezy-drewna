@@ -89,3 +89,50 @@ export interface SensorChanges {
   range_id?: number
   active?: boolean
 }
+
+// Types from section 4. Alarmy
+
+export type AlarmStatus = 'new' | 'theft' | 'false_alarm'
+
+export type AlarmSource = 'microphone' | 'vibration'
+
+export interface AlarmSensor {
+  id: string
+  name: string | null
+  lat: number | null
+  lon: number | null
+}
+
+// the forester's answer after checking on site
+export interface AlarmResponse {
+  by: string
+  at: string
+  comment: string | null
+  lat: number | null
+  lon: number | null
+}
+
+export interface Alarm {
+  id: number
+  detected_at: string
+  last_frame_at: string
+  sensor: AlarmSensor
+  // 'theft' for now, any other code from the device is 'unknown'
+  event_type: string
+  sources: AlarmSource[]
+  confidence: number
+  duration_s: number
+  energy: number
+  repeats: number
+  // only vibrations, no sound: someone may be handling the sensor
+  possible_tampering: boolean
+  status: AlarmStatus
+  response: AlarmResponse | null
+}
+
+// Filters of GET /alarms (all optional)
+export interface AlarmFilters {
+  status?: AlarmStatus
+  sensor_id?: string
+  limit?: number
+}
