@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_expire_hours: int = 24
 
+    # Ochrona przed zgadywaniem haseł: tyle nieudanych logowań na jeden login w oknie,
+    # potem 429 do końca okna.
+    login_max_failures: int = 5
+    login_window_s: int = 900
+
     # Klucz, który urządzenia / bramka / symulator wysyłają w nagłówku X-Ingest-Key.
     # Puste = /ingest bez zabezpieczenia (tylko lokalnie, przy starcie leci ostrzeżenie).
     ingest_api_key: str = ""

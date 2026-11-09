@@ -66,3 +66,6 @@ docs/.trash/
 
 # stan symulatora czujników (liczniki)
 .simulator-state.json
+
+# automat wdrożenia na serwerze (deploy/auto-update.sh)
+deploy/.auto-update-failed

@@ -95,6 +95,8 @@ Każdy błąd ma ten sam kształt:
 
 Złe hasło, nieistniejący login i konto nieaktywne dają ten sam `401` (`"Błędny login lub hasło"`), żeby nie zdradzać, które loginy istnieją.
 
+Po 5 nieudanych próbach dla jednego loginu w ciągu 15 min kolejne próby (także z dobrym hasłem) dostają `429` z nagłówkiem `Retry-After` (sekundy) do końca tego okna. Udane logowanie zeruje licznik. Apka może pokazać `detail` z odpowiedzi ("Za dużo nieudanych prób, spróbuj za … min").
+
 Token jest ważny 24 h i wysyłamy go w nagłówku `Authorization: Bearer <token>`. W Swaggerze (`/docs`) wklej go po kliknięciu **Authorize**. Token przestaje działać, gdy admin dezaktywuje konto.
 
 **Wymuszona zmiana hasła.** Gdy `must_change_password` = `true`, token działa tylko na `/auth/me` i `/auth/change-password`. Pozostałe endpointy zwracają `403` z `"Najpierw zmień hasło"`. Po zmianie hasła ten sam token działa już wszędzie.

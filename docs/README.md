@@ -1,6 +1,7 @@
 # Dokumentacja
 
 - **[Testowanie całego systemu](testowanie.md)** – backend + frontend, symulator, `curl`, płytka przez Wi-Fi, sprawdzanie bazy
+- **[Wdrożenie na serwer (Mikrus)](wdrozenie.md)** – obrazy z GHCR, compose produkcyjny, aktualizacje, kopie zapasowe
 - [Persony](persony/README.md) – dla kogo budujemy system
 - [Backend](backend/README.md) – Docker, konfiguracja, API, model danych
 - [Frontend](frontend/README.md) – Docker, koncepcja, panel admina, mapa, PWA
