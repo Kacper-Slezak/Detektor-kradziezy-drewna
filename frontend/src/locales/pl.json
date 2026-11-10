@@ -179,7 +179,38 @@
     "unmounted_one": "{{count}} czujnik czeka na montaż",
     "unmounted_few": "{{count}} czujniki czekają na montaż",
     "unmounted_many": "{{count}} czujników czeka na montaż",
-    "mutedUntil": "do {{time}}"
+    "mutedUntil": "do {{time}}",
+    "views": "Widok",
+    "viewMap": "Mapa",
+    "viewAlarms": "Alarmy",
+    "viewAlarmsOpen_one": "Alarmy, {{count}} otwarty",
+    "viewAlarmsOpen_few": "Alarmy, {{count}} otwarte",
+    "viewAlarmsOpen_many": "Alarmy, {{count}} otwartych"
+  },
+  "alarms": {
+    "title": "Alarmy",
+    "filter": "Pokaż alarmy",
+    "filters": {
+      "new": "Nowe",
+      "theft": "Kradzież",
+      "false_alarm": "Fałszywe",
+      "all": "Wszystkie"
+    },
+    "status": {
+      "new": "Nowy",
+      "theft": "Kradzież",
+      "false_alarm": "Fałszywy alarm"
+    },
+    "sources": {
+      "microphone": "dźwięk",
+      "vibration": "wibracje"
+    },
+    "confidence": "pewność {{value}}%",
+    "tampering": "Możliwa manipulacja przy czujniku (same wibracje, bez dźwięku)",
+    "responded": "Sprawdził(a) {{by}}, {{time}}",
+    "comment": "„{{comment}}”",
+    "noNew": "Brak nowych alarmów",
+    "empty": "Brak alarmów"
   },
   "role": {
     "forester": "Leśniczy",
