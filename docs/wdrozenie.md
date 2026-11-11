@@ -29,10 +29,10 @@ PWA  ──HTTPS─► srvNN-PORT.wykr.es ─┤
 2. Na Mikrusie: logowanie po SSH kluczem (port `10000+ID`), `docker run --rm hello-world` działa.
 3. Sprawdzenie, czy port działa po HTTP i przez wykr.es (na serwerze `python3 -m http.server PORT`, na laptopie):
    ```bash
-   curl -I http://srvNN.mikr.us:PORT/
+   curl -I http://srv18.mikr.us:20376
    ```
    ```bash
-   curl -I https://srvNN-PORT.wykr.es/
+   curl -I https://srv18-20376.wykr.es
    ```
    Oba muszą zwrócić `200`. Jeśli wykr.es nie odpowiada, opisz to w issue, zanim pójdziesz dalej.
 
@@ -47,7 +47,7 @@ Plik `deploy/.env` (nie trafia do repo). **Nowe** sekrety, nie te z laptopów:
 
 ```bash
 cat > .env <<EOF
-PUBLIC_PORT=20123
+PUBLIC_PORT=20376
 TAG=latest
 POSTGRES_PASSWORD=$(python3 -c "import secrets; print(secrets.token_hex(24))")
 JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(48))")
@@ -85,9 +85,9 @@ Pierwsze trzy komendy robi też `./auto-update.sh` (pobranie, migracje, start), 
 
 ## 2. Urządzenia
 
-- Płytka (bez TLS, [testowanie.md, sekcja 6](testowanie.md#6-płytka-lopy-przez-wi-fi)): `API_URL = "http://srvNN.mikr.us:PORT"`, `INGEST_KEY` = `INGEST_API_KEY` z `deploy/.env` serwera.
-- Webhook TTN (gdy powstanie `/ingest/ttn`): `https://srvNN-PORT.wykr.es/api/v1/ingest/ttn`.
-- Telefony: aplikacja z `https://srvNN-PORT.wykr.es`, „Zainstaluj aplikację” w Chrome.
+- Płytka (bez TLS, [testowanie.md, sekcja 6](testowanie.md#6-płytka-lopy-przez-wi-fi)): `API_URL = "http://srv18.mikr.us:20376"`, `INGEST_KEY` = `INGEST_API_KEY` z `deploy/.env` serwera.
+- Webhook TTN (gdy powstanie `/ingest/ttn`): `https://srv18-20376.wykr.es/api/v1/ingest/ttn`.
+- Telefony: aplikacja z `https://detektor.mikrus.dev` lub `https://srv18-20376.wykr.es`, „Zainstaluj aplikację” w Chrome.
 
 ## 3. Aktualizacja (automatyczna)
 
