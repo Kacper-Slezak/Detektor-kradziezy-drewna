@@ -123,7 +123,7 @@ describe('AlarmsPage', () => {
   })
 
   it('says when someone else answered first', async () => {
-    const { user } = await renderAs('mock-3')
+    const { user, onAnswered } = await renderAs('mock-3')
     const [alarm] = await items()
     // another forester answers in the meantime
     const { respondToAlarm } = await import('@/api/alarms')
@@ -135,6 +135,8 @@ describe('AlarmsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Alarm ma już odpowiedź')
     // the list is loaded again, and the alarm is no longer new
     expect(await screen.findByText('Brak nowych alarmów')).toBeInTheDocument()
+    // the map refreshes at once too, not after REFRESH_MS
+    expect(onAnswered).toHaveBeenCalledOnce()
   })
 
   it('says when there are no alarms', async () => {

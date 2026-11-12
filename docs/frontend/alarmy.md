@@ -24,7 +24,7 @@ Pod każdym **nowym** alarmem leśniczy ma dwa przyciski: **Kradzież** i **Fał
 4. mapa od razu pobiera czujniki na nowo, więc znika czerwona liczba przy **Alarmy** i czerwona pinezka
 
 - odpowiada tylko **leśniczy**. Nadleśniczy widzi listę bez przycisków (backend i tak zwróciłby mu `403`)
-- gdy ktoś odpowiedział wcześniej (`409`), nad listą pojawia się „Alarm ma już odpowiedź”, a lista ładuje się na nowo
+- gdy ktoś odpowiedział wcześniej (`409`), nad listą pojawia się „Alarm ma już odpowiedź”, a lista i mapa ładują się na nowo (znika licznik i czerwona pinezka)
 - pozycji z telefonu (`lat`, `lon`) na razie nie wysyłamy. API ją przyjmuje jako dowód, że leśniczy był na miejscu, więc można ją dodać później
 
 ## Dane

@@ -25,7 +25,7 @@ const STATUS_BADGE: Record<AlarmStatus, string> = {
 interface AlarmsPageProps {
   // api.md: the forester answers, the district manager only reads
   canRespond: boolean
-  // after an answer: the sensor is no longer in alarm, so the map should refresh
+  // after an answer (ours or someone else's, found out by 409): the sensor is no longer in alarm, so the map should refresh
   onAnswered?: () => void
 }
 
@@ -76,6 +76,8 @@ export function AlarmsPage({ canRespond, onAnswered }: AlarmsPageProps) {
     setAnswered(null)
     setConflict(message)
     setReloadKey((k) => k + 1)
+    // the alarm is closed anyway, so the map should not wait for its next refresh
+    onAnswered?.()
   }
 
   function handleAnswered(alarm: Alarm) {
