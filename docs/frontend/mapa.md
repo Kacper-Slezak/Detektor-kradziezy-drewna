@@ -17,7 +17,7 @@ Leśniczy i nadleśniczy po zalogowaniu widzą mapę na cały ekran. Admin jej n
 
 `GET /sensors` ([api.md, sekcja 2](../backend/api.md#2-czujniki-mapa), gdzie jest jeszcze pod polską nazwą `/czujniki`). Leśniczy dostaje czujniki swojego leśnictwa, nadleśniczy wszystkie. Ten sam endpoint pobiera tabela w panelu admina.
 
-- lista odświeża się **co 60 s**, bez przeładowania mapy. Nowe alarmy mają też przychodzić pushem
+- lista odświeża się **co 20 s** (`src/lib/refresh.ts`), bez przeładowania mapy. Nowe alarmy mają też przychodzić pushem
 - gdy odświeżenie się nie uda, pinezki zostają, a nad mapą pojawia się komunikat
 - endpointu nie ma jeszcze na backendzie, więc mapa działa tylko na mocku (`VITE_USE_MOCK=true`)
 

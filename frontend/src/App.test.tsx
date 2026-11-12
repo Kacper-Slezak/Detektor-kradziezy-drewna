@@ -219,4 +219,19 @@ describe('sensor map', () => {
     expect(screen.getByRole('heading', { name: 'Mapa czujników' })).toBeInTheDocument()
     expect(within(views).getByRole('button', { name: 'Mapa' })).toHaveAttribute('aria-current', 'page')
   })
+
+  it('clears the open alarm count after the forester answers', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await screen.findByTitle('Skład przy drodze 5: Alarm', {}, mapTimeout)
+    const views = screen.getByRole('navigation', { name: 'Widok' })
+
+    await user.click(within(views).getByRole('button', { name: 'Alarmy, 1 otwarty' }))
+    const list = await screen.findByRole('list', { name: 'Alarmy' })
+    await user.click(within(list).getByRole('button', { name: 'Fałszywy alarm' }))
+    await user.click(within(list).getByRole('button', { name: 'Zapisz' }))
+
+    // the sensors are loaded again, so the count goes away
+    expect(await within(views).findByRole('button', { name: 'Alarmy' })).toBeInTheDocument()
+  })
 })

@@ -10,6 +10,7 @@ import { generateTempPassword } from '@/lib/password'
 import { ApiError } from './client'
 import type {
   Alarm,
+  AlarmAnswer,
   AlarmFilters,
   LoginResponse,
   ManagedUser,
@@ -416,3 +417,31 @@ export async function mockListAlarms(token: string | null, filters: AlarmFilters
 }
 
 const copyAlarm = (a: Alarm): Alarm => ({ ...a, sensor: { ...a.sensor }, response: a.response && { ...a.response } })
+
+export async function mockRespondToAlarm(token: string | null, id: number, answer: AlarmAnswer): Promise<Alarm> {
+  await delay()
+  const { user } = accountByToken(token)
+  if (user.role === 'district_manager') throw new ApiError(403, 'Brak uprawnień')
+  const alarm = alarms.find((a) => a.id === id)
+  if (!alarm) throw new ApiError(404, `Nie ma alarmu o id ${id}`)
+  const sensor = sensors.find((s) => s.id === alarm.sensor.id)!
+  if (user.role === 'forester' && sensor.range_id !== user.range?.id) {
+    throw new ApiError(403, 'Alarm dotyczy czujnika z innego leśnictwa')
+  }
+  if (alarm.status !== 'new') throw new ApiError(409, 'Alarm ma już odpowiedź')
+
+  alarm.status = answer.result
+  alarm.response = {
+    by: user.login,
+    at: new Date().toISOString(),
+    comment: answer.comment ?? null,
+    lat: answer.lat ?? null,
+    lon: answer.lon ?? null,
+  }
+  // the sensor no longer has an open alarm, so its pin stops being red
+  if (sensor.open_alarm_id === id) {
+    sensor.open_alarm_id = null
+    if (sensor.state === 'alarm') sensor.state = 'ok'
+  }
+  return copyAlarm(alarm)
+}

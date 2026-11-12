@@ -51,7 +51,7 @@ Potrzebne endpointy:
 - pobrania listy użytkowników i zakładania kont
 
 ----
-FCM - Firebase Cloud Messaging 
+Web Push z kluczami VAPID (bez Firebase), kontrakt w [api.md](../backend/api.md)
 Za pomocą subskrypcji ("adres skrzynki" na którą przychodzą powiadomienia) telefon może odbierać powiadomienia od serwera
 
 Powiadomienia push na telefonie potrzebują https -> testowanie razem za pomocą [LocalTunnel](https://theboroer.github.io/localtunnel-www/) (bądź inne podobne narzędzia)

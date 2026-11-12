@@ -210,7 +210,22 @@
     "responded": "Sprawdził(a) {{by}}, {{time}}",
     "comment": "„{{comment}}”",
     "noNew": "Brak nowych alarmów",
-    "empty": "Brak alarmów"
+    "empty": "Brak alarmów",
+    "answer": {
+      "question": "Co się stało?",
+      "theft": "Kradzież",
+      "falseAlarm": "Fałszywy alarm",
+      "confirmTheft": "Potwierdzasz kradzież?",
+      "confirmFalseAlarm": "Oznaczyć jako fałszywy alarm?",
+      "comment": "Komentarz (opcjonalnie)",
+      "theftHint": "np. przewoźnik ładował dodatkowe kłody",
+      "falseAlarmHint": "np. zwierzę przy stosie",
+      "cancel": "Wróć",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "saved": "Zapisano: {{result}} – {{sensor}}",
+      "ok": "OK"
+    }
   },
   "role": {
     "forester": "Leśniczy",
