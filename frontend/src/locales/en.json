@@ -212,7 +212,22 @@
     "responded": "Checked by {{by}}, {{time}}",
     "comment": "“{{comment}}”",
     "noNew": "No new alarms",
-    "empty": "No alarms"
+    "empty": "No alarms",
+    "answer": {
+      "question": "What happened?",
+      "theft": "Theft",
+      "falseAlarm": "False alarm",
+      "confirmTheft": "Confirm the theft?",
+      "confirmFalseAlarm": "Mark as a false alarm?",
+      "comment": "Comment (optional)",
+      "theftHint": "e.g. the carrier loaded extra logs",
+      "falseAlarmHint": "e.g. an animal by the pile",
+      "cancel": "Back",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved: {{result}} – {{sensor}}",
+      "ok": "OK"
+    }
   },
   "role": {
     "forester": "Forester",

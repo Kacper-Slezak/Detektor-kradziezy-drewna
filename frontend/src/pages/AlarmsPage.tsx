@@ -6,6 +6,7 @@ import { cn } from 'cn'
 import { listAlarms } from '@/api/alarms'
 import { ApiError } from '@/api/client'
 import type { Alarm, AlarmStatus } from '@/api/types'
+import { AlarmAnswerForm } from '@/components/AlarmAnswerForm'
 import { Button } from '@/components/ui/button'
 import { REFRESH_MS } from '@/lib/refresh'
 import { formatDateTime } from '@/lib/sensor-status'
@@ -21,12 +22,24 @@ const STATUS_BADGE: Record<AlarmStatus, string> = {
   false_alarm: 'bg-muted text-muted-foreground',
 }
 
+interface AlarmsPageProps {
+  // api.md: the forester answers, the district manager only reads
+  canRespond: boolean
+  // after an answer (ours or someone else's, found out by 409): the sensor is no longer in alarm, so the map should refresh
+  onAnswered?: () => void
+}
+
 // Alarm list of a forester and a district manager, newest first
-export function AlarmsPage() {
+export function AlarmsPage({ canRespond, onAnswered }: AlarmsPageProps) {
   const { t, i18n } = useTranslation()
   const [filter, setFilter] = useState<Filter>('new')
   const [alarms, setAlarms] = useState<Alarm[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // bumping it loads the list again (e.g. after someone else answered first)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [answered, setAnswered] = useState<Alarm | null>(null)
+  // "already answered" from the backend; stays after the list reloads
+  const [conflict, setConflict] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -48,13 +61,33 @@ export function AlarmsPage() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [filter, t])
+  }, [filter, reloadKey, t])
 
   function changeFilter(next: Filter) {
     if (next === filter) return
     setAlarms(null)
     setError(null)
+    setAnswered(null)
+    setConflict(null)
     setFilter(next)
+  }
+
+  function handleConflict(message: string) {
+    setAnswered(null)
+    setConflict(message)
+    setReloadKey((k) => k + 1)
+    // the alarm is closed anyway, so the map should not wait for its next refresh
+    onAnswered?.()
+  }
+
+  function handleAnswered(alarm: Alarm) {
+    setConflict(null)
+    // under "new" the answered alarm leaves the list, elsewhere it shows its new status
+    setAlarms((current) =>
+      (current ?? []).flatMap((a) => (a.id !== alarm.id ? [a] : filter === 'new' ? [] : [alarm])),
+    )
+    setAnswered(alarm)
+    onAnswered?.()
   }
 
   return (
@@ -74,6 +107,29 @@ export function AlarmsPage() {
             </Button>
           ))}
         </div>
+
+        {answered && (
+          <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
+            <p>
+              {t('alarms.answer.saved', {
+                result: t(`alarms.status.${answered.status}`),
+                sensor: answered.sensor.name ?? answered.sensor.id,
+              })}
+            </p>
+            <Button variant="ghost" className="h-10 text-base" onClick={() => setAnswered(null)}>
+              {t('alarms.answer.ok')}
+            </Button>
+          </div>
+        )}
+
+        {conflict && (
+          <div role="alert" className="flex items-center justify-between gap-2 rounded-xl bg-card p-3 text-destructive ring-1 ring-foreground/10">
+            <p>{conflict}</p>
+            <Button variant="ghost" className="h-10 text-base" onClick={() => setConflict(null)}>
+              {t('alarms.answer.ok')}
+            </Button>
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="text-destructive">
@@ -116,6 +172,13 @@ export function AlarmsPage() {
                     <TriangleAlert className="mt-0.5 size-5 shrink-0" />
                     {t('alarms.tampering')}
                   </p>
+                )}
+                {canRespond && alarm.status === 'new' && (
+                  <AlarmAnswerForm
+                    alarm={alarm}
+                    onAnswered={handleAnswered}
+                    onConflict={handleConflict}
+                  />
                 )}
                 {alarm.response && (
                   <p className="border-t pt-2 text-muted-foreground">

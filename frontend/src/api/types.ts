@@ -130,6 +130,18 @@ export interface Alarm {
   response: AlarmResponse | null
 }
 
+// POST /alarms/{id}/response: what the forester found on site
+export type AlarmResult = Exclude<AlarmStatus, 'new'>
+
+export interface AlarmAnswer {
+  result: AlarmResult
+  // up to 500 characters
+  comment?: string
+  // lat and lon go together or not at all
+  lat?: number
+  lon?: number
+}
+
 // Filters of GET /alarms (all optional)
 export interface AlarmFilters {
   status?: AlarmStatus

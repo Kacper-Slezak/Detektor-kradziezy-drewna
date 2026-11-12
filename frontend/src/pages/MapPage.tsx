@@ -38,6 +38,8 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   const [error, setError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [view, setView] = useState<View>('map')
+  // bumping it loads the sensors again, e.g. after answering an alarm
+  const [sensorsKey, setSensorsKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +61,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
       cancelled = true
       clearInterval(timer)
     }
-  }, [t])
+  }, [sensorsKey, t])
 
   const mounted = (sensors ?? []).filter((s) => s.lat !== null)
   const unmounted = (sensors ?? []).length - mounted.length
@@ -113,7 +115,10 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
 
       <main className="relative min-h-0 flex-1">
         {view === 'alarms' ? (
-          <AlarmsPage />
+          <AlarmsPage
+            canRespond={user.role === 'forester'}
+            onAnswered={() => setSensorsKey((k) => k + 1)}
+          />
         ) : sensors === null && !error ? (
           <p role="status" className="flex h-full items-center justify-center text-muted-foreground">
             {t('app.loading')}
