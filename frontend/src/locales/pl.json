@@ -232,6 +232,30 @@
     "district_manager": "Nadleśniczy",
     "admin": "Administrator"
   },
+  "mount": {
+    "open": "Zamontuj",
+    "title": "Montaż czujnika",
+    "description": "Stań przy składzie i pobierz pozycję z telefonu.",
+    "sensor": "Czujnik",
+    "name": "Nazwa",
+    "nameHint": "np. „Skład przy drodze 5”",
+    "location": "Lokalizacja",
+    "locate": "Pobierz pozycję",
+    "relocate": "Pobierz ponownie",
+    "locating": "Szukam pozycji…",
+    "accuracy": "±{{meters}} m",
+    "poorAccuracy": "Słaba dokładność, spróbuj ponownie na otwartym terenie",
+    "save": "Zapisz",
+    "saving": "Zapisywanie…",
+    "saved": "Zamontowano: {{name}}",
+    "errors": {
+      "unsupported": "Ta przeglądarka nie podaje lokalizacji",
+      "insecure": "Lokalizacja działa tylko na stronie https",
+      "denied": "Brak zgody na lokalizację. Zezwól na nią w ustawieniach przeglądarki",
+      "unavailable": "Nie udało się ustalić pozycji. Sprawdź, czy GPS jest włączony",
+      "timeout": "Szukanie pozycji trwało za długo. Spróbuj ponownie"
+    }
+  },
   "errors": {
     "network": "Brak połączenia z serwerem",
     "http": "Błąd {{status}}"
