@@ -57,10 +57,10 @@ describe('SensorsPage', () => {
     await renderAsAdmin()
     const tile = (label: string) => screen.getByText(label, { selector: 'dt' }).parentElement!
 
-    expect(tile('Wszystkie czujniki')).toHaveTextContent('5')
+    expect(tile('Wszystkie czujniki')).toHaveTextContent('6')
     expect(tile('Z alarmem')).toHaveTextContent('1')
     expect(tile('Bez kontaktu')).toHaveTextContent('1')
-    expect(tile('Do zamontowania')).toHaveTextContent('1')
+    expect(tile('Do zamontowania')).toHaveTextContent('2')
   })
 
   it('filters the table by name or ID', async () => {

@@ -2,8 +2,8 @@
 // POST /sensors (admin) and range_id in PATCH are not in api.md yet either
 
 import { USE_MOCK, apiFetch, getToken } from './client'
-import { mockCreateSensor, mockListSensors, mockUpdateSensor } from './mock'
-import type { NewSensor, Sensor, SensorChanges, SensorFilters } from './types'
+import { mockCreateSensor, mockListSensors, mockMountSensor, mockUpdateSensor } from './mock'
+import type { NewSensor, Sensor, SensorChanges, SensorFilters, SensorMount } from './types'
 
 // A forester gets the sensors of their own range, a district manager and the admin get everything
 export function listSensors(filters: SensorFilters = {}): Promise<Sensor[]> {
@@ -29,5 +29,14 @@ export function updateSensor(id: string, changes: SensorChanges): Promise<Sensor
   return apiFetch<Sensor>(`/sensors/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(changes),
+  })
+}
+
+// The forester mounts a sensor of their range; after this it is active and has a pin on the map
+export function mountSensor(id: string, mount: SensorMount): Promise<Sensor> {
+  if (USE_MOCK) return mockMountSensor(getToken(), id, mount)
+  return apiFetch<Sensor>(`/sensors/${encodeURIComponent(id)}/mount`, {
+    method: 'PUT',
+    body: JSON.stringify(mount),
   })
 }

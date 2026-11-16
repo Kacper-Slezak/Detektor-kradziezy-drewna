@@ -190,7 +190,7 @@ describe('sensor map', () => {
 
     expect(await screen.findByTitle('Skład przy leśniczówce: Bez kontaktu', {}, mapTimeout)).toBeInTheDocument()
     expect(screen.getByTitle('Skład przy drodze 5: Alarm')).toBeInTheDocument()
-    expect(screen.getByText('1 czujnik czeka na montaż')).toBeInTheDocument()
+    expect(screen.getByText('2 czujniki czekają na montaż')).toBeInTheDocument()
   })
 
   it('has a menu with password change and log out', async () => {
