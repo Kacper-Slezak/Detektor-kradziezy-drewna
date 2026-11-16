@@ -257,6 +257,45 @@ describe('sensor map', () => {
     expect(window.location.pathname).toBe('/')
   })
 
+  it('a forester mounts a sensor and its pin shows up on the map', async () => {
+    // jsdom has no GPS and is not https: the phone is faked for this test
+    vi.stubGlobal('isSecureContext', true)
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (ok: PositionCallback) =>
+          ok({ coords: { latitude: 50.061, longitude: 19.95, accuracy: 6 } } as GeolocationPosition),
+      },
+    })
+    try {
+      render(<App />)
+      const user = await logIn('blazej', 'tajne123')
+      await user.click(await screen.findByRole('button', { name: 'Zamontuj' }, mapTimeout))
+
+      const panel = await screen.findByRole('dialog', { name: 'Montaż czujnika' })
+      await user.type(within(panel).getByLabelText('Nazwa'), 'Skład przy brzozach')
+      await user.click(within(panel).getByRole('button', { name: 'Pobierz pozycję' }))
+      await user.click(await within(panel).findByRole('button', { name: 'Zapisz' }))
+
+      expect(await screen.findByText('Zamontowano: Skład przy brzozach')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Montaż czujnika' })).not.toBeInTheDocument()
+      // it has not sent anything yet, so it is silent; nothing waits to be mounted any more
+      expect(await screen.findByTitle('Skład przy brzozach: Bez kontaktu')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Zamontuj' })).not.toBeInTheDocument()
+    } finally {
+      vi.unstubAllGlobals()
+      Reflect.deleteProperty(navigator, 'geolocation')
+    }
+  })
+
+  it('a district manager sees the sensors waiting to be mounted but cannot mount them', async () => {
+    render(<App />)
+    await logIn('bogdan', 'tajne123')
+
+    expect(await screen.findByText('2 czujniki czekają na montaż', {}, mapTimeout)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zamontuj' })).not.toBeInTheDocument()
+  })
+
   it('clears the open alarm count after the forester answers', async () => {
     render(<App />)
     const user = await logIn('blazej', 'tajne123')

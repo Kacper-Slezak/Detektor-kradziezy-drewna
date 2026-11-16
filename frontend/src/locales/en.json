@@ -250,6 +250,7 @@
     "save": "Save",
     "saving": "Saving…",
     "saved": "Mounted: {{name}}",
+    "close": "Close",
     "errors": {
       "unsupported": "This browser does not give the location",
       "insecure": "Location only works on an https page",

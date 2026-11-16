@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bell, KeyRound, LogOut, Map as MapIcon, Menu } from 'lucide-react'
+import { Bell, KeyRound, LocateFixed, LogOut, Map as MapIcon, Menu } from 'lucide-react'
 import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
@@ -8,6 +8,7 @@ import { listSensors } from '@/api/sensors'
 import type { Sensor, User } from '@/api/types'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { MountSensorForm } from '@/components/MountSensorForm'
 import { SensorMap } from '@/components/SensorMap'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,9 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   const view = route.view
   // bumping it loads the sensors again, e.g. after answering an alarm
   const [sensorsKey, setSensorsKey] = useState(0)
+  const [mountOpen, setMountOpen] = useState(false)
+  // name of the sensor just mounted, for the message over the map
+  const [mountedName, setMountedName] = useState<string | null>(null)
 
   useEffect(() => {
     // the phone's back button
@@ -80,7 +84,16 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   }, [sensorsKey, t])
 
   const mounted = (sensors ?? []).filter((s) => s.lat !== null)
-  const unmounted = (sensors ?? []).length - mounted.length
+  const unmountedSensors = (sensors ?? []).filter((s) => s.lat === null)
+  // api.md: only a forester mounts (the district manager would get 403)
+  const canMount = user.role === 'forester' && unmountedSensors.length > 0
+
+  function handleMounted(sensor: Sensor) {
+    setMountOpen(false)
+    setMountedName(sensor.name ?? sensor.id)
+    // the new pin shows up at once, not after REFRESH_MS
+    setSensorsKey((k) => k + 1)
+  }
   const counts = LEGEND.map((status) => ({
     status,
     count: mounted.filter((s) => statusOf(s) === status).length,
@@ -154,6 +167,11 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
                 {t('home.passwordChanged')}
               </p>
             )}
+            {mountedName && (
+              <p role="status" className="rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-foreground/10">
+                {t('mount.saved', { name: mountedName })}
+              </p>
+            )}
             {error && (
               <p role="alert" className="rounded-lg bg-card px-3 py-2 text-sm text-destructive shadow ring-1 ring-foreground/10">
                 {error}
@@ -177,12 +195,37 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
                 </li>
               ))}
             </ul>
-            {unmounted > 0 && (
-              <p className="border-t pt-1 text-xs text-muted-foreground">{t('map.unmounted', { count: unmounted })}</p>
+            {unmountedSensors.length > 0 && (
+              <p className="border-t pt-1 text-xs text-muted-foreground">
+                {t('map.unmounted', { count: unmountedSensors.length })}
+              </p>
+            )}
+            {canMount && (
+              <Button
+                className="mt-1 h-11 text-base [&_svg]:size-5!"
+                onClick={() => {
+                  setMountedName(null)
+                  setMountOpen(true)
+                }}
+              >
+                <LocateFixed />
+                {t('mount.open')}
+              </Button>
             )}
           </section>
         )}
       </main>
+
+      <Sheet open={mountOpen} onOpenChange={setMountOpen}>
+        <SheetContent closeLabel={t('mount.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('mount.title')}</SheetTitle>
+            <SheetDescription>{t('mount.description')}</SheetDescription>
+          </SheetHeader>
+          {/* the form starts empty each time the panel opens */}
+          {mountOpen && <MountSensorForm sensors={unmountedSensors} onMounted={handleMounted} />}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent closeLabel={t('admin.closeMenu')}>

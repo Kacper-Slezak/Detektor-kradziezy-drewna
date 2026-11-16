@@ -248,6 +248,7 @@
     "save": "Zapisz",
     "saving": "Zapisywanie…",
     "saved": "Zamontowano: {{name}}",
+    "close": "Zamknij",
     "errors": {
       "unsupported": "Ta przeglądarka nie podaje lokalizacji",
       "insecure": "Lokalizacja działa tylko na stronie https",
