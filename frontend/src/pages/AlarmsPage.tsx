@@ -67,9 +67,14 @@ export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPag
 
   // the focused alarm may be answered already, so it is not under "new": then look under all, once
   const lookedEverywhere = useRef(false)
+  // scroll only when the alarm first shows up: the list reloads every REFRESH_MS,
+  // and the forester may have scrolled somewhere else by then
+  const scrolled = useRef(false)
   useEffect(() => {
     if (focusId === null || alarms === null) return
     if (alarms.some((a) => a.id === focusId)) {
+      if (scrolled.current) return
+      scrolled.current = true
       document.getElementById(`alarm-${focusId}`)?.scrollIntoView?.({ block: 'center' })
     } else if (filter !== 'all' && !lookedEverywhere.current) {
       lookedEverywhere.current = true
