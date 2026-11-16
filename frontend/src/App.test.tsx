@@ -9,6 +9,8 @@ import { getToken, setToken } from './api/client'
 let App: typeof import('./App').default
 
 beforeEach(async () => {
+  // the address says which view is open, and jsdom keeps it between tests
+  window.history.replaceState(null, '', '/')
   vi.resetModules()
   App = (await import('./App')).default
 })
@@ -214,10 +216,45 @@ describe('sensor map', () => {
     await user.click(within(views).getByRole('button', { name: 'Alarmy, 1 otwarty' }))
     expect(screen.getByRole('heading', { name: 'Alarmy' })).toBeInTheDocument()
     expect(await screen.findByRole('list', { name: 'Alarmy' })).toHaveTextContent('Skład przy drodze 5')
+    expect(window.location.pathname).toBe('/alarms')
 
     await user.click(within(views).getByRole('button', { name: 'Mapa' }))
     expect(screen.getByRole('heading', { name: 'Mapa czujników' })).toBeInTheDocument()
     expect(within(views).getByRole('button', { name: 'Mapa' })).toHaveAttribute('aria-current', 'page')
+    expect(window.location.pathname).toBe('/')
+  })
+
+  it('opens the alarm from the address, e.g. after tapping a push', async () => {
+    window.history.replaceState(null, '', '/alarms/41')
+    setToken('mock-3')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Alarmy' }, mapTimeout)).toBeInTheDocument()
+    const list = await screen.findByRole('list', { name: 'Alarmy' })
+    expect(within(list).getByRole('listitem', { current: true })).toHaveTextContent('Skład przy drodze 5')
+  })
+
+  it('goes back to the map with the back button', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await screen.findByTitle('Skład przy drodze 5: Alarm', {}, mapTimeout)
+    await user.click(within(screen.getByRole('navigation', { name: 'Widok' })).getByRole('button', { name: /^Alarmy/ }))
+
+    window.history.back()
+
+    expect(await screen.findByRole('heading', { name: 'Mapa czujników' })).toBeInTheDocument()
+  })
+
+  it('starts the next person on the map after logging out', async () => {
+    window.history.replaceState(null, '', '/alarms')
+    setToken('mock-3')
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: 'Menu' }, mapTimeout))
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Wyloguj' }))
+
+    expect(window.location.pathname).toBe('/')
   })
 
   it('clears the open alarm count after the forester answers', async () => {

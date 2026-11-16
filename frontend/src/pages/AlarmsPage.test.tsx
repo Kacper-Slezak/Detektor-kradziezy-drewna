@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setToken } from '@/api/client'
+import { REFRESH_MS } from '@/lib/refresh'
 
 // Answering an alarm edits mock state, so every test loads a fresh page and mock
 let AlarmsPage: typeof import('./AlarmsPage').AlarmsPage
@@ -137,6 +138,74 @@ describe('AlarmsPage', () => {
     expect(await screen.findByText('Brak nowych alarmów')).toBeInTheDocument()
     // the map refreshes at once too, not after REFRESH_MS
     expect(onAnswered).toHaveBeenCalledOnce()
+  })
+
+  it('highlights the alarm from the address', async () => {
+    setToken('mock-3')
+    render(<AlarmsPage canRespond focusId={41} />)
+
+    const [alarm] = await items()
+    expect(alarm).toHaveAttribute('aria-current', 'true')
+    expect(alarm).toHaveTextContent('Skład przy drodze 5')
+  })
+
+  it('scrolls to the alarm from the address once, not after every refresh', async () => {
+    // jsdom has no scrolling, so count the calls instead
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    // the same module instance the page uses (beforeEach loaded both fresh)
+    const load = vi.spyOn(await import('@/api/alarms'), 'listAlarms')
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      setToken('mock-3')
+      render(<AlarmsPage canRespond focusId={41} />)
+      await vi.waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce())
+
+      // the list reloads after REFRESH_MS; the forester may have scrolled elsewhere by then
+      await vi.advanceTimersByTimeAsync(REFRESH_MS)
+      await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2))
+      // wait until the reloaded list is in and React has run its effects
+      await act(async () => {
+        await load.mock.results[1].value
+      })
+
+      expect(scrollIntoView).toHaveBeenCalledOnce()
+      expect(screen.getByRole('listitem', { current: true })).toHaveTextContent('Skład przy drodze 5')
+    } finally {
+      vi.useRealTimers()
+      load.mockRestore()
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    }
+  })
+
+  it('looks for an answered alarm from the address under all alarms', async () => {
+    setToken('mock-3')
+    render(<AlarmsPage canRespond focusId={40} />)
+
+    // alarm 40 already has an answer, so it is not under "new"
+    const focused = await screen.findByRole('listitem', { current: true })
+    expect(focused).toHaveTextContent('Skład przy paśniku')
+    expect(filter('Wszystkie')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText(/Nie znaleziono alarmu/)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [999, 'a number that does not exist'],
+    [38, 'an alarm of another range'],
+  ])('says when alarm %i from the address is not there (%s)', async (id) => {
+    setToken('mock-3')
+    render(<AlarmsPage canRespond focusId={id} />)
+
+    const message = await screen.findByText(
+      `Nie znaleziono alarmu ${id}. Mógł zostać usunięty albo dotyczy innego leśnictwa.`,
+    )
+    // it was looked for under all alarms, and the rest of the list is still there
+    expect(filter('Wszystkie')).toHaveAttribute('aria-pressed', 'true')
+    expect(await items()).toHaveLength(3)
+    expect(screen.queryByRole('listitem', { current: true })).not.toBeInTheDocument()
+
+    await userEvent.setup().click(within(message.parentElement!).getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText(/Nie znaleziono alarmu/)).not.toBeInTheDocument()
   })
 
   it('says when there are no alarms', async () => {
