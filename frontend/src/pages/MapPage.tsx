@@ -13,6 +13,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { REFRESH_MS } from '@/lib/refresh'
+import { goTo, parseRoute, type Route } from '@/lib/route'
 import { STATUS_DOT, statusOf, type Status } from '@/lib/sensor-status'
 import { AlarmsPage } from '@/pages/AlarmsPage'
 
@@ -37,9 +38,24 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   const [sensors, setSensors] = useState<Sensor[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [view, setView] = useState<View>('map')
+  // the view comes from the address, so a push can open a given alarm
+  const [route, setRoute] = useState<Route>(() => parseRoute())
+  const view = route.view
   // bumping it loads the sensors again, e.g. after answering an alarm
   const [sensorsKey, setSensorsKey] = useState(0)
+
+  useEffect(() => {
+    // the phone's back button
+    const onPopState = () => setRoute(parseRoute())
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  function setView(next: View) {
+    const nextRoute: Route = next === 'map' ? { view: 'map' } : { view: 'alarms', alarmId: null }
+    goTo(nextRoute)
+    setRoute(nextRoute)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -116,6 +132,9 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
       <main className="relative min-h-0 flex-1">
         {view === 'alarms' ? (
           <AlarmsPage
+            // a new alarm from the address starts the list again
+            key={route.alarmId ?? 'list'}
+            focusId={route.alarmId}
             canRespond={user.role === 'forester'}
             onAnswered={() => setSensorsKey((k) => k + 1)}
           />

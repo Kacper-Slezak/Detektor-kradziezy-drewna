@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Activity, Clock, TriangleAlert } from 'lucide-react'
 import { cn } from 'cn'
@@ -27,10 +27,12 @@ interface AlarmsPageProps {
   canRespond: boolean
   // after an answer (ours or someone else's, found out by 409): the sensor is no longer in alarm, so the map should refresh
   onAnswered?: () => void
+  // alarm from the address (/alarms/41, opened by a push): highlighted and scrolled to
+  focusId?: number | null
 }
 
 // Alarm list of a forester and a district manager, newest first
-export function AlarmsPage({ canRespond, onAnswered }: AlarmsPageProps) {
+export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPageProps) {
   const { t, i18n } = useTranslation()
   const [filter, setFilter] = useState<Filter>('new')
   const [alarms, setAlarms] = useState<Alarm[] | null>(null)
@@ -62,6 +64,19 @@ export function AlarmsPage({ canRespond, onAnswered }: AlarmsPageProps) {
       clearInterval(timer)
     }
   }, [filter, reloadKey, t])
+
+  // the focused alarm may be answered already, so it is not under "new": then look under all, once
+  const lookedEverywhere = useRef(false)
+  useEffect(() => {
+    if (focusId === null || alarms === null) return
+    if (alarms.some((a) => a.id === focusId)) {
+      document.getElementById(`alarm-${focusId}`)?.scrollIntoView?.({ block: 'center' })
+    } else if (filter !== 'all' && !lookedEverywhere.current) {
+      lookedEverywhere.current = true
+      setAlarms(null)
+      setFilter('all')
+    }
+  }, [alarms, filter, focusId])
 
   function changeFilter(next: Filter) {
     if (next === filter) return
@@ -150,7 +165,15 @@ export function AlarmsPage({ canRespond, onAnswered }: AlarmsPageProps) {
         ) : (
           <ul aria-label={t('alarms.title')} className="flex flex-col gap-3">
             {alarms.map((alarm) => (
-              <li key={alarm.id} className="flex flex-col gap-2 rounded-xl bg-card p-4 text-base ring-1 ring-foreground/10">
+              <li
+                key={alarm.id}
+                id={`alarm-${alarm.id}`}
+                aria-current={alarm.id === focusId ? 'true' : undefined}
+                className={cn(
+                  'flex scroll-m-3 flex-col gap-2 rounded-xl bg-card p-4 text-base ring-1 ring-foreground/10',
+                  alarm.id === focusId && 'ring-2 ring-red-600',
+                )}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-lg leading-snug font-semibold">{alarm.sensor.name ?? alarm.sensor.id}</p>
                   <span className={cn('shrink-0 rounded-full px-3 py-1 text-sm font-semibold', STATUS_BADGE[alarm.status])}>

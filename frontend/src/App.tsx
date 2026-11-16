@@ -8,6 +8,7 @@ import { AdminLayout, type AdminSection } from '@/components/AdminLayout'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
+import { resetRoute } from '@/lib/route'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SensorsPage } from '@/pages/SensorsPage'
@@ -50,6 +51,7 @@ function App() {
   }
 
   function logout() {
+    resetRoute()
     setToken(null)
     setUser(null)
     setChangingPassword(false)
