@@ -83,6 +83,11 @@ export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPag
     }
   }, [alarms, filter, focusId])
 
+  // not even under "all": a wrong number, or an alarm of another range
+  const [missingClosed, setMissingClosed] = useState(false)
+  const focusMissing =
+    focusId !== null && filter === 'all' && alarms !== null && !alarms.some((a) => a.id === focusId)
+
   function changeFilter(next: Filter) {
     if (next === filter) return
     setAlarms(null)
@@ -137,6 +142,15 @@ export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPag
               })}
             </p>
             <Button variant="ghost" className="h-10 text-base" onClick={() => setAnswered(null)}>
+              {t('alarms.answer.ok')}
+            </Button>
+          </div>
+        )}
+
+        {focusMissing && !missingClosed && (
+          <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
+            <p>{t('alarms.notFound', { id: focusId })}</p>
+            <Button variant="ghost" className="h-10 text-base" onClick={() => setMissingClosed(true)}>
               {t('alarms.answer.ok')}
             </Button>
           </div>

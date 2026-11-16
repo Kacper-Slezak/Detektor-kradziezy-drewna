@@ -186,6 +186,26 @@ describe('AlarmsPage', () => {
     const focused = await screen.findByRole('listitem', { current: true })
     expect(focused).toHaveTextContent('Skład przy paśniku')
     expect(filter('Wszystkie')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText(/Nie znaleziono alarmu/)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [999, 'a number that does not exist'],
+    [38, 'an alarm of another range'],
+  ])('says when alarm %i from the address is not there (%s)', async (id) => {
+    setToken('mock-3')
+    render(<AlarmsPage canRespond focusId={id} />)
+
+    const message = await screen.findByText(
+      `Nie znaleziono alarmu ${id}. Mógł zostać usunięty albo dotyczy innego leśnictwa.`,
+    )
+    // it was looked for under all alarms, and the rest of the list is still there
+    expect(filter('Wszystkie')).toHaveAttribute('aria-pressed', 'true')
+    expect(await items()).toHaveLength(3)
+    expect(screen.queryByRole('listitem', { current: true })).not.toBeInTheDocument()
+
+    await userEvent.setup().click(within(message.parentElement!).getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText(/Nie znaleziono alarmu/)).not.toBeInTheDocument()
   })
 
   it('says when there are no alarms', async () => {

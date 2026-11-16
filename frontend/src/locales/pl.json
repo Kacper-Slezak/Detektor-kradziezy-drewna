@@ -211,6 +211,7 @@
     "comment": "„{{comment}}”",
     "noNew": "Brak nowych alarmów",
     "empty": "Brak alarmów",
+    "notFound": "Nie znaleziono alarmu {{id}}. Mógł zostać usunięty albo dotyczy innego leśnictwa.",
     "answer": {
       "question": "Co się stało?",
       "theft": "Kradzież",

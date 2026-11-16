@@ -39,6 +39,8 @@ Widok jest zapisany w adresie strony, więc działa przycisk **Wstecz** (w przeg
 
 - `/alarms/41` otwiera powiadomienie push: backend wysyła w nim `url` alarmu ([api.md](../backend/api.md))
 - gdy alarm ma już odpowiedź, nie ma go pod **Nowe**, więc lista sama przełącza się na **Wszystkie** i tam go wyróżnia
+- gdy alarmu nie ma nawet pod **Wszystkie** (zły numer albo alarm innego leśnictwa), nad listą pojawia się „Nie znaleziono alarmu 999…” z przyciskiem **OK**
+- lista przewija się do alarmu tylko raz, po wejściu. Odświeżanie co 20 s już nie przewija, więc leśniczy może spokojnie przeglądać resztę
 - nieznany adres pokazuje mapę
 - po wylogowaniu adres wraca na `/`, żeby następna osoba na tym telefonie zaczynała od mapy
 - serwer zwraca aplikację pod każdym adresem (`try_files` w `frontend/Caddyfile`), więc odświeżenie `/alarms/41` nie daje 404
