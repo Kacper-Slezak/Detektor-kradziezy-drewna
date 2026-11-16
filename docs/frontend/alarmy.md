@@ -27,6 +27,23 @@ Pod każdym **nowym** alarmem leśniczy ma dwa przyciski: **Kradzież** i **Fał
 - gdy ktoś odpowiedział wcześniej (`409`), nad listą pojawia się „Alarm ma już odpowiedź”, a lista i mapa ładują się na nowo (znika licznik i czerwona pinezka)
 - pozycji z telefonu (`lat`, `lon`) na razie nie wysyłamy. API ją przyjmuje jako dowód, że leśniczy był na miejscu, więc można ją dodać później
 
+## Adres
+
+Widok jest zapisany w adresie strony, więc działa przycisk **Wstecz** (w przeglądarce i na telefonie):
+
+| Adres | Co widać |
+|---|---|
+| `/` | mapa |
+| `/alarms` | lista alarmów |
+| `/alarms/41` | lista z wyróżnionym alarmem 41 (czerwona ramka), przewinięta do niego |
+
+- `/alarms/41` otwiera powiadomienie push: backend wysyła w nim `url` alarmu ([api.md](../backend/api.md))
+- gdy alarm ma już odpowiedź, nie ma go pod **Nowe**, więc lista sama przełącza się na **Wszystkie** i tam go wyróżnia
+- nieznany adres pokazuje mapę
+- po wylogowaniu adres wraca na `/`, żeby następna osoba na tym telefonie zaczynała od mapy
+- serwer zwraca aplikację pod każdym adresem (`try_files` w `frontend/Caddyfile`), więc odświeżenie `/alarms/41` nie daje 404
+- kod: `src/lib/route.ts`
+
 ## Dane
 
 `GET /alarms?status=...` ([api.md, sekcja 4](../backend/api.md#4-alarmy)). Leśniczy dostaje alarmy swojego leśnictwa, nadleśniczy wszystkie. Backend sortuje od najnowszego.
@@ -37,7 +54,6 @@ Pod każdym **nowym** alarmem leśniczy ma dwa przyciski: **Kradzież** i **Fał
 
 ## Dalej
 
-- adres `/alarms/41`, żeby powiadomienie push otwierało ten alarm
 - szczegóły alarmu z mapką
 - z dymka pinezki w stanie alarmu przejście do tego alarmu
 - pozycja z telefonu przy odpowiedzi

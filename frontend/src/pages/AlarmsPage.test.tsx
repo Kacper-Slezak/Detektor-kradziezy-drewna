@@ -139,6 +139,25 @@ describe('AlarmsPage', () => {
     expect(onAnswered).toHaveBeenCalledOnce()
   })
 
+  it('highlights the alarm from the address', async () => {
+    setToken('mock-3')
+    render(<AlarmsPage canRespond focusId={41} />)
+
+    const [alarm] = await items()
+    expect(alarm).toHaveAttribute('aria-current', 'true')
+    expect(alarm).toHaveTextContent('Skład przy drodze 5')
+  })
+
+  it('looks for an answered alarm from the address under all alarms', async () => {
+    setToken('mock-3')
+    render(<AlarmsPage canRespond focusId={40} />)
+
+    // alarm 40 already has an answer, so it is not under "new"
+    const focused = await screen.findByRole('listitem', { current: true })
+    expect(focused).toHaveTextContent('Skład przy paśniku')
+    expect(filter('Wszystkie')).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('says when there are no alarms', async () => {
     const { user } = await renderAs('mock-5')
     await items()
