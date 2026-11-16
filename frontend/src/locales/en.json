@@ -213,6 +213,7 @@
     "comment": "“{{comment}}”",
     "noNew": "No new alarms",
     "empty": "No alarms",
+    "notFound": "Alarm {{id}} was not found. It may have been removed or belong to another range.",
     "answer": {
       "question": "What happened?",
       "theft": "Theft",

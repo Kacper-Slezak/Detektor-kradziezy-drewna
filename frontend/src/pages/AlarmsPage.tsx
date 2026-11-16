@@ -67,9 +67,14 @@ export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPag
 
   // the focused alarm may be answered already, so it is not under "new": then look under all, once
   const lookedEverywhere = useRef(false)
+  // scroll only when the alarm first shows up: the list reloads every REFRESH_MS,
+  // and the forester may have scrolled somewhere else by then
+  const scrolled = useRef(false)
   useEffect(() => {
     if (focusId === null || alarms === null) return
     if (alarms.some((a) => a.id === focusId)) {
+      if (scrolled.current) return
+      scrolled.current = true
       document.getElementById(`alarm-${focusId}`)?.scrollIntoView?.({ block: 'center' })
     } else if (filter !== 'all' && !lookedEverywhere.current) {
       lookedEverywhere.current = true
@@ -77,6 +82,11 @@ export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPag
       setFilter('all')
     }
   }, [alarms, filter, focusId])
+
+  // not even under "all": a wrong number, or an alarm of another range
+  const [missingClosed, setMissingClosed] = useState(false)
+  const focusMissing =
+    focusId !== null && filter === 'all' && alarms !== null && !alarms.some((a) => a.id === focusId)
 
   function changeFilter(next: Filter) {
     if (next === filter) return
@@ -132,6 +142,15 @@ export function AlarmsPage({ canRespond, onAnswered, focusId = null }: AlarmsPag
               })}
             </p>
             <Button variant="ghost" className="h-10 text-base" onClick={() => setAnswered(null)}>
+              {t('alarms.answer.ok')}
+            </Button>
+          </div>
+        )}
+
+        {focusMissing && !missingClosed && (
+          <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
+            <p>{t('alarms.notFound', { id: focusId })}</p>
+            <Button variant="ghost" className="h-10 text-base" onClick={() => setMissingClosed(true)}>
               {t('alarms.answer.ok')}
             </Button>
           </div>
