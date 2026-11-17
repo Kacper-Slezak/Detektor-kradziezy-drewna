@@ -60,3 +60,10 @@ docker-data/
 .trash/
 docs/.obsidian/
 docs/.trash/
+<<<<<<< Updated upstream
+=======
+.obsidian/
+
+# stan symulatora czujników (liczniki)
+.simulator-state.json
+>>>>>>> Stashed changes
