@@ -156,3 +156,13 @@ export interface AlarmFilters {
   sensor_id?: string
   limit?: number
 }
+
+// POST /push/subscriptions: what subscription.toJSON() gives, plus a label of the device (api.md, section 6)
+export interface PushSubscriptionBody {
+  endpoint: string
+  // the backend ignores it
+  expirationTime?: number | null
+  keys: { p256dh: string; auth: string }
+  // e.g. "Android – Chrome", so the forester can tell their devices apart
+  device_label?: string
+}

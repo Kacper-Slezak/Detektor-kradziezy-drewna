@@ -8,6 +8,7 @@ import { AdminLayout, type AdminSection } from '@/components/AdminLayout'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
+import { disablePush } from '@/lib/push'
 import { resetRoute } from '@/lib/route'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -35,7 +36,11 @@ function App() {
       })
       .catch((err) => {
         // 401: token expired or invalid; other errors (e.g. no network) keep the token
-        if (err instanceof ApiError && err.status === 401) setToken(null)
+        if (err instanceof ApiError && err.status === 401) {
+          setToken(null)
+          // signed out without the logout button: this phone should stop getting that user's alarms too
+          void disablePush(null)
+        }
       })
       .finally(() => {
         if (!cancelled) setRestoring(false)
@@ -52,6 +57,9 @@ function App() {
 
   function logout() {
     resetRoute()
+    // the next person on this phone must not get this user's alarms. It needs the token,
+    // so it gets it before it is cleared; it is not awaited, logging out stays instant
+    void disablePush(getToken())
     setToken(null)
     setUser(null)
     setChangingPassword(false)

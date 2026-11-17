@@ -265,6 +265,14 @@
   "install": {
     "button": "Zainstaluj aplikację"
   },
+  "push": {
+    "enable": "Włącz powiadomienia o alarmach",
+    "enabling": "Włączanie…",
+    "enabled": "Powiadomienia o alarmach włączone",
+    "denied": "Powiadomienia są zablokowane. Włącz je w ustawieniach strony (kłódka przy adresie) i odśwież aplikację.",
+    "unsupported": "To urządzenie nie obsługuje powiadomień.",
+    "error": "Nie udało się włączyć powiadomień. Spróbuj ponownie."
+  },
   "theme": {
     "label": "Motyw",
     "light": "Jasny",

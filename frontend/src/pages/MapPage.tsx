@@ -9,6 +9,7 @@ import type { Sensor, User } from '@/api/types'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { MountSensorForm } from '@/components/MountSensorForm'
+import { PushButton } from '@/components/PushButton'
 import { SensorMap } from '@/components/SensorMap'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
@@ -237,6 +238,8 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             </SheetDescription>
           </SheetHeader>
           <div className="flex flex-col gap-2">
+            {/* api.md: pushes are only for foresters */}
+            {user.role === 'forester' && <PushButton />}
             <Button
               variant="ghost"
               className="justify-start"
