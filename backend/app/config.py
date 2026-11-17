@@ -35,5 +35,9 @@ class Settings(BaseSettings):
     release_default_hours: int = 4
     release_max_hours: int = 24
 
+    # Klucz AES-123 do odszyfrowwania ramek z urządzeń: 32 znaki hex (16 B).
+    # Puste = ramki przyjmowane tylko jawne (bez szyfrowania).
+    frame_aes_key: str = ""
+
 
 settings = Settings()

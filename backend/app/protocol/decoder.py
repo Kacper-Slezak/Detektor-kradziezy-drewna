@@ -131,3 +131,42 @@ def to_dict(frame: Frame) -> dict:
     data = asdict(frame)
     data["header"]["msg_type"] = frame.header.msg_type.name
     return data
+
+# AES
+aes_block = 16
+
+def parse_aes_key(key_hex: str) -> bytes | None:
+    """FRAME_AES_KEY z .env (32 znaki hex) -> 16 B, albo None jeśli nie podano."""
+    if not key_hex:
+        return None
+    try:
+        key = bytes.fromhex(key_hex)
+    except ValueError:
+        raise FrameError("AES_KEY to nie jest poprawny hex") from None
+    if len(key) != aes_block:
+        raise FrameError(f"AES_KEY ma {len(key)} B, a powinien mieć {aes_block} B")
+    return key
+
+def decrypt_payload_hex(payload_hex: str, key: bytes | None) -> str:
+    """Zaszyfrowana ramka (16 B) -> hex jawnej ramki. Inne długości bez zmian."""
+    if key is None:
+        return payload_hex
+    try:
+        data = bytes.fromhex(payload_hex)
+    except ValueError:
+        raise FrameError("payload_hex to nie jest poprawny hex") from None
+    if len(data) != aes_block:
+        return payload_hex
+
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    decryptor = Cipher(algorithms.AES(key), modes.ECB()).decryptor()
+    block = decryptor.update(data) + decryptor.finalize()
+
+    try:
+        msg_type = MsgType(block[0] & 0x0F)
+    except ValueError:
+        raise FrameError(
+            "Nie da się odszyfrować ramki (zły klucz albo uszkodzony pakiet)"
+        ) from None
+    return block[: HEADER.size + BODY[msg_type].size].hex()
