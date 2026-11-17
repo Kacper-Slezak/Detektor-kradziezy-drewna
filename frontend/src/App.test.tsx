@@ -200,6 +200,8 @@ describe('sensor map', () => {
     await user.click(await screen.findByRole('button', { name: 'Menu' }, mapTimeout))
     const menu = await screen.findByRole('dialog', { name: 'Błażej Kowalski' })
     expect(within(menu).getByRole('button', { name: 'Zmień hasło' })).toBeInTheDocument()
+    // notifications are for foresters; jsdom has no push, so it says so
+    expect(await within(menu).findByText('To urządzenie nie obsługuje powiadomień.')).toBeInTheDocument()
 
     await user.click(within(menu).getByRole('button', { name: 'Wyloguj' }))
     expect(screen.getByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
@@ -294,6 +296,16 @@ describe('sensor map', () => {
 
     expect(await screen.findByText('2 czujniki czekają na montaż', {}, mapTimeout)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Zamontuj' })).not.toBeInTheDocument()
+  })
+
+  it('has no alarm notifications for a district manager', async () => {
+    render(<App />)
+    const user = await logIn('bogdan', 'tajne123')
+
+    await user.click(await screen.findByRole('button', { name: 'Menu' }, mapTimeout))
+    const menu = await screen.findByRole('dialog', { name: 'Bogdan Nowak' })
+    expect(within(menu).getByRole('button', { name: 'Wyloguj' })).toBeInTheDocument()
+    expect(within(menu).queryByText(/powiadomie/i)).not.toBeInTheDocument()
   })
 
   it('clears the open alarm count after the forester answers', async () => {
