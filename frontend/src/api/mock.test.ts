@@ -284,3 +284,55 @@ describe('mounting a sensor', () => {
     ).rejects.toMatchObject({ status: 422 })
   })
 })
+
+describe('push subscriptions', () => {
+  const phone = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
+    expirationTime: null,
+    keys: { p256dh: 'BNcR', auth: 'tBHI' },
+    device_label: 'Android – Chrome',
+  }
+
+  it('gives the server key to a signed-in user', async () => {
+    expect(await mock.mockVapidPublicKey('mock-3')).toMatch(/^B[A-Za-z0-9_-]{86}$/)
+    await expect(mock.mockVapidPublicKey(null)).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('saves the subscription of a forester', async () => {
+    await mock.mockSavePushSubscription('mock-3', phone)
+    expect(mock.mockPushSubscribers()).toEqual([
+      { login: 'blazej', endpoint: phone.endpoint, device_label: 'Android – Chrome' },
+    ])
+  })
+
+  it('sends pushes only to foresters', async () => {
+    await expect(mock.mockSavePushSubscription('mock-4', phone)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockSavePushSubscription('mock-1', phone)).rejects.toMatchObject({ status: 403 })
+    expect(mock.mockPushSubscribers()).toEqual([])
+  })
+
+  it('rejects a subscription without keys', async () => {
+    await expect(
+      mock.mockSavePushSubscription('mock-3', { ...phone, keys: { p256dh: '', auth: '' } }),
+    ).rejects.toMatchObject({ status: 422 })
+  })
+
+  it('gives the same phone to the account that signed in last, without a duplicate', async () => {
+    await mock.mockSavePushSubscription('mock-3', phone)
+    await mock.mockSavePushSubscription('mock-5', { ...phone, device_label: undefined })
+    expect(mock.mockPushSubscribers()).toEqual([
+      { login: 'nowy.lesniczy', endpoint: phone.endpoint, device_label: null },
+    ])
+  })
+
+  it('deletes only your own subscription, and says nothing when it is not there', async () => {
+    await mock.mockSavePushSubscription('mock-3', phone)
+
+    await mock.mockDeletePushSubscription('mock-5', phone.endpoint)
+    expect(mock.mockPushSubscribers()).toHaveLength(1)
+
+    await mock.mockDeletePushSubscription('mock-3', phone.endpoint)
+    expect(mock.mockPushSubscribers()).toEqual([])
+    await expect(mock.mockDeletePushSubscription('mock-3', phone.endpoint)).resolves.toBeUndefined()
+  })
+})

@@ -16,6 +16,7 @@ import type {
   ManagedUser,
   NewSensor,
   NewUser,
+  PushSubscriptionBody,
   Range,
   Sensor,
   SensorChanges,
@@ -478,4 +479,59 @@ export async function mockRespondToAlarm(token: string | null, id: number, answe
     if (sensor.state === 'alarm') sensor.state = 'ok'
   }
   return copyAlarm(alarm)
+}
+
+// Web Push (api.md, section 6). A real P-256 key (the example from api.md), so the browser accepts it in subscribe
+const MOCK_VAPID_PUBLIC_KEY =
+  'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+
+interface MockPushSubscription {
+  userId: number
+  endpoint: string
+  keys: PushSubscriptionBody['keys']
+  device_label: string | null
+}
+
+const pushSubscriptions: MockPushSubscription[] = []
+
+export async function mockVapidPublicKey(token: string | null): Promise<string> {
+  await delay()
+  accountByToken(token)
+  return MOCK_VAPID_PUBLIC_KEY
+}
+
+export async function mockSavePushSubscription(token: string | null, subscription: PushSubscriptionBody): Promise<void> {
+  await delay()
+  const { user } = accountByToken(token)
+  if (user.role !== 'forester') throw new ApiError(403, 'Powiadomienia push są tylko dla leśniczych')
+  if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+    throw new ApiError(422, 'Niepełna subskrypcja')
+  }
+  // the same endpoint again: new keys and owner (e.g. another account on this phone), no duplicate
+  const saved: MockPushSubscription = {
+    userId: user.id,
+    endpoint: subscription.endpoint,
+    keys: { ...subscription.keys },
+    device_label: subscription.device_label ?? null,
+  }
+  const index = pushSubscriptions.findIndex((s) => s.endpoint === subscription.endpoint)
+  if (index === -1) pushSubscriptions.push(saved)
+  else pushSubscriptions[index] = saved
+}
+
+export async function mockDeletePushSubscription(token: string | null, endpoint: string): Promise<void> {
+  await delay()
+  const { user } = accountByToken(token)
+  // 204 also when it is not there; someone else's subscription stays
+  const index = pushSubscriptions.findIndex((s) => s.endpoint === endpoint && s.userId === user.id)
+  if (index !== -1) pushSubscriptions.splice(index, 1)
+}
+
+// Not an endpoint: lets tests (and the dev console) see who would get a push
+export function mockPushSubscribers(): { login: string; endpoint: string; device_label: string | null }[] {
+  return pushSubscriptions.map((s) => ({
+    login: accounts.find((a) => a.user.id === s.userId)!.user.login,
+    endpoint: s.endpoint,
+    device_label: s.device_label,
+  }))
 }
