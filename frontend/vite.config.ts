@@ -36,6 +36,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // API responses are never served from the cache
         navigateFallbackDenylist: [/^\/api\//],
+        // showing pushes and opening the alarm on a click (public/sw-push.js)
+        importScripts: ['sw-push.js'],
       },
     }),
   ],
