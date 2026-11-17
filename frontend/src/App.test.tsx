@@ -65,11 +65,15 @@ describe('session restore', () => {
   })
 
   it('drops an invalid token and shows the login page', async () => {
+    // the same module instance App uses (beforeEach loaded both fresh)
+    const disablePush = vi.spyOn(await import('@/lib/push'), 'disablePush')
     setToken('mock-999')
     render(<App />)
 
     expect(await screen.findByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
     expect(getToken()).toBeNull()
+    // this phone stops getting that user's alarms too
+    expect(disablePush).toHaveBeenCalledWith(null)
   })
 
   it('shows the login page right away without a token', () => {
@@ -203,9 +207,12 @@ describe('sensor map', () => {
     // notifications are for foresters; jsdom has no push, so it says so
     expect(await within(menu).findByText('To urządzenie nie obsługuje powiadomień.')).toBeInTheDocument()
 
+    const disablePush = vi.spyOn(await import('@/lib/push'), 'disablePush')
     await user.click(within(menu).getByRole('button', { name: 'Wyloguj' }))
     expect(screen.getByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
     expect(getToken()).toBeNull()
+    // the push subscription is removed with the token from before logout
+    expect(disablePush).toHaveBeenCalledWith('mock-3')
   })
 
   it('switches between the map and the alarm list', async () => {

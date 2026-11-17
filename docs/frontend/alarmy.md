@@ -50,7 +50,7 @@ Widok jest zapisany w adresie strony, więc działa przycisk **Wstecz** (w przeg
 
 `GET /alarms?status=...` ([api.md, sekcja 4](../backend/api.md#4-alarmy)). Leśniczy dostaje alarmy swojego leśnictwa, nadleśniczy wszystkie. Backend sortuje od najnowszego.
 
-- lista odświeża się **co 20 s**, tak jak mapa (`src/lib/refresh.ts`). Nowe alarmy mają też przychodzić pushem
+- lista odświeża się **co 20 s**, tak jak mapa (`src/lib/refresh.ts`). Nowe alarmy przychodzą też pushem ([push.md](push.md))
 - gdy odświeżenie się nie uda, lista zostaje, a nad nią pojawia się komunikat
 - na mocku (`VITE_USE_MOCK=true`) są 4 alarmy: 3 w Leśnictwie Dąbrowa (`blazej`) i 1 w Olszynach
 
