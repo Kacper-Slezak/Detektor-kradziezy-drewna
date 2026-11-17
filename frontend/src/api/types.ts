@@ -90,6 +90,14 @@ export interface SensorChanges {
   active?: boolean
 }
 
+// PUT /sensors/{id}/mount: the forester names the sensor on site, the phone gives the location
+export interface SensorMount {
+  // 1-100 characters, trimmed by the backend
+  name: string
+  lat: number
+  lon: number
+}
+
 // Types from section 4. Alarmy
 
 export type AlarmStatus = 'new' | 'theft' | 'false_alarm'

@@ -235,6 +235,31 @@
     "district_manager": "District manager",
     "admin": "Administrator"
   },
+  "mount": {
+    "open": "Mount",
+    "title": "Mount a sensor",
+    "description": "Stand by the timber stack and take the location from your phone.",
+    "sensor": "Sensor",
+    "name": "Name",
+    "nameHint": "e.g. “Stack by road 5”",
+    "location": "Location",
+    "locate": "Get location",
+    "relocate": "Get it again",
+    "locating": "Looking for the location…",
+    "accuracy": "±{{meters}} m",
+    "poorAccuracy": "Poor accuracy, try again in the open",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Mounted: {{name}}",
+    "close": "Close",
+    "errors": {
+      "unsupported": "This browser does not give the location",
+      "insecure": "Location only works on an https page",
+      "denied": "No permission for the location. Allow it in the browser settings",
+      "unavailable": "Could not find the location. Check that GPS is on",
+      "timeout": "Finding the location took too long. Try again"
+    }
+  },
   "errors": {
     "network": "Cannot connect to the server",
     "http": "Error {{status}}"

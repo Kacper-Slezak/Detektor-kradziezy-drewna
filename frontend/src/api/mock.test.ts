@@ -241,3 +241,46 @@ describe('sensor management', () => {
     })
   })
 })
+
+describe('mounting a sensor', () => {
+  const mount = { name: '  Skład przy brzozach  ', lat: 50.061, lon: 19.95 }
+
+  it('the forester of Dąbrowa has a sensor to mount', async () => {
+    const unmounted = await mock.mockListSensors('mock-3', { unmounted: true })
+    expect(unmounted.map((s) => s.id)).toEqual(['70B3D57ED005A1B2'])
+  })
+
+  it('gives the sensor a name and a location and turns it on', async () => {
+    const mounted = await mock.mockMountSensor('mock-3', '70B3D57ED005A1B2', mount)
+    expect(mounted).toMatchObject({
+      name: 'Skład przy brzozach',
+      lat: 50.061,
+      lon: 19.95,
+      active: true,
+      // it has not sent anything yet
+      state: 'silent',
+    })
+    // it is not waiting to be mounted any more
+    expect(await mock.mockListSensors('mock-3', { unmounted: true })).toEqual([])
+  })
+
+  it('moves a mounted sensor and keeps its state', async () => {
+    const moved = await mock.mockMountSensor('mock-3', '70B3D57ED0051234', mount)
+    expect(moved).toMatchObject({ name: 'Skład przy brzozach', lat: 50.061, state: 'alarm' })
+  })
+
+  it('is not for the district manager or a forester of another range (403)', async () => {
+    await expect(mock.mockMountSensor('mock-4', '70B3D57ED005A1B2', mount)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockMountSensor('mock-5', '70B3D57ED005A1B2', mount)).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('rejects an unknown sensor (404), an empty name and a wrong location (422)', async () => {
+    await expect(mock.mockMountSensor('mock-3', '0000000000000000', mount)).rejects.toMatchObject({ status: 404 })
+    await expect(
+      mock.mockMountSensor('mock-3', '70B3D57ED005A1B2', { ...mount, name: '   ' }),
+    ).rejects.toMatchObject({ status: 422 })
+    await expect(
+      mock.mockMountSensor('mock-3', '70B3D57ED005A1B2', { ...mount, lat: 91 }),
+    ).rejects.toMatchObject({ status: 422 })
+  })
+})

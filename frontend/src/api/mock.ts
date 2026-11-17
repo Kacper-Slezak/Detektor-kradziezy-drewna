@@ -20,6 +20,7 @@ import type {
   Sensor,
   SensorChanges,
   SensorFilters,
+  SensorMount,
   User,
   UserChanges,
 } from './types'
@@ -274,6 +275,20 @@ const sensors: Sensor[] = [
     muted_until: null,
     open_alarm_id: null,
   },
+  // so that the forester of Dąbrowa has a sensor to mount too
+  {
+    id: '70B3D57ED005A1B2',
+    name: null,
+    lat: null,
+    lon: null,
+    range_id: 1,
+    active: false,
+    state: 'inactive',
+    battery_pct: null,
+    last_seen: null,
+    muted_until: null,
+    open_alarm_id: null,
+  },
 ]
 
 // DevEUI: 16 hex characters
@@ -325,6 +340,25 @@ export async function mockUpdateSensor(token: string | null, id: string, changes
     throw new ApiError(400, 'Nie ma takiego leśnictwa')
   }
   Object.assign(sensor, changes)
+  return { ...sensor }
+}
+
+export async function mockMountSensor(token: string | null, id: string, mount: SensorMount): Promise<Sensor> {
+  await delay()
+  const { user } = accountByToken(token)
+  if (user.role === 'district_manager') throw new ApiError(403, 'Brak uprawnień')
+  const sensor = sensors.find((s) => s.id === id)
+  if (!sensor) throw new ApiError(404, `Nie ma czujnika ${id}`)
+  if (user.role === 'forester' && sensor.range_id !== user.range?.id) {
+    throw new ApiError(403, 'Czujnik jest w innym leśnictwie')
+  }
+  const name = mount.name.trim()
+  if (name.length < 1 || name.length > 100) throw new ApiError(422, 'Nazwa musi mieć od 1 do 100 znaków')
+  if (Math.abs(mount.lat) > 90 || Math.abs(mount.lon) > 180) throw new ApiError(422, 'Nieprawidłowa lokalizacja')
+
+  // mounting again moves the sensor; a sensor that has not sent anything yet is silent
+  Object.assign(sensor, { name, lat: mount.lat, lon: mount.lon, active: true })
+  if (sensor.state === 'inactive') sensor.state = sensor.last_seen ? 'ok' : 'silent'
   return { ...sensor }
 }
 
