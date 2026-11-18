@@ -42,7 +42,7 @@ except ImportError:  # zwykły Python na laptopie
 # ---------- do uzupełnienia ----------
 WIFI_SSID = "nazwa-sieci"
 WIFI_HASLO = "haslo-sieci"
-API_URL = "http://192.168.1.20:8000"  # IP laptopa w tej samej sieci albo adres tunelu https://…
+API_URL = "http://srv18.mikr.us:20376"  # IP laptopa w tej samej sieci albo adres tunelu https://…
 DEVICE_ID = "70B3D57ED00D0009"  # czujnik demo "Skład na Kopcu" (seed --demo)
 INGEST_KEY = ""  # INGEST_API_KEY z backend/.env (pusty, gdy backend działa bez klucza)
 # --------------------------------------
