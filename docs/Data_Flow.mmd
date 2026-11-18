@@ -1,0 +1,75 @@
+---
+id: 06d8a76e-d221-484d-9652-f5bd294a31fb
+---
+flowchart TD
+    
+    SND_NORMAL_NOISE["Szum lasu"]
+    SND_WAKE["Dźwięk wybijający się ponad otoczenie"]
+    SND_SOUND["Dźwięki silnika"]
+    SND_VIBRATION["Drgania podłoża"]
+
+    subgraph DEVICE["Urządzenie"]
+        WAKE{"Wybudzenie ze snu"}
+        SAMPLE_SOUND["Próbkowanie sygnału audio"]
+        SAMPLE_VIB["Próbkowanie sygnału wibracji"]
+        ANALYZE_DECISION{"Algorytm decyzyjny o kradzieży"}
+        RADIO["Nadajnik LoRa"]
+        SLEEP["Sen"]
+
+        WAKE --> | Tak | SAMPLE_SOUND --> ANALYZE_DECISION
+        WAKE --> | Tak | SAMPLE_VIB --> ANALYZE_DECISION
+        WAKE --> | Nie | SLEEP
+        ANALYZE_DECISION --> | Tak | RADIO
+        ANALYZE_DECISION --> | Nie | SLEEP
+    end
+
+    SND_WAKE -.->WAKE
+    SND_SOUND -.-> SAMPLE_SOUND
+    SND_VIBRATION -.-> SAMPLE_VIB
+    SND_NORMAL_NOISE -.-> WAKE
+    
+
+    %% Łączność
+    subgraph COMMS["Brama"]
+        GATEWAY["Brama LoRaWAN"]
+    end
+
+    %% Backend i Baza
+    subgraph BACKEND["Backend"]
+        INGEST["Odbiór ramki"]
+        FILTER{"Decyzja czy wywóz jest legalny"}
+        ALARM_GEN["Utworzenie alarmu"]
+        DB[("Baza danych")]
+    end
+
+    subgraph FRONT["Frontend"]
+        AD_VIEW["Widok administratora"]
+        LE_VIEW["Widok leśniczego"]
+    end
+
+    %% Użytkownicy
+    FORESTER["Leśniczy"]
+    ADMIN["Administrator"]
+
+
+    %% Przepływ zdarzenia
+
+    RADIO -->|Ramka radiowa| GATEWAY -->|HTTP POST| INGEST
+
+    INGEST --> DB
+    INGEST --> FILTER
+
+    FILTER -->|"Nie"| ALARM_GEN
+    FILTER -->|"Tak"| DB
+
+    ALARM_GEN --> DB
+    ALARM_GEN --> FCM -->|Alert na telefon| FORESTER
+
+    %% Interakcje użytkowników
+    FORESTER -->|"Zgłoszenie wywozu drewna"| LE_VIEW
+    FORESTER -->|"Weryfikacja alarmu (potwierdzenie + GPS z telefonu)"| LE_VIEW
+    DB -.->|"Podgląd mapy i stanu czujników"| LE_VIEW --> FORESTER
+    ADMIN -->|"Zarządzanie czujnikami i kontami"| AD_VIEW --> ADMIN
+
+    AD_VIEW --> DB
+    LE_VIEW --> DB
