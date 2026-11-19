@@ -14,12 +14,18 @@ flowchart TD
         ANALYZE_DECISION{"Następuje kradzież?"}
         RADIO["Nadajnik LoRa"]
         SLEEP["Sen"]
+        BATTERY_LEVEL["Poziom baterii"]
+        BATTERY_CHECK{"Czy poziom baterii jest niski?"}
 
         WAKE --> | Tak | SAMPLE_SOUND --> ANALYZE_DECISION
         WAKE --> | Tak | SAMPLE_VIB --> ANALYZE_DECISION
         WAKE --> | Nie | SLEEP
         ANALYZE_DECISION --> | Tak | RADIO
         ANALYZE_DECISION --> | Nie | SLEEP
+        WAKE --> | Tak | BATTERY_CHECK
+        BATTERY_LEVEL --> BATTERY_CHECK
+        BATTERY_CHECK --> | Tak | RADIO
+        BATTERY_CHECK --> | Nie | SLEEP
     end
 
     SND_WAKE -.->WAKE
