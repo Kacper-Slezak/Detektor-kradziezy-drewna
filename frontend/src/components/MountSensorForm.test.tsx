@@ -28,9 +28,20 @@ const unmounted: Sensor = {
   open_alarm_id: null,
 }
 
-function renderForm(sensors: Sensor[] = [unmounted]) {
+// "Skład przy paśniku" from the mock, already standing by a stack
+const mounted: Sensor = {
+  ...unmounted,
+  id: '70B3D57ED0052345',
+  name: 'Skład przy paśniku',
+  lat: 50.0598,
+  lon: 19.9605,
+  active: true,
+  state: 'ok',
+}
+
+function renderForm(sensors: Sensor[] = [unmounted], moving = false) {
   const onMounted = vi.fn()
-  render(<MountSensorForm sensors={sensors} onMounted={onMounted} />)
+  render(<MountSensorForm sensors={sensors} onMounted={onMounted} moving={moving} />)
   return { user: userEvent.setup(), onMounted }
 }
 
@@ -94,6 +105,31 @@ describe('MountSensorForm', () => {
     await user.selectOptions(screen.getByLabelText('Czujnik'), '70B3D57ED0059ABC')
 
     expect(screen.getByLabelText('Nazwa')).toHaveValue('Skład przy stawie')
+  })
+
+  it('moves a mounted sensor: shows where it stands now and saves the new location', async () => {
+    const { user, onMounted } = renderForm([mounted], true)
+
+    expect(screen.getByText('Obecna pozycja: 50.05980, 19.96050')).toBeInTheDocument()
+    // the name stays, but can be changed while at it
+    expect(screen.getByLabelText('Nazwa')).toHaveValue('Skład przy paśniku')
+    expect(screen.queryByRole('button', { name: 'Zapisz' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Pobierz pozycję' }))
+    await user.click(await screen.findByRole('button', { name: 'Zapisz nową pozycję' }))
+
+    await vi.waitFor(() => expect(onMounted).toHaveBeenCalledOnce())
+    expect(onMounted.mock.calls[0][0]).toMatchObject({
+      id: '70B3D57ED0052345',
+      name: 'Skład przy paśniku',
+      lat: 50.061234,
+      lon: 19.951234,
+    })
+  })
+
+  it('does not show the current location when mounting for the first time', () => {
+    renderForm([unmounted])
+    expect(screen.queryByText(/Obecna pozycja/)).not.toBeInTheDocument()
   })
 
   it('shows the backend error', async () => {
