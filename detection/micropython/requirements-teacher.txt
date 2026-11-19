@@ -1,0 +1,6 @@
+# Run ONLY in a fresh Python 3.11 venv, NOT .venv-v4 (Python 3.13).
+# TensorFlow/YAMNet operate on PC only; nothing from this file runs on LoPy.
+numpy>=1.26,<2
+tensorflow-cpu==2.16.2
+tensorflow-hub==0.16.1
+tf-keras==2.16.0

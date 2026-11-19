@@ -1,0 +1,13 @@
+# Developer-generated and personal datasets
+.venv*/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+algorithm/data/*
+!algorithm/data/.gitkeep
+algorithm/results/*
+!algorithm/results/.gitkeep
+algorithm/sample_audio/*
+!algorithm/sample_audio/.gitkeep

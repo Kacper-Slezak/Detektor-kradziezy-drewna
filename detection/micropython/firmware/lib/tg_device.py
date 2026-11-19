@@ -16,10 +16,17 @@ from tg_fusion import Detector
 def settings():
     c = config
     return {'hop_s': c.HOP_S, 'window_s': c.WINDOW_S,
-            'low_ratio_min': c.LOW_RATIO_MIN,
+            'engine_score_min': c.ENGINE_SCORE_MIN,
+            'engine_wide_score_min': c.ENGINE_WIDE_SCORE_MIN,
+            'engine_wide_ratio_min': c.ENGINE_WIDE_RATIO_MIN,
+            'engine_rms_gate_factor': c.ENGINE_RMS_GATE_FACTOR,
+            'engine_low_ridge_score_min': c.ENGINE_LOW_RIDGE_SCORE_MIN,
+            'engine_low_ridge_rms_gate_factor': c.ENGINE_LOW_RIDGE_RMS_GATE_FACTOR,
+            'engine_vote_s': c.ENGINE_VOTE_S,
             'engine_confirm_windows': c.ENGINE_CONFIRM_WINDOWS,
             'engine_memory_s': c.ENGINE_MEMORY_S,
             'impact_memory_s': c.IMPACT_MEMORY_S,
+            'impact_pre_engine_s': c.IMPACT_PRE_ENGINE_S,
             'impacts_for_alarm': c.IMPACTS_FOR_ALARM,
             'cooldown_s': c.COOLDOWN_S}
 
@@ -42,6 +49,8 @@ def emit(kind, payload):
 
 def validate_config():
     c = config
+    if c.AUDIO_RATE_HZ not in (1000, 4000):
+        raise ValueError('Use AUDIO_RATE_HZ=1000 (fallback) or 4000 (EXPERIMENTAL)')
     if c.MODE not in ('audio', 'vibration', 'fusion'):
         raise ValueError('MODE must be audio, vibration or fusion')
     if c.MODE in ('audio', 'fusion') and not c.AUDIO_ENABLED:
@@ -127,7 +136,17 @@ def run():
         if config.PRINT_EVERY_WINDOW or classified['alarm']:
             emit('window', classified)
         if classified['alarm']:
-            emit('alert', {'time_s': classified['time_s'], 'state': classified['state']})
+            emit('alert', {
+                'event': 'POSSIBLE_WOOD_THEFT',
+                'time_s': classified['time_s'],
+                'event_id': classified['alarm_event_id'],
+                'state': classified['state'],
+                'engine_score': classified['engine_score'],
+                'engine_recent': classified['engine_recent'],
+                'physical_impacts': classified['eligible_motion_events'],
+                'impact_window_s': config.IMPACT_MEMORY_S,
+                'note': 'Suspicious pattern, not proof of theft'
+            })
             hub.pulse_alarm()
 
 

@@ -4,6 +4,9 @@
 by first-order IIR high/low-pass filters (not desktop NumPy FFT).
 """
 import math
+from array import array
+from tg_engine import spectrum_features
+from tg_wide import wide_features, empty_wide
 
 
 def median(values):
@@ -51,6 +54,15 @@ class IIRAudio:
         self.lp35 = 0.0
         self.lp250 = 0.0
         self.initialized = False
+        self.lp200a = 0.0
+        self.lp200b = 0.0
+        self.spectral = 0.0
+        self.wide_lp1 = 0.0
+        self.wide_lp2 = 0.0
+        self.wide_spectral = 0.0
+        self.sample_rate = rate_hz
+        self.wide_a = 1.0 - math.exp(-2 * math.pi * 850.0 / rate_hz)
+        self.a200 = 1.0 - math.exp(-2 * math.pi * 200.0 / rate_hz)
         # First-order low-pass coefficients for the nominal sample rate.
         self.a35 = 1.0 - math.exp(-2 * math.pi * 35.0 / rate_hz)
         self.a250 = 1.0 - math.exp(-2 * math.pi * 250.0 / rate_hz)
@@ -61,9 +73,20 @@ class IIRAudio:
         if not self.initialized:
             self.lp35 = x
             self.lp250 = x
+            self.lp200a = x
+            self.lp200b = x
+            self.wide_lp1 = x
+            self.wide_lp2 = x
             self.initialized = True
         self.lp35 += self.a35 * (x - self.lp35)
         self.lp250 += self.a250 * (x - self.lp250)
+        self.lp200a += self.a200 * (x - self.lp200a)
+        self.lp200b += self.a200 * (self.lp200a - self.lp200b)
+        self.spectral = self.lp200b - self.lp35
+        if self.sample_rate == 4000:
+            self.wide_lp1 += self.wide_a * (x - self.wide_lp1)
+            self.wide_lp2 += self.wide_a * (self.wide_lp1 - self.wide_lp2)
+            self.wide_spectral = self.wide_lp2
         high = x - self.lp35
         bass = self.lp250 - self.lp35
         return high * high, bass * bass
@@ -76,6 +99,10 @@ class Chunk:
         self.has_vibration = has_vibration
         self.has_accel = has_accel
         self.audio_n = 0
+        self.audio_signal = array('f') if has_audio else None
+        self.audio_spectral_cache = None
+        self.audio_wide_cache = None
+        self.wide_signal = array('f') if has_audio else None
         self.hp2 = 0.0
         self.bass2 = 0.0
         self.frame_energies = []
@@ -84,10 +111,20 @@ class Chunk:
         self.vibration = [] if has_vibration else None
         self.acceleration = [] if has_accel else None
         self.late_samples = 0
+        self.start_gap_us = 0
         self.total_samples = 0
 
-    def add_audio(self, hp2, bass2, frame_size):
+    def add_audio(self, hp2, bass2, frame_size, spectral_sample=None,
+                  wide_sample=None, audio_rate=1000):
         self.audio_n += 1
+        # The low FFT always sees 500 samples/s (same numerical bandwidth).
+        low_div = audio_rate // 500
+        if spectral_sample is not None and self.audio_n % low_div == 0:
+            self.audio_signal.append(spectral_sample)
+        if (wide_sample is not None and audio_rate == 4000 and
+                self.audio_n > 1952 and self.audio_n % 2 == 0):
+            # Only keep the final 0.512 s; no O(n) list trimming per sample.
+            self.wide_signal.append(wide_sample)
         self.hp2 += hp2
         self.bass2 += bass2
         self.frame_hp2 += hp2
@@ -100,10 +137,11 @@ class Chunk:
 
 def build_window(old, current, max_late_ratio, audio_rate):
     chunks = (old, current)
-    row = {'time_s': old.start_s, 'valid': True}
+    row = {'time_s': old.start_s, 'window_end_s': current.start_s + 1.0, 'valid': True}
     n = old.total_samples + current.total_samples
     late = old.late_samples + current.late_samples
     row['late_samples'] = late
+    row['processing_gap_us'] = max(old.start_gap_us, current.start_gap_us)
     row['total_samples'] = n
     if n < int(2 * audio_rate * (1.0 - max_late_ratio)):
         row['valid'] = False
@@ -115,6 +153,23 @@ def build_window(old, current, max_late_ratio, audio_rate):
         bass_energy = old.bass2 + current.bass2
         row['audio_rms'] = math.sqrt(energy / max(1, samples))
         row['audio_low_ratio'] = bass_energy / max(energy, 1e-15)
+        for chunk in chunks:
+            if chunk.audio_spectral_cache is None:
+                chunk.audio_spectral_cache = spectrum_features(chunk.audio_signal)
+            if chunk.audio_wide_cache is None:
+                if audio_rate == 4000 and len(chunk.wide_signal) == 1024:
+                    chunk.audio_wide_cache = wide_features(chunk.wide_signal)
+                else:
+                    chunk.audio_wide_cache = empty_wide()
+        row.update(current.audio_spectral_cache)
+        row.update(current.audio_wide_cache)
+        # A 2-second feature map: previous and current 1-second spectra.
+        # Always 48 floats, already bounded/log-compressed by FFT modules.
+        row['tiny_spectral_bands'] = tuple(
+            old.audio_spectral_cache['tiny_low_bands'] +
+            old.audio_wide_cache['tiny_high_bands'] +
+            current.audio_spectral_cache['tiny_low_bands'] +
+            current.audio_wide_cache['tiny_high_bands'])
         frame_energy = old.frame_energies + current.frame_energies
         if frame_energy:
             levels = [math.sqrt(x) for x in frame_energy]
@@ -125,6 +180,15 @@ def build_window(old, current, max_late_ratio, audio_rate):
         row['audio_rms'] = None
         row['audio_low_ratio'] = None
         row['audio_transient'] = None
+        row.update(audio_engine_score=None, audio_harmonic_count=0,
+                   audio_engine_pitch_hz=None, audio_tonality=None,
+                   audio_flatness=None, audio_harmonic_score=None,
+                   audio_ridge_score=None, audio_low_ridge_score=None,
+                   audio_low_ridge_hz=None, audio_high_band_ratio=None,
+                   audio_ridge_hz=None, audio_ridge_contrast=None,
+                   audio_engine_method='none')
+        row.update(empty_wide())
+        row['tiny_spectral_bands'] = (0.0,) * 48
     if old.has_vibration and current.has_vibration:
         row['vibration_rms'], row['vibration_peak'] = centered_stats(
             old.vibration + current.vibration)
