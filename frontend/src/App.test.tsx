@@ -26,6 +26,10 @@ async function logIn(login: string, password: string) {
   return user
 }
 
+// Leaflet takes two taps within 200 ms for a double tap and zooms in, which jsdom cannot
+// lay out (Invalid LatLng). A person never taps the pin and the popup button that fast.
+const afterTap = () => new Promise((resolve) => setTimeout(resolve, 250))
+
 describe('login', () => {
   it('logs in, saves the token and shows the home page', async () => {
     render(<App />)
@@ -266,8 +270,8 @@ describe('sensor map', () => {
     expect(window.location.pathname).toBe('/')
   })
 
-  it('a forester mounts a sensor and its pin shows up on the map', async () => {
-    // jsdom has no GPS and is not https: the phone is faked for this test
+  // jsdom has no GPS and is not https: the phone is faked for the mounting tests
+  function fakePhoneGps() {
     vi.stubGlobal('isSecureContext', true)
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
@@ -276,6 +280,15 @@ describe('sensor map', () => {
           ok({ coords: { latitude: 50.061, longitude: 19.95, accuracy: 6 } } as GeolocationPosition),
       },
     })
+  }
+
+  function removePhoneGps() {
+    vi.unstubAllGlobals()
+    Reflect.deleteProperty(navigator, 'geolocation')
+  }
+
+  it('a forester mounts a sensor and its pin shows up on the map', async () => {
+    fakePhoneGps()
     try {
       render(<App />)
       const user = await logIn('blazej', 'tajne123')
@@ -292,9 +305,41 @@ describe('sensor map', () => {
       expect(await screen.findByTitle('Skład przy brzozach: Bez kontaktu')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Zamontuj' })).not.toBeInTheDocument()
     } finally {
-      vi.unstubAllGlobals()
-      Reflect.deleteProperty(navigator, 'geolocation')
+      removePhoneGps()
     }
+  })
+
+  it('a forester moves a mounted sensor from its pin', async () => {
+    fakePhoneGps()
+    try {
+      render(<App />)
+      const user = await logIn('blazej', 'tajne123')
+      await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
+      const move = await screen.findByRole('button', { name: 'Przenieś czujnik' })
+      await afterTap()
+      await user.click(move)
+
+      const panel = await screen.findByRole('dialog', { name: 'Przeniesienie czujnika' })
+      expect(within(panel).getByText('Obecna pozycja: 50.05980, 19.96050')).toBeInTheDocument()
+      await user.click(within(panel).getByRole('button', { name: 'Pobierz pozycję' }))
+      await user.click(await within(panel).findByRole('button', { name: 'Zapisz nową pozycję' }))
+
+      expect(await screen.findByText('Przeniesiono: Skład przy paśniku')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Przeniesienie czujnika' })).not.toBeInTheDocument()
+      // still one pin, now in the new place
+      expect(await screen.findByTitle('Skład przy paśniku: Działa')).toBeInTheDocument()
+    } finally {
+      removePhoneGps()
+    }
+  })
+
+  it('a district manager cannot move sensors', async () => {
+    render(<App />)
+    const user = await logIn('bogdan', 'tajne123')
+    await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
+
+    expect(await screen.findByText('70B3D57ED0052345')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Przenieś czujnik' })).not.toBeInTheDocument()
   })
 
   it('a district manager sees the sensors waiting to be mounted but cannot mount them', async () => {

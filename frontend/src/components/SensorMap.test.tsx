@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Sensor } from '@/api/types'
 import { SensorMap } from './SensorMap'
@@ -24,6 +24,10 @@ const sensors: Sensor[] = [
   { ...base, id: '70B3D57ED0055678', name: 'Skład przy szlabanie', lat: 50.07, lon: 19.95, state: 'ok', battery_pct: 9 },
   { ...base, id: '70B3D57ED0059ABC', name: null, lat: null, lon: null, state: 'inactive' },
 ]
+
+// Leaflet takes two taps within 200 ms for a double tap and zooms in, which jsdom cannot
+// lay out (Invalid LatLng). A person never taps the pin and the popup button that fast.
+const afterTap = () => new Promise((resolve) => setTimeout(resolve, 250))
 
 describe('SensorMap', () => {
   it('puts a pin for every mounted sensor, labelled with its name and state', () => {
@@ -50,6 +54,29 @@ describe('SensorMap', () => {
 
     expect(await screen.findByText('70B3D57ED0055678')).toBeInTheDocument()
     expect(screen.getByText('Bateria: 9%')).toHaveClass('text-red-600')
+  })
+
+  it('lets the page move a sensor from its pin', async () => {
+    const user = userEvent.setup()
+    const onMove = vi.fn()
+    render(<SensorMap sensors={sensors} onMove={onMove} />)
+
+    await user.click(screen.getByTitle('Skład przy szlabanie: Działa'))
+    const move = await screen.findByRole('button', { name: 'Przenieś czujnik' })
+    await afterTap()
+    await user.click(move)
+
+    expect(onMove).toHaveBeenCalledWith(sensors[1])
+  })
+
+  it('has no move button when the page does not allow it', async () => {
+    const user = userEvent.setup()
+    render(<SensorMap sensors={sensors} />)
+
+    await user.click(screen.getByTitle('Skład przy szlabanie: Działa'))
+
+    expect(await screen.findByText('70B3D57ED0055678')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Przenieś czujnik' })).not.toBeInTheDocument()
   })
 
   it('shows the map without pins when there are no sensors', () => {

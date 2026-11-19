@@ -46,8 +46,10 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   // bumping it loads the sensors again, e.g. after answering an alarm
   const [sensorsKey, setSensorsKey] = useState(0)
   const [mountOpen, setMountOpen] = useState(false)
-  // name of the sensor just mounted, for the message over the map
-  const [mountedName, setMountedName] = useState<string | null>(null)
+  // the mounted sensor the forester is moving to another stack (same panel as mounting)
+  const [moving, setMoving] = useState<Sensor | null>(null)
+  // the sensor just mounted or moved, for the message over the map
+  const [saved, setSaved] = useState<{ name: string; moved: boolean } | null>(null)
 
   useEffect(() => {
     // the phone's back button
@@ -90,10 +92,20 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   const canMount = user.role === 'forester' && unmountedSensors.length > 0
 
   function handleMounted(sensor: Sensor) {
-    setMountOpen(false)
-    setMountedName(sensor.name ?? sensor.id)
+    setSaved({ name: sensor.name ?? sensor.id, moved: moving !== null })
+    closeMount()
     // the new pin shows up at once, not after REFRESH_MS
     setSensorsKey((k) => k + 1)
+  }
+
+  function startMove(sensor: Sensor) {
+    setSaved(null)
+    setMoving(sensor)
+  }
+
+  function closeMount() {
+    setMountOpen(false)
+    setMoving(null)
   }
   const counts = LEGEND.map((status) => ({
     status,
@@ -157,7 +169,11 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             {t('app.loading')}
           </p>
         ) : (
-          <SensorMap sensors={sensors ?? []} />
+          <SensorMap
+            sensors={sensors ?? []}
+            // api.md: a forester moves sensors of their range (the district manager would get 403)
+            onMove={user.role === 'forester' ? startMove : undefined}
+          />
         )}
 
         {/* messages float over the map; the map stays usable under them */}
@@ -168,9 +184,9 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
                 {t('home.passwordChanged')}
               </p>
             )}
-            {mountedName && (
+            {saved && (
               <p role="status" className="rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-foreground/10">
-                {t('mount.saved', { name: mountedName })}
+                {t(saved.moved ? 'mount.moved' : 'mount.saved', { name: saved.name })}
               </p>
             )}
             {error && (
@@ -205,7 +221,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
               <Button
                 className="mt-1 h-11 text-base [&_svg]:size-5!"
                 onClick={() => {
-                  setMountedName(null)
+                  setSaved(null)
                   setMountOpen(true)
                 }}
               >
@@ -217,14 +233,18 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
         )}
       </main>
 
-      <Sheet open={mountOpen} onOpenChange={setMountOpen}>
+      <Sheet open={mountOpen || moving !== null} onOpenChange={(open) => !open && closeMount()}>
         <SheetContent closeLabel={t('mount.close')}>
           <SheetHeader>
-            <SheetTitle>{t('mount.title')}</SheetTitle>
-            <SheetDescription>{t('mount.description')}</SheetDescription>
+            <SheetTitle>{t(moving ? 'mount.moveTitle' : 'mount.title')}</SheetTitle>
+            <SheetDescription>{t(moving ? 'mount.moveDescription' : 'mount.description')}</SheetDescription>
           </SheetHeader>
           {/* the form starts empty each time the panel opens */}
-          {mountOpen && <MountSensorForm sensors={unmountedSensors} onMounted={handleMounted} />}
+          {moving ? (
+            <MountSensorForm key={moving.id} sensors={[moving]} onMounted={handleMounted} moving />
+          ) : (
+            mountOpen && <MountSensorForm sensors={unmountedSensors} onMounted={handleMounted} />
+          )}
         </SheetContent>
       </Sheet>
 

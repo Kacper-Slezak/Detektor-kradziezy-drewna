@@ -6,9 +6,11 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { divIcon, latLngBounds } from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { MoveRight } from 'lucide-react'
 import { cn } from 'cn'
 
 import type { Sensor } from '@/api/types'
+import { Button } from '@/components/ui/button'
 import { formatDateTime, LOW_BATTERY_PCT, STATUS_DOT, statusOf, type Status } from '@/lib/sensor-status'
 
 // whole Poland, when there is nothing to show yet
@@ -36,9 +38,11 @@ function iconFor(status: Status) {
 interface SensorMapProps {
   sensors: Sensor[]
   className?: string
+  // given only to those who may move a sensor (the page decides by role)
+  onMove?: (sensor: Sensor) => void
 }
 
-export function SensorMap({ sensors, className }: SensorMapProps) {
+export function SensorMap({ sensors, className, onMove }: SensorMapProps) {
   const { t, i18n } = useTranslation()
   const mounted = useMemo(() => sensors.filter((s) => s.lat !== null && s.lon !== null), [sensors])
   // zoom to fit all pins
@@ -91,6 +95,12 @@ export function SensorMap({ sensors, className }: SensorMapProps) {
                   <span>
                     {t('sensors.table.lastSeen')}: {formatDateTime(sensor.last_seen, i18n.language)}
                   </span>
+                )}
+                {onMove && (
+                  <Button variant="outline" className="mt-1 h-11 text-base [&_svg]:size-5!" onClick={() => onMove(sensor)}>
+                    <MoveRight />
+                    {t('mount.move')}
+                  </Button>
                 )}
               </div>
             </Popup>

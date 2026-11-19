@@ -16,6 +16,19 @@ Admin dodaje czujnik w panelu (bez lokalizacji), a leśniczy montuje go na miejs
 
 Przyciski i pola mają ok. 48 px wysokości, żeby dało się trafić kciukiem w terenie.
 
+## Przeniesienie czujnika
+
+Gdy drewno zostało wywiezione, a czujnik trafia na inny skład, leśniczy przenosi go tak samo jak przy montażu:
+
+1. stuknięcie pinezki, w dymku przycisk **Przenieś czujnik** (tylko leśniczy)
+2. wysuwa się panel **Przeniesienie czujnika**, ten sam formularz co przy montażu:
+   - czujnik jest już wybrany, a jego nazwa wpisana. Można ją przy okazji zmienić, np. na nazwę nowego składu
+   - nad przyciskiem GPS widać **Obecna pozycja: 50.05980, 19.96050**, czyli to, co zostanie nadpisane
+   - **Pobierz pozycję** przy nowym składzie, potem **Zapisz nową pozycję**
+3. nad mapą pojawia się „Przeniesiono: Skład przy paśniku”, a pinezka od razu przeskakuje w nowe miejsce
+
+Przeniesienie nie zmienia stanu czujnika: alarm, wyciszenie i historia zostają przy nim.
+
 ## Gdy nie ma pozycji
 
 | Komunikat | Przyczyna |
@@ -30,17 +43,18 @@ Przyciski i pola mają ok. 48 px wysokości, żeby dało się trafić kciukiem w
 
 `PUT /sensors/{id}/mount` z `{ "name", "lat", "lon" }` ([api.md, sekcja 2](../backend/api.md#put-apiv1sensorsidmount)). Lista czujników do montażu to czujniki z mapy bez lokalizacji, więc nie ma osobnego zapytania.
 
-- montuje tylko **leśniczy** i tylko czujnik swojego leśnictwa. Nadleśniczy i cudzy czujnik dostają `403`
+Przeniesienie to ten sam endpoint: ponowny montaż czujnika, który ma już lokalizację, nadpisuje nazwę i pozycję. Backend zapisuje w logu „przeniósł” zamiast „zamontował”.
+
+- montuje i przenosi tylko **leśniczy** i tylko czujnik swojego leśnictwa. Nadleśniczy i cudzy czujnik dostają `403`
 - po montażu czujnik jest włączony (`active: true`), ma stan `silent`, dopóki nie wyśle pierwszej ramki
 - na mocku (`VITE_USE_MOCK=true`) czeka na montaż po jednym czujniku w Dąbrowie (`blazej`) i w Olszynach (`nowy.lesniczy`)
 
 ## Technicznie
 
 - `src/lib/geolocation.ts`: `getPosition()` opakowuje `navigator.geolocation`. Prosi o prawdziwy GPS (`enableHighAccuracy`), zawsze o świeżą pozycję, czeka do 20 s. Błędy zwraca jako kody, a teksty są w `mount.errors.*` (pl/en)
-- `src/components/MountSensorForm.tsx`: formularz, `MapPage` otwiera go w panelu bocznym
-
+- `src/components/MountSensorForm.tsx`: formularz, `MapPage` otwiera go w panelu bocznym. Z `moving` dostaje jeden czujnik, pokazuje jego obecną pozycję i ma przycisk „Zapisz nową pozycję”
+- `src/components/SensorMap.tsx`: przycisk **Przenieś czujnik** w dymku jest tylko wtedy, gdy strona poda `onMove`. `MapPage` podaje go tylko leśniczemu
 
 ## Dalej
-- przeniesienie zamontowanego czujnika (backend to umożliwia: ponowny montaż nadpisuje nazwę i pozycję)
 - wybór miejsca palcem na mapie, gdy GPS jest słaby
 - wydania drewna (wyciszanie czujnika na czas wywozu)
