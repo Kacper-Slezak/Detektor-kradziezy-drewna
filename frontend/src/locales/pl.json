@@ -264,6 +264,16 @@
       "timeout": "Szukanie pozycji trwało za długo. Spróbuj ponownie"
     }
   },
+  "release": {
+    "duration": "Czas wyciszenia",
+    "hours": "{{hours}} h",
+    "until": "Czujnik zacznie znów czuwać o {{time}}",
+    "carrier": "Przewoźnik (opcjonalnie)",
+    "logCount": "Liczba kłód (opcjonalnie)",
+    "comment": "Komentarz (opcjonalnie)",
+    "save": "Wycisz",
+    "saving": "Wyciszanie…"
+  },
   "errors": {
     "network": "Brak połączenia z serwerem",
     "http": "Błąd {{status}}"

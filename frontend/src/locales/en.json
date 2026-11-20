@@ -266,6 +266,16 @@
       "timeout": "Finding the location took too long. Try again"
     }
   },
+  "release": {
+    "duration": "Mute for",
+    "hours": "{{hours}} h",
+    "until": "The sensor watches again at {{time}}",
+    "carrier": "Carrier (optional)",
+    "logCount": "Number of logs (optional)",
+    "comment": "Comment (optional)",
+    "save": "Mute",
+    "saving": "Muting…"
+  },
   "errors": {
     "network": "Cannot connect to the server",
     "http": "Error {{status}}"
