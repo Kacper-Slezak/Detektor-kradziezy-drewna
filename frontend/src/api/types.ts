@@ -98,6 +98,47 @@ export interface SensorMount {
   lon: number
 }
 
+// Types from section 3. Wydania drewna: the sensor is muted while the timber is taken away
+
+export interface Release {
+  id: number
+  sensor_id: string
+  sensor_name: string | null
+  // ISO 8601, UTC; it starts when it is created
+  starts_at: string
+  // set to "now" when the forester ends it early
+  ends_at: string
+  // whether it lasts at the moment of the answer
+  active: boolean
+  carrier: string | null
+  log_count: number | null
+  comment: string | null
+  // login of whoever created it
+  created_by: string | null
+}
+
+// POST /sensors/{id}/releases. Without ends_at the backend takes 4 h; at most 24 h from now
+export interface NewRelease {
+  ends_at?: string
+  // up to 100 characters
+  carrier?: string
+  // number of logs, 0-100000
+  log_count?: number
+  // up to 500 characters
+  comment?: string
+}
+
+// GET /releases; newest first, a forester gets only their own range
+export interface ReleaseFilters {
+  sensor_id?: string
+  // true = only ongoing, false = only finished
+  active?: boolean
+  // releases that lasted at least partly between from and to (ISO 8601)
+  from?: string
+  to?: string
+  limit?: number
+}
+
 // Types from section 4. Alarmy
 
 export type AlarmStatus = 'new' | 'theft' | 'false_alarm'
