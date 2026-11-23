@@ -48,6 +48,7 @@ _autosave-*
 
 # ---- Dane (duże zbiory na wspólnym dysku) ----
 detection/data/*
+detection/temp_results
 !detection/data/.gitkeep
 !detection/data/samples/
 
