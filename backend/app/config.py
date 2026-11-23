@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # Puste = /ingest bez zabezpieczenia (tylko lokalnie, przy starcie leci ostrzeżenie).
     ingest_api_key: str = ""
 
+    # Web Push (VAPID). Para kluczy z `python -m tools.generate_vapid_keys`.
+    # Puste = backend działa, ale nie wysyła powiadomień.
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = ""  # mailto:… albo https://…
+
     # Konto admina tworzone przez `python -m app.seed`. Bez hasła zostanie wylosowane.
     seed_admin_login: str = "admin"
     seed_admin_password: str = ""

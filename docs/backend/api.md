@@ -438,7 +438,7 @@ Działa tylko po HTTPS albo na `localhost`. Android (Chrome, Edge, Firefox): w p
  
 ### `GET /api/v1/push/vapid-public-key`
  
-Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno.
+Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno. Wymaga logowania. Gdy serwer nie ma ustawionego `VAPID_PUBLIC_KEY`: `503` (powiadomienia są wyłączone, reszta aplikacji działa).
  
 ```json
 // 200
@@ -461,7 +461,8 @@ Po zgodzie użytkownika (prośba po kliknięciu przycisku, nie przy wejściu) ap
 }
 ```
  
-- odpowiedź `201`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma,
+- odpowiedź `201` z `{ "id": 5 }`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma, więc można go bezpiecznie wysyłać przy każdym logowaniu,
+- `endpoint` musi zaczynać się od `https://`, `keys.p256dh` i `keys.auth` są wymagane (inaczej `422`),
 - `expirationTime` backend ignoruje,
 - konto inne niż leśniczy → `403`.
  
@@ -484,7 +485,9 @@ Przy wylogowaniu, razem z `subscription.unsubscribe()` w przeglądarce. `endpoin
  
 Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`. Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszenie się skończyło); `url` prowadzi wtedy do czujnika.
  
-Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję.
+**Kiedy backend wysyła.** Push o typie `alarm` leci po **utworzeniu nowego alarmu** (z `/ingest`, po odpowiedzi płytce) do wszystkich subskrypcji aktywnych leśniczych **leśnictwa tego czujnika**. Powtórzenia ramki ALARM, które scalają się z istniejącym alarmem, nie wysyłają kolejnego pusha. Alarm z wyciszonego lub wyłączonego czujnika nie powstaje, więc pusha też nie ma. Nadleśniczy i admin pushy nie dostają. Wiadomość ma ważność 1 h (`TTL`): jeśli telefon jest dłużej poza zasięgiem, usługa push ją porzuca.
+
+Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję. Inne błędy (sieć, `429`, `5xx`) subskrypcji nie usuwają.
  
 ---
  
