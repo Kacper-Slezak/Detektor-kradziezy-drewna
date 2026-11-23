@@ -6,14 +6,19 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { divIcon, latLngBounds } from 'leaflet'
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { Bell, BellOff, MoveRight } from 'lucide-react'
 import { cn } from 'cn'
 
 import type { Sensor } from '@/api/types'
+import { Button } from '@/components/ui/button'
 import { formatDateTime, LOW_BATTERY_PCT, STATUS_DOT, statusOf, type Status } from '@/lib/sensor-status'
 
 // whole Poland, when there is nothing to show yet
 const POLAND_CENTER: [number, number] = [52.1, 19.4]
 const POLAND_ZOOM = 6
+
+// big enough to hit with a thumb (about 44 px)
+const POPUP_BUTTON = 'h-11 text-base [&_svg]:size-5!'
 
 // one icon per state, built once; the alarm pin is bigger and pulses
 const icons = new Map<Status, ReturnType<typeof divIcon>>()
@@ -36,9 +41,14 @@ function iconFor(status: Status) {
 interface SensorMapProps {
   sensors: Sensor[]
   className?: string
+  // given only to those who may move a sensor (the page decides by role)
+  onMove?: (sensor: Sensor) => void
+  // the same for muting a sensor while the timber is taken away, and for ending it early
+  onRelease?: (sensor: Sensor) => void
+  onEndRelease?: (sensor: Sensor) => void
 }
 
-export function SensorMap({ sensors, className }: SensorMapProps) {
+export function SensorMap({ sensors, className, onMove, onRelease, onEndRelease }: SensorMapProps) {
   const { t, i18n } = useTranslation()
   const mounted = useMemo(() => sensors.filter((s) => s.lat !== null && s.lon !== null), [sensors])
   // zoom to fit all pins
@@ -64,7 +74,8 @@ export function SensorMap({ sensors, className }: SensorMapProps) {
         const label = sensor.name ?? sensor.id
         return (
           <Marker
-            key={sensor.id}
+            // react-leaflet sets the title only when the pin is created, so a new state makes a new pin
+            key={`${sensor.id}-${status}`}
             position={[sensor.lat!, sensor.lon!]}
             icon={iconFor(status)}
             title={`${label}: ${t(`sensors.status.${status}`)}`}
@@ -91,6 +102,28 @@ export function SensorMap({ sensors, className }: SensorMapProps) {
                   <span>
                     {t('sensors.table.lastSeen')}: {formatDateTime(sensor.last_seen, i18n.language)}
                   </span>
+                )}
+                {/* muted_until, not the state: a sensor with an open alarm stays red while muted */}
+                {sensor.muted_until
+                  ? onEndRelease && (
+                      <Button variant="outline" className={cn(POPUP_BUTTON, 'mt-1')} onClick={() => onEndRelease(sensor)}>
+                        <Bell />
+                        {t('release.end')}
+                      </Button>
+                    )
+                  : // a switched-off sensor sends no alarms, so there is nothing to mute
+                    sensor.active &&
+                    onRelease && (
+                      <Button className={cn(POPUP_BUTTON, 'mt-1')} onClick={() => onRelease(sensor)}>
+                        <BellOff />
+                        {t('release.open')}
+                      </Button>
+                    )}
+                {onMove && (
+                  <Button variant="outline" className={cn(POPUP_BUTTON, 'mt-1')} onClick={() => onMove(sensor)}>
+                    <MoveRight />
+                    {t('mount.move')}
+                  </Button>
                 )}
               </div>
             </Popup>

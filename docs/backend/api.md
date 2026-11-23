@@ -128,6 +128,7 @@ Kto co może:
 |---|---|---|---|
 | lista i szczegóły | swoje leśnictwo (cudzy czujnik → `403`) | wszystkie | wszystkie |
 | rejestracja (`POST`) | – | – | tak |
+| usunięcie (`DELETE`, tylko bez historii) | – | – | tak |
 | nazwa, włączenie (`PATCH`) | swoje leśnictwo | – | tak |
 | leśnictwo (`PATCH range_id`) | – | – | tak |
 | montaż (`PUT .../mount`) | swoje leśnictwo | – | tak (poprawki) |
@@ -236,6 +237,15 @@ Odpowiedź `200`: czujnik jak w `GET /api/v1/sensors/{id}` (bez ostatnich alarm�
 - świeżo zamontowany czujnik, który jeszcze nic nie wysłał, ma stan `silent`; po pierwszej ramce `ok`
 - czujnik z innego leśnictwa albo zapytanie od nadleśniczego → `403`, brak czujnika → `404`, złe dane → `422`
  
+### `DELETE /api/v1/sensors/{id}`
+
+Tylko admin. Trwale usuwa czujnik, który **nie ma historii**: literówka w DevEUI przy rejestracji, czujnik testowy. Odpowiedź `204`.
+
+- czujnik z alarmami albo wydaniami → `409` z liczbami (`"Czujnik ma historię (alarmy: 4, wydania: 2), więc nie można go usunąć. Wyłącz go zamiast tego (PATCH active=false)."`): alarmy i wydania to ewidencja (raporty nadleśniczego, spory z przewoźnikiem), więc ich nie kasujemy
+- **wyłączenie** (`PATCH active=false`) niczego nie usuwa: historia zostaje, a czujnik dalej jest na liście i w raportach; wyłączyć można każdy czujnik
+- razem z czujnikiem znikają jego surowe ramki (`messages`), które i tak wygasają po 90 dniach
+- brak czujnika → `404`, inna rola niż admin → `403`; ID można podać tak jak przy rejestracji (z `:`, małymi literami)
+
 ### `PATCH /api/v1/sensors/{id}`
  
 Zmiana nazwy, leśnictwa albo włączenie/wyłączenie. Pola, których nie podasz, zostają bez zmian. `"name": null` usuwa nazwę.

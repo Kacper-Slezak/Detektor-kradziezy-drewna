@@ -26,6 +26,10 @@ async function logIn(login: string, password: string) {
   return user
 }
 
+// Leaflet takes two taps within 200 ms for a double tap and zooms in, which jsdom cannot
+// lay out (Invalid LatLng). A person never taps the pin and the popup button that fast.
+const afterTap = () => new Promise((resolve) => setTimeout(resolve, 250))
+
 describe('login', () => {
   it('logs in, saves the token and shows the home page', async () => {
     render(<App />)
@@ -65,11 +69,15 @@ describe('session restore', () => {
   })
 
   it('drops an invalid token and shows the login page', async () => {
+    // the same module instance App uses (beforeEach loaded both fresh)
+    const disablePush = vi.spyOn(await import('@/lib/push'), 'disablePush')
     setToken('mock-999')
     render(<App />)
 
     expect(await screen.findByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
     expect(getToken()).toBeNull()
+    // this phone stops getting that user's alarms too
+    expect(disablePush).toHaveBeenCalledWith(null)
   })
 
   it('shows the login page right away without a token', () => {
@@ -190,7 +198,7 @@ describe('sensor map', () => {
 
     expect(await screen.findByTitle('Skład przy leśniczówce: Bez kontaktu', {}, mapTimeout)).toBeInTheDocument()
     expect(screen.getByTitle('Skład przy drodze 5: Alarm')).toBeInTheDocument()
-    expect(screen.getByText('1 czujnik czeka na montaż')).toBeInTheDocument()
+    expect(screen.getByText('2 czujniki czekają na montaż')).toBeInTheDocument()
   })
 
   it('has a menu with password change and log out', async () => {
@@ -200,10 +208,15 @@ describe('sensor map', () => {
     await user.click(await screen.findByRole('button', { name: 'Menu' }, mapTimeout))
     const menu = await screen.findByRole('dialog', { name: 'Błażej Kowalski' })
     expect(within(menu).getByRole('button', { name: 'Zmień hasło' })).toBeInTheDocument()
+    // notifications are for foresters; jsdom has no push, so it says so
+    expect(await within(menu).findByText('To urządzenie nie obsługuje powiadomień.')).toBeInTheDocument()
 
+    const disablePush = vi.spyOn(await import('@/lib/push'), 'disablePush')
     await user.click(within(menu).getByRole('button', { name: 'Wyloguj' }))
     expect(screen.getByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument()
     expect(getToken()).toBeNull()
+    // the push subscription is removed with the token from before logout
+    expect(disablePush).toHaveBeenCalledWith('mock-3')
   })
 
   it('switches between the map and the alarm list', async () => {
@@ -255,6 +268,130 @@ describe('sensor map', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Wyloguj' }))
 
     expect(window.location.pathname).toBe('/')
+  })
+
+  // jsdom has no GPS and is not https: the phone is faked for the mounting tests
+  function fakePhoneGps() {
+    vi.stubGlobal('isSecureContext', true)
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (ok: PositionCallback) =>
+          ok({ coords: { latitude: 50.061, longitude: 19.95, accuracy: 6 } } as GeolocationPosition),
+      },
+    })
+  }
+
+  function removePhoneGps() {
+    vi.unstubAllGlobals()
+    Reflect.deleteProperty(navigator, 'geolocation')
+  }
+
+  it('a forester mounts a sensor and its pin shows up on the map', async () => {
+    fakePhoneGps()
+    try {
+      render(<App />)
+      const user = await logIn('blazej', 'tajne123')
+      await user.click(await screen.findByRole('button', { name: 'Zamontuj' }, mapTimeout))
+
+      const panel = await screen.findByRole('dialog', { name: 'Montaż czujnika' })
+      await user.type(within(panel).getByLabelText('Nazwa'), 'Skład przy brzozach')
+      await user.click(within(panel).getByRole('button', { name: 'Pobierz pozycję' }))
+      await user.click(await within(panel).findByRole('button', { name: 'Zapisz' }))
+
+      expect(await screen.findByText('Zamontowano: Skład przy brzozach')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Montaż czujnika' })).not.toBeInTheDocument()
+      // it has not sent anything yet, so it is silent; nothing waits to be mounted any more
+      expect(await screen.findByTitle('Skład przy brzozach: Bez kontaktu')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Zamontuj' })).not.toBeInTheDocument()
+    } finally {
+      removePhoneGps()
+    }
+  })
+
+  it('a forester moves a mounted sensor from its pin', async () => {
+    fakePhoneGps()
+    try {
+      render(<App />)
+      const user = await logIn('blazej', 'tajne123')
+      await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
+      const move = await screen.findByRole('button', { name: 'Przenieś czujnik' })
+      await afterTap()
+      await user.click(move)
+
+      const panel = await screen.findByRole('dialog', { name: 'Przeniesienie czujnika' })
+      expect(within(panel).getByText('Obecna pozycja: 50.05980, 19.96050')).toBeInTheDocument()
+      await user.click(within(panel).getByRole('button', { name: 'Pobierz pozycję' }))
+      await user.click(await within(panel).findByRole('button', { name: 'Zapisz nową pozycję' }))
+
+      expect(await screen.findByText('Przeniesiono: Skład przy paśniku')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Przeniesienie czujnika' })).not.toBeInTheDocument()
+      // still one pin, now in the new place
+      expect(await screen.findByTitle('Skład przy paśniku: Działa')).toBeInTheDocument()
+    } finally {
+      removePhoneGps()
+    }
+  })
+
+  it('a district manager cannot move or mute sensors', async () => {
+    render(<App />)
+    const user = await logIn('bogdan', 'tajne123')
+    await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
+
+    expect(await screen.findByText('70B3D57ED0052345')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Przenieś czujnik' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Wycisz na czas wywozu' })).not.toBeInTheDocument()
+  })
+
+  it('a forester mutes a sensor for timber pickup and its pin turns blue', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
+    const mute = await screen.findByRole('button', { name: 'Wycisz na czas wywozu' })
+    await afterTap()
+    await user.click(mute)
+
+    const panel = await screen.findByRole('dialog', { name: 'Wyciszenie na czas wywozu' })
+    await user.click(within(panel).getByRole('button', { name: '2 h' }))
+    await user.type(within(panel).getByLabelText('Przewoźnik (opcjonalnie)'), 'Trans-Las')
+    await user.click(within(panel).getByRole('button', { name: 'Wycisz' }))
+
+    expect(await screen.findByText(/^Wyciszono: Skład przy paśniku do /)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Wyciszenie na czas wywozu' })).not.toBeInTheDocument()
+    expect(await screen.findByTitle('Skład przy paśniku: Wyciszony')).toBeInTheDocument()
+  })
+
+  it('a forester ends the muting when the carrier has left', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await user.click(await screen.findByTitle('Skład przy szlabanie: Wyciszony', {}, mapTimeout))
+    const end = await screen.findByRole('button', { name: 'Zakończ wyciszenie' })
+    await afterTap()
+    await user.click(end)
+
+    const panel = await screen.findByRole('dialog', { name: 'Zakończyć wyciszenie?' })
+    await user.click(within(panel).getByRole('button', { name: 'Zakończ' }))
+
+    expect(await screen.findByText('Skład przy szlabanie znów czuwa')).toBeInTheDocument()
+    expect(await screen.findByTitle('Skład przy szlabanie: Działa')).toBeInTheDocument()
+  })
+
+  it('a district manager sees the sensors waiting to be mounted but cannot mount them', async () => {
+    render(<App />)
+    await logIn('bogdan', 'tajne123')
+
+    expect(await screen.findByText('2 czujniki czekają na montaż', {}, mapTimeout)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zamontuj' })).not.toBeInTheDocument()
+  })
+
+  it('has no alarm notifications for a district manager', async () => {
+    render(<App />)
+    const user = await logIn('bogdan', 'tajne123')
+
+    await user.click(await screen.findByRole('button', { name: 'Menu' }, mapTimeout))
+    const menu = await screen.findByRole('dialog', { name: 'Bogdan Nowak' })
+    expect(within(menu).getByRole('button', { name: 'Wyloguj' })).toBeInTheDocument()
+    expect(within(menu).queryByText(/powiadomie/i)).not.toBeInTheDocument()
   })
 
   it('clears the open alarm count after the forester answers', async () => {

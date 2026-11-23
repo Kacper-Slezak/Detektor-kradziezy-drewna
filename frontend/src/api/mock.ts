@@ -14,12 +14,17 @@ import type {
   AlarmFilters,
   LoginResponse,
   ManagedUser,
+  NewRelease,
   NewSensor,
   NewUser,
+  PushSubscriptionBody,
   Range,
+  Release,
+  ReleaseFilters,
   Sensor,
   SensorChanges,
   SensorFilters,
+  SensorMount,
   User,
   UserChanges,
 } from './types'
@@ -207,6 +212,9 @@ export async function mockListRanges(token: string | null): Promise<Range[]> {
   return ranges.map((r) => ({ ...r }))
 }
 
+const HOUR_MS = 60 * 60 * 1000
+const hoursFromNow = (hours: number) => new Date(Date.now() + hours * HOUR_MS).toISOString()
+
 // Sensors from the examples in api.md, plus one working, one silent and one registered but not mounted yet
 const sensors: Sensor[] = [
   {
@@ -245,7 +253,8 @@ const sensors: Sensor[] = [
     state: 'muted',
     battery_pct: 91,
     last_seen: '2026-10-16T10:01:00Z',
-    muted_until: '2026-10-16T18:00:00Z',
+    // the end of release 8 below, so the release really lasts while you click around
+    muted_until: hoursFromNow(2),
     open_alarm_id: null,
   },
   {
@@ -274,6 +283,20 @@ const sensors: Sensor[] = [
     muted_until: null,
     open_alarm_id: null,
   },
+  // so that the forester of Dąbrowa has a sensor to mount too
+  {
+    id: '70B3D57ED005A1B2',
+    name: null,
+    lat: null,
+    lon: null,
+    range_id: 1,
+    active: false,
+    state: 'inactive',
+    battery_pct: null,
+    last_seen: null,
+    muted_until: null,
+    open_alarm_id: null,
+  },
 ]
 
 // DevEUI: 16 hex characters
@@ -281,6 +304,7 @@ const SENSOR_ID = /^[0-9A-F]{16}$/
 
 export async function mockListSensors(token: string | null, filters: SensorFilters = {}): Promise<Sensor[]> {
   await delay()
+  unmuteFinished()
   const { user } = accountByToken(token)
   return sensors
     .filter((s) => user.role !== 'forester' || s.range_id === user.range?.id)
@@ -326,6 +350,176 @@ export async function mockUpdateSensor(token: string | null, id: string, changes
   }
   Object.assign(sensor, changes)
   return { ...sensor }
+}
+
+export async function mockMountSensor(token: string | null, id: string, mount: SensorMount): Promise<Sensor> {
+  await delay()
+  const { user } = accountByToken(token)
+  if (user.role === 'district_manager') throw new ApiError(403, 'Brak uprawnień')
+  const sensor = sensors.find((s) => s.id === id)
+  if (!sensor) throw new ApiError(404, `Nie ma czujnika ${id}`)
+  if (user.role === 'forester' && sensor.range_id !== user.range?.id) {
+    throw new ApiError(403, 'Czujnik jest w innym leśnictwie')
+  }
+  const name = mount.name.trim()
+  if (name.length < 1 || name.length > 100) throw new ApiError(422, 'Nazwa musi mieć od 1 do 100 znaków')
+  if (Math.abs(mount.lat) > 90 || Math.abs(mount.lon) > 180) throw new ApiError(422, 'Nieprawidłowa lokalizacja')
+
+  // mounting again moves the sensor; a sensor that has not sent anything yet is silent
+  Object.assign(sensor, { name, lat: mount.lat, lon: mount.lon, active: true })
+  if (sensor.state === 'inactive') sensor.state = sensor.last_seen ? 'ok' : 'silent'
+  return { ...sensor }
+}
+
+// Timber releases (api.md, section 3). Release 8 is the one muting "Skład przy szlabanie" right now.
+// sensor_name and active are worked out when answering, like in the backend
+type MockRelease = Omit<Release, 'sensor_name' | 'active'>
+
+const RELEASE_DEFAULT_HOURS = 4
+const RELEASE_MAX_HOURS = 24
+
+const releases: MockRelease[] = [
+  {
+    id: 8,
+    sensor_id: '70B3D57ED0055678',
+    starts_at: hoursFromNow(-1),
+    ends_at: sensors.find((s) => s.id === '70B3D57ED0055678')!.muted_until!,
+    carrier: 'Transdrew Sp. z o.o.',
+    log_count: 24,
+    comment: null,
+    created_by: 'blazej',
+  },
+  {
+    id: 7,
+    sensor_id: '70B3D57ED0051234',
+    starts_at: '2026-10-14T08:00:00Z',
+    ends_at: '2026-10-14T11:20:00Z',
+    carrier: 'Trans-Las',
+    log_count: 30,
+    comment: 'odjechał wcześniej',
+    created_by: 'blazej',
+  },
+  {
+    id: 6,
+    sensor_id: '70B3D57ED005DEF0',
+    starts_at: '2026-10-12T07:30:00Z',
+    ends_at: '2026-10-12T11:30:00Z',
+    carrier: null,
+    log_count: null,
+    comment: null,
+    created_by: 'nowy.lesniczy',
+  },
+]
+
+// state of a sensor before its release muted it, given back when the release ends
+const stateBeforeRelease = new Map<string, Sensor['state']>([['70B3D57ED0055678', 'ok']])
+
+const isOngoing = (r: MockRelease, now = Date.now()) => Date.parse(r.starts_at) <= now && now < Date.parse(r.ends_at)
+
+function toRelease(r: MockRelease): Release {
+  const sensor = sensors.find((s) => s.id === r.sensor_id)
+  return { ...r, sensor_name: sensor?.name ?? null, active: isOngoing(r) }
+}
+
+function unmute(sensor: Sensor) {
+  sensor.muted_until = null
+  if (sensor.state === 'muted') sensor.state = stateBeforeRelease.get(sensor.id) ?? 'ok'
+  stateBeforeRelease.delete(sensor.id)
+}
+
+// The backend works out the state on every read; the mock stores it, so it settles here:
+// a sensor whose release has run out watches again
+function unmuteFinished() {
+  for (const sensor of sensors) {
+    if (sensor.muted_until && Date.parse(sensor.muted_until) <= Date.now()) unmute(sensor)
+  }
+}
+
+// Creating and ending: a forester of the sensor's range, or the admin. The district manager only reads
+function releaserFor(token: string | null, sensor: Sensor) {
+  const { user } = accountByToken(token)
+  if (user.role === 'district_manager') throw new ApiError(403, 'Brak uprawnień')
+  if (user.role === 'forester' && sensor.range_id !== user.range?.id) {
+    throw new ApiError(403, 'Czujnik należy do innego leśnictwa')
+  }
+  return user
+}
+
+export async function mockCreateRelease(token: string | null, sensorId: string, release: NewRelease): Promise<Release> {
+  await delay()
+  unmuteFinished()
+  const sensor = sensors.find((s) => s.id === sensorId.toUpperCase())
+  if (!sensor) throw new ApiError(404, `Czujnik o id ${sensorId} nie istnieje`)
+  const user = releaserFor(token, sensor)
+  if (sensor.lat === null || sensor.lon === null) {
+    throw new ApiError(409, 'Czujnik nie jest zamontowany (brak lokalizacji)')
+  }
+  if ((release.carrier?.length ?? 0) > 100) throw new ApiError(422, 'Przewoźnik może mieć najwyżej 100 znaków')
+  if ((release.comment?.length ?? 0) > 500) throw new ApiError(422, 'Komentarz może mieć najwyżej 500 znaków')
+  if (release.log_count !== undefined && !(release.log_count >= 0 && release.log_count <= 100_000)) {
+    throw new ApiError(422, 'Liczba kłód musi być od 0 do 100000')
+  }
+
+  const now = Date.now()
+  const endsAt = release.ends_at ? Date.parse(release.ends_at) : now + RELEASE_DEFAULT_HOURS * HOUR_MS
+  if (!(endsAt > now)) throw new ApiError(422, 'Koniec wydania musi być w przyszłości')
+  if (endsAt > now + RELEASE_MAX_HOURS * HOUR_MS) {
+    throw new ApiError(422, `Wydanie może trwać najwyżej ${RELEASE_MAX_HOURS} h`)
+  }
+  const ongoing = releases.find((r) => r.sensor_id === sensor.id && isOngoing(r, now))
+  if (ongoing) {
+    throw new ApiError(409, `Wydanie dla tego czujnika już trwa (id ${ongoing.id}); zakończ je albo poczekaj`)
+  }
+
+  const created: MockRelease = {
+    id: Math.max(0, ...releases.map((r) => r.id)) + 1,
+    sensor_id: sensor.id,
+    starts_at: new Date(now).toISOString(),
+    ends_at: new Date(endsAt).toISOString(),
+    carrier: release.carrier ?? null,
+    log_count: release.log_count ?? null,
+    comment: release.comment ?? null,
+    created_by: user.login,
+  }
+  releases.push(created)
+
+  // api.md: an open alarm still wins over muted, and a switched-off sensor stays inactive
+  sensor.muted_until = created.ends_at
+  if (sensor.state === 'ok' || sensor.state === 'silent') {
+    stateBeforeRelease.set(sensor.id, sensor.state)
+    sensor.state = 'muted'
+  }
+  return toRelease(created)
+}
+
+export async function mockEndRelease(token: string | null, id: number): Promise<Release> {
+  await delay()
+  const release = releases.find((r) => r.id === id)
+  if (!release) throw new ApiError(404, `Nie ma wydania o id ${id}`)
+  const sensor = sensors.find((s) => s.id === release.sensor_id)!
+  releaserFor(token, sensor)
+  if (Date.parse(release.ends_at) <= Date.now()) throw new ApiError(409, 'Wydanie już się zakończyło')
+
+  release.ends_at = new Date().toISOString()
+  unmute(sensor)
+  return toRelease(release)
+}
+
+export async function mockListReleases(token: string | null, filters: ReleaseFilters = {}): Promise<Release[]> {
+  await delay()
+  unmuteFinished()
+  const { user } = accountByToken(token)
+  const rangeOf = (sensorId: string) => sensors.find((s) => s.id === sensorId)?.range_id
+  return releases
+    .filter((r) => user.role !== 'forester' || rangeOf(r.sensor_id) === user.range?.id)
+    .filter((r) => !filters.sensor_id || r.sensor_id === filters.sensor_id.toUpperCase())
+    .filter((r) => filters.active === undefined || isOngoing(r) === filters.active)
+    // [from, to] and the release overlap
+    .filter((r) => !filters.from || Date.parse(r.ends_at) >= Date.parse(filters.from))
+    .filter((r) => !filters.to || Date.parse(r.starts_at) <= Date.parse(filters.to))
+    .sort((a, b) => b.starts_at.localeCompare(a.starts_at) || b.id - a.id)
+    .slice(0, filters.limit ?? 100)
+    .map(toRelease)
 }
 
 // Alarms from the examples in api.md, plus a confirmed theft and a new one in the other range.
@@ -444,4 +638,59 @@ export async function mockRespondToAlarm(token: string | null, id: number, answe
     if (sensor.state === 'alarm') sensor.state = 'ok'
   }
   return copyAlarm(alarm)
+}
+
+// Web Push (api.md, section 6). A real P-256 key (the example from api.md), so the browser accepts it in subscribe
+const MOCK_VAPID_PUBLIC_KEY =
+  'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+
+interface MockPushSubscription {
+  userId: number
+  endpoint: string
+  keys: PushSubscriptionBody['keys']
+  device_label: string | null
+}
+
+const pushSubscriptions: MockPushSubscription[] = []
+
+export async function mockVapidPublicKey(token: string | null): Promise<string> {
+  await delay()
+  accountByToken(token)
+  return MOCK_VAPID_PUBLIC_KEY
+}
+
+export async function mockSavePushSubscription(token: string | null, subscription: PushSubscriptionBody): Promise<void> {
+  await delay()
+  const { user } = accountByToken(token)
+  if (user.role !== 'forester') throw new ApiError(403, 'Powiadomienia push są tylko dla leśniczych')
+  if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+    throw new ApiError(422, 'Niepełna subskrypcja')
+  }
+  // the same endpoint again: new keys and owner (e.g. another account on this phone), no duplicate
+  const saved: MockPushSubscription = {
+    userId: user.id,
+    endpoint: subscription.endpoint,
+    keys: { ...subscription.keys },
+    device_label: subscription.device_label ?? null,
+  }
+  const index = pushSubscriptions.findIndex((s) => s.endpoint === subscription.endpoint)
+  if (index === -1) pushSubscriptions.push(saved)
+  else pushSubscriptions[index] = saved
+}
+
+export async function mockDeletePushSubscription(token: string | null, endpoint: string): Promise<void> {
+  await delay()
+  const { user } = accountByToken(token)
+  // 204 also when it is not there; someone else's subscription stays
+  const index = pushSubscriptions.findIndex((s) => s.endpoint === endpoint && s.userId === user.id)
+  if (index !== -1) pushSubscriptions.splice(index, 1)
+}
+
+// Not an endpoint: lets tests (and the dev console) see who would get a push
+export function mockPushSubscribers(): { login: string; endpoint: string; device_label: string | null }[] {
+  return pushSubscriptions.map((s) => ({
+    login: accounts.find((a) => a.user.id === s.userId)!.user.login,
+    endpoint: s.endpoint,
+    device_label: s.device_label,
+  }))
 }

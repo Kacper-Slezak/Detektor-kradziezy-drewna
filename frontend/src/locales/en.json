@@ -235,12 +235,73 @@
     "district_manager": "District manager",
     "admin": "Administrator"
   },
+  "mount": {
+    "open": "Mount",
+    "move": "Move sensor",
+    "title": "Mount a sensor",
+    "description": "Stand by the timber stack and take the location from your phone.",
+    "moveTitle": "Move a sensor",
+    "moveDescription": "Stand by the new timber stack and take the location from your phone.",
+    "sensor": "Sensor",
+    "name": "Name",
+    "nameHint": "e.g. “Stack by road 5”",
+    "location": "Location",
+    "locate": "Get location",
+    "relocate": "Get it again",
+    "locating": "Looking for the location…",
+    "current": "Current location: {{lat}}, {{lon}}",
+    "accuracy": "±{{meters}} m",
+    "poorAccuracy": "Poor accuracy, try again in the open",
+    "save": "Save",
+    "saveMove": "Save new location",
+    "saving": "Saving…",
+    "saved": "Mounted: {{name}}",
+    "moved": "Moved: {{name}}",
+    "close": "Close",
+    "errors": {
+      "unsupported": "This browser does not give the location",
+      "insecure": "Location only works on an https page",
+      "denied": "No permission for the location. Allow it in the browser settings",
+      "unavailable": "Could not find the location. Check that GPS is on",
+      "timeout": "Finding the location took too long. Try again"
+    }
+  },
+  "release": {
+    "open": "Mute for timber pickup",
+    "end": "End muting",
+    "duration": "Mute for",
+    "hours": "{{hours}} h",
+    "until": "The sensor watches again at {{time}}",
+    "carrier": "Carrier (optional)",
+    "logCount": "Number of logs (optional)",
+    "comment": "Comment (optional)",
+    "save": "Mute",
+    "saving": "Muting…",
+    "title": "Mute for timber pickup",
+    "description": "The sensor raises no alarm while the carrier loads the timber.",
+    "saved": "Muted: {{name}} until {{time}}",
+    "endTitle": "End muting?",
+    "endDescription": "When the carrier has left.",
+    "endQuestion": "Sensor “{{name}}” will raise alarms again.",
+    "endConfirm": "End",
+    "ending": "Ending…",
+    "cancel": "Cancel",
+    "ended": "{{name}} is watching again"
+  },
   "errors": {
     "network": "Cannot connect to the server",
     "http": "Error {{status}}"
   },
   "install": {
     "button": "Install app"
+  },
+  "push": {
+    "enable": "Turn on alarm notifications",
+    "enabling": "Turning on…",
+    "enabled": "Alarm notifications are on",
+    "denied": "Notifications are blocked. Allow them in the site settings (the lock by the address) and reload the app.",
+    "unsupported": "This device does not support notifications.",
+    "error": "Could not turn on notifications. Try again."
   },
   "theme": {
     "label": "Theme",

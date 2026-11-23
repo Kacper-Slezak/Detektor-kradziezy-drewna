@@ -241,3 +241,212 @@ describe('sensor management', () => {
     })
   })
 })
+
+describe('mounting a sensor', () => {
+  const mount = { name: '  Skład przy brzozach  ', lat: 50.061, lon: 19.95 }
+
+  it('the forester of Dąbrowa has a sensor to mount', async () => {
+    const unmounted = await mock.mockListSensors('mock-3', { unmounted: true })
+    expect(unmounted.map((s) => s.id)).toEqual(['70B3D57ED005A1B2'])
+  })
+
+  it('gives the sensor a name and a location and turns it on', async () => {
+    const mounted = await mock.mockMountSensor('mock-3', '70B3D57ED005A1B2', mount)
+    expect(mounted).toMatchObject({
+      name: 'Skład przy brzozach',
+      lat: 50.061,
+      lon: 19.95,
+      active: true,
+      // it has not sent anything yet
+      state: 'silent',
+    })
+    // it is not waiting to be mounted any more
+    expect(await mock.mockListSensors('mock-3', { unmounted: true })).toEqual([])
+  })
+
+  it('moves a mounted sensor and keeps its state', async () => {
+    const moved = await mock.mockMountSensor('mock-3', '70B3D57ED0051234', mount)
+    expect(moved).toMatchObject({ name: 'Skład przy brzozach', lat: 50.061, state: 'alarm' })
+  })
+
+  it('is not for the district manager or a forester of another range (403)', async () => {
+    await expect(mock.mockMountSensor('mock-4', '70B3D57ED005A1B2', mount)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockMountSensor('mock-5', '70B3D57ED005A1B2', mount)).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('rejects an unknown sensor (404), an empty name and a wrong location (422)', async () => {
+    await expect(mock.mockMountSensor('mock-3', '0000000000000000', mount)).rejects.toMatchObject({ status: 404 })
+    await expect(
+      mock.mockMountSensor('mock-3', '70B3D57ED005A1B2', { ...mount, name: '   ' }),
+    ).rejects.toMatchObject({ status: 422 })
+    await expect(
+      mock.mockMountSensor('mock-3', '70B3D57ED005A1B2', { ...mount, lat: 91 }),
+    ).rejects.toMatchObject({ status: 422 })
+  })
+})
+
+describe('push subscriptions', () => {
+  const phone = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
+    expirationTime: null,
+    keys: { p256dh: 'BNcR', auth: 'tBHI' },
+    device_label: 'Android – Chrome',
+  }
+
+  it('gives the server key to a signed-in user', async () => {
+    expect(await mock.mockVapidPublicKey('mock-3')).toMatch(/^B[A-Za-z0-9_-]{86}$/)
+    await expect(mock.mockVapidPublicKey(null)).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('saves the subscription of a forester', async () => {
+    await mock.mockSavePushSubscription('mock-3', phone)
+    expect(mock.mockPushSubscribers()).toEqual([
+      { login: 'blazej', endpoint: phone.endpoint, device_label: 'Android – Chrome' },
+    ])
+  })
+
+  it('sends pushes only to foresters', async () => {
+    await expect(mock.mockSavePushSubscription('mock-4', phone)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockSavePushSubscription('mock-1', phone)).rejects.toMatchObject({ status: 403 })
+    expect(mock.mockPushSubscribers()).toEqual([])
+  })
+
+  it('rejects a subscription without keys', async () => {
+    await expect(
+      mock.mockSavePushSubscription('mock-3', { ...phone, keys: { p256dh: '', auth: '' } }),
+    ).rejects.toMatchObject({ status: 422 })
+  })
+
+  it('gives the same phone to the account that signed in last, without a duplicate', async () => {
+    await mock.mockSavePushSubscription('mock-3', phone)
+    await mock.mockSavePushSubscription('mock-5', { ...phone, device_label: undefined })
+    expect(mock.mockPushSubscribers()).toEqual([
+      { login: 'nowy.lesniczy', endpoint: phone.endpoint, device_label: null },
+    ])
+  })
+
+  it('deletes only your own subscription, and says nothing when it is not there', async () => {
+    await mock.mockSavePushSubscription('mock-3', phone)
+
+    await mock.mockDeletePushSubscription('mock-5', phone.endpoint)
+    expect(mock.mockPushSubscribers()).toHaveLength(1)
+
+    await mock.mockDeletePushSubscription('mock-3', phone.endpoint)
+    expect(mock.mockPushSubscribers()).toEqual([])
+    await expect(mock.mockDeletePushSubscription('mock-3', phone.endpoint)).resolves.toBeUndefined()
+  })
+})
+
+describe('timber releases', () => {
+  const PASNIK = '70B3D57ED0052345' // ok, Dąbrowa
+  const DROGA = '70B3D57ED0051234' // open alarm 41, Dąbrowa
+  const SZLABAN = '70B3D57ED0055678' // muted by release 8, Dąbrowa
+  const LESNICZOWKA = '70B3D57ED005DEF0' // Olszyny
+  const UNMOUNTED = '70B3D57ED005A1B2' // Dąbrowa, no location
+  const HOUR = 60 * 60 * 1000
+
+  const sensor = async (id: string) => (await mock.mockListSensors('mock-4')).find((s) => s.id === id)!
+
+  it('a forester sees the releases of their range, newest first', async () => {
+    const list = await mock.mockListReleases('mock-3')
+    expect(list.map((r) => [r.id, r.sensor_name, r.active])).toEqual([
+      [8, 'Skład przy szlabanie', true],
+      [7, 'Skład przy drodze 5', false],
+    ])
+    // the ongoing release is the one muting the sensor on the map
+    expect(list[0].ends_at).toBe((await sensor(SZLABAN)).muted_until)
+  })
+
+  it('a district manager sees all ranges and can filter', async () => {
+    expect((await mock.mockListReleases('mock-4')).map((r) => r.id)).toEqual([8, 7, 6])
+    expect((await mock.mockListReleases('mock-4', { active: true })).map((r) => r.id)).toEqual([8])
+    expect((await mock.mockListReleases('mock-4', { active: false })).map((r) => r.id)).toEqual([7, 6])
+    expect((await mock.mockListReleases('mock-4', { sensor_id: DROGA })).map((r) => r.id)).toEqual([7])
+    // releases that lasted at least partly on 14 October
+    const day = { from: '2026-10-14T00:00:00Z', to: '2026-10-14T23:59:59Z' }
+    expect((await mock.mockListReleases('mock-4', day)).map((r) => r.id)).toEqual([7])
+  })
+
+  it('mutes a sensor for 4 h by default', async () => {
+    const before = Date.now()
+    const release = await mock.mockCreateRelease('mock-3', PASNIK, { carrier: 'Trans-Las', log_count: 12 })
+
+    expect(release).toMatchObject({
+      id: 9,
+      sensor_id: PASNIK,
+      sensor_name: 'Skład przy paśniku',
+      active: true,
+      carrier: 'Trans-Las',
+      log_count: 12,
+      comment: null,
+      created_by: 'blazej',
+    })
+    const hours = (Date.parse(release.ends_at) - before) / HOUR
+    expect(hours).toBeGreaterThanOrEqual(4)
+    expect(hours).toBeLessThan(4.1)
+    expect(await sensor(PASNIK)).toMatchObject({ state: 'muted', muted_until: release.ends_at })
+  })
+
+  it('takes the end the forester chose', async () => {
+    const ends_at = new Date(Date.now() + 2 * HOUR).toISOString()
+    const release = await mock.mockCreateRelease('mock-3', PASNIK, { ends_at })
+    expect(Date.parse(release.ends_at)).toBe(Date.parse(ends_at))
+  })
+
+  it('ending early lets the sensor watch again, and only once', async () => {
+    const release = await mock.mockEndRelease('mock-3', 8)
+
+    expect(release.active).toBe(false)
+    expect(Date.parse(release.ends_at)).toBeLessThanOrEqual(Date.now())
+    expect(await sensor(SZLABAN)).toMatchObject({ state: 'ok', muted_until: null })
+    await expect(mock.mockEndRelease('mock-3', 8)).rejects.toMatchObject({ status: 409 })
+    await expect(mock.mockEndRelease('mock-3', 7)).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('keeps the alarm pin red while the timber is taken away', async () => {
+    const release = await mock.mockCreateRelease('mock-3', DROGA, {})
+    expect(await sensor(DROGA)).toMatchObject({ state: 'alarm', muted_until: release.ends_at })
+
+    await mock.mockEndRelease('mock-3', release.id)
+    expect(await sensor(DROGA)).toMatchObject({ state: 'alarm', muted_until: null })
+  })
+
+  it('watches again by itself when the release runs out', async () => {
+    // only the clock moves; the mock's delays stay real
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(Date.now() + 3 * HOUR)
+      expect(await sensor(SZLABAN)).toMatchObject({ state: 'ok', muted_until: null })
+      expect((await mock.mockListReleases('mock-3', { active: true }))).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each([
+    ['the district manager', 'mock-4', PASNIK, {}, 403],
+    ['a forester of another range', 'mock-3', LESNICZOWKA, {}, 403],
+    ['a sensor that does not exist', 'mock-3', 'FFFFFFFFFFFFFFFF', {}, 404],
+    ['a sensor that is not mounted', 'mock-3', UNMOUNTED, {}, 409],
+    ['a sensor that is muted already', 'mock-3', SZLABAN, {}, 409],
+    ['an end in the past', 'mock-3', PASNIK, { ends_at: '2026-01-01T00:00:00Z' }, 422],
+    ['more than 24 h', 'mock-3', PASNIK, { ends_at: new Date(Date.now() + 25 * HOUR).toISOString() }, 422],
+    ['a too long carrier', 'mock-3', PASNIK, { carrier: 'x'.repeat(101) }, 422],
+    ['a negative number of logs', 'mock-3', PASNIK, { log_count: -1 }, 422],
+  ])('refuses %s', async (_, token, sensorId, release, status) => {
+    await expect(mock.mockCreateRelease(token, sensorId, release)).rejects.toMatchObject({ status })
+  })
+
+  it('says which release lasts already, so the app can end it', async () => {
+    await expect(mock.mockCreateRelease('mock-3', SZLABAN, {})).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('id 8'),
+    })
+  })
+
+  it('lets only the sensor range end a release', async () => {
+    await expect(mock.mockEndRelease('mock-4', 8)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockEndRelease('mock-5', 8)).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockEndRelease('mock-3', 99)).rejects.toMatchObject({ status: 404 })
+  })
+})

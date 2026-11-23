@@ -233,12 +233,73 @@
     "district_manager": "Nadleśniczy",
     "admin": "Administrator"
   },
+  "mount": {
+    "open": "Zamontuj",
+    "move": "Przenieś czujnik",
+    "title": "Montaż czujnika",
+    "description": "Stań przy składzie i pobierz pozycję z telefonu.",
+    "moveTitle": "Przeniesienie czujnika",
+    "moveDescription": "Stań przy nowym składzie i pobierz pozycję z telefonu.",
+    "sensor": "Czujnik",
+    "name": "Nazwa",
+    "nameHint": "np. „Skład przy drodze 5”",
+    "location": "Lokalizacja",
+    "locate": "Pobierz pozycję",
+    "relocate": "Pobierz ponownie",
+    "locating": "Szukam pozycji…",
+    "current": "Obecna pozycja: {{lat}}, {{lon}}",
+    "accuracy": "±{{meters}} m",
+    "poorAccuracy": "Słaba dokładność, spróbuj ponownie na otwartym terenie",
+    "save": "Zapisz",
+    "saveMove": "Zapisz nową pozycję",
+    "saving": "Zapisywanie…",
+    "saved": "Zamontowano: {{name}}",
+    "moved": "Przeniesiono: {{name}}",
+    "close": "Zamknij",
+    "errors": {
+      "unsupported": "Ta przeglądarka nie podaje lokalizacji",
+      "insecure": "Lokalizacja działa tylko na stronie https",
+      "denied": "Brak zgody na lokalizację. Zezwól na nią w ustawieniach przeglądarki",
+      "unavailable": "Nie udało się ustalić pozycji. Sprawdź, czy GPS jest włączony",
+      "timeout": "Szukanie pozycji trwało za długo. Spróbuj ponownie"
+    }
+  },
+  "release": {
+    "open": "Wycisz na czas wywozu",
+    "end": "Zakończ wyciszenie",
+    "duration": "Czas wyciszenia",
+    "hours": "{{hours}} h",
+    "until": "Czujnik zacznie znów czuwać o {{time}}",
+    "carrier": "Przewoźnik (opcjonalnie)",
+    "logCount": "Liczba kłód (opcjonalnie)",
+    "comment": "Komentarz (opcjonalnie)",
+    "save": "Wycisz",
+    "saving": "Wyciszanie…",
+    "title": "Wyciszenie na czas wywozu",
+    "description": "Czujnik nie zgłosi alarmu, gdy przewoźnik ładuje drewno.",
+    "saved": "Wyciszono: {{name}} do {{time}}",
+    "endTitle": "Zakończyć wyciszenie?",
+    "endDescription": "Gdy przewoźnik już odjechał.",
+    "endQuestion": "Czujnik „{{name}}” znów będzie zgłaszał alarmy.",
+    "endConfirm": "Zakończ",
+    "ending": "Kończenie…",
+    "cancel": "Anuluj",
+    "ended": "{{name}} znów czuwa"
+  },
   "errors": {
     "network": "Brak połączenia z serwerem",
     "http": "Błąd {{status}}"
   },
   "install": {
     "button": "Zainstaluj aplikację"
+  },
+  "push": {
+    "enable": "Włącz powiadomienia o alarmach",
+    "enabling": "Włączanie…",
+    "enabled": "Powiadomienia o alarmach włączone",
+    "denied": "Powiadomienia są zablokowane. Włącz je w ustawieniach strony (kłódka przy adresie) i odśwież aplikację.",
+    "unsupported": "To urządzenie nie obsługuje powiadomień.",
+    "error": "Nie udało się włączyć powiadomień. Spróbuj ponownie."
   },
   "theme": {
     "label": "Motyw",
