@@ -264,6 +264,28 @@
       "timeout": "Szukanie pozycji trwało za długo. Spróbuj ponownie"
     }
   },
+  "release": {
+    "open": "Wycisz na czas wywozu",
+    "end": "Zakończ wyciszenie",
+    "duration": "Czas wyciszenia",
+    "hours": "{{hours}} h",
+    "until": "Czujnik zacznie znów czuwać o {{time}}",
+    "carrier": "Przewoźnik (opcjonalnie)",
+    "logCount": "Liczba kłód (opcjonalnie)",
+    "comment": "Komentarz (opcjonalnie)",
+    "save": "Wycisz",
+    "saving": "Wyciszanie…",
+    "title": "Wyciszenie na czas wywozu",
+    "description": "Czujnik nie zgłosi alarmu, gdy przewoźnik ładuje drewno.",
+    "saved": "Wyciszono: {{name}} do {{time}}",
+    "endTitle": "Zakończyć wyciszenie?",
+    "endDescription": "Gdy przewoźnik już odjechał.",
+    "endQuestion": "Czujnik „{{name}}” znów będzie zgłaszał alarmy.",
+    "endConfirm": "Zakończ",
+    "ending": "Kończenie…",
+    "cancel": "Anuluj",
+    "ended": "{{name}} znów czuwa"
+  },
   "errors": {
     "network": "Brak połączenia z serwerem",
     "http": "Błąd {{status}}"

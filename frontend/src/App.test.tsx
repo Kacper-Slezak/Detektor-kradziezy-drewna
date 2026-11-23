@@ -333,13 +333,47 @@ describe('sensor map', () => {
     }
   })
 
-  it('a district manager cannot move sensors', async () => {
+  it('a district manager cannot move or mute sensors', async () => {
     render(<App />)
     const user = await logIn('bogdan', 'tajne123')
     await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
 
     expect(await screen.findByText('70B3D57ED0052345')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Przenieś czujnik' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Wycisz na czas wywozu' })).not.toBeInTheDocument()
+  })
+
+  it('a forester mutes a sensor for timber pickup and its pin turns blue', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await user.click(await screen.findByTitle('Skład przy paśniku: Działa', {}, mapTimeout))
+    const mute = await screen.findByRole('button', { name: 'Wycisz na czas wywozu' })
+    await afterTap()
+    await user.click(mute)
+
+    const panel = await screen.findByRole('dialog', { name: 'Wyciszenie na czas wywozu' })
+    await user.click(within(panel).getByRole('button', { name: '2 h' }))
+    await user.type(within(panel).getByLabelText('Przewoźnik (opcjonalnie)'), 'Trans-Las')
+    await user.click(within(panel).getByRole('button', { name: 'Wycisz' }))
+
+    expect(await screen.findByText(/^Wyciszono: Skład przy paśniku do /)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Wyciszenie na czas wywozu' })).not.toBeInTheDocument()
+    expect(await screen.findByTitle('Skład przy paśniku: Wyciszony')).toBeInTheDocument()
+  })
+
+  it('a forester ends the muting when the carrier has left', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await user.click(await screen.findByTitle('Skład przy szlabanie: Wyciszony', {}, mapTimeout))
+    const end = await screen.findByRole('button', { name: 'Zakończ wyciszenie' })
+    await afterTap()
+    await user.click(end)
+
+    const panel = await screen.findByRole('dialog', { name: 'Zakończyć wyciszenie?' })
+    await user.click(within(panel).getByRole('button', { name: 'Zakończ' }))
+
+    expect(await screen.findByText('Skład przy szlabanie znów czuwa')).toBeInTheDocument()
+    expect(await screen.findByTitle('Skład przy szlabanie: Działa')).toBeInTheDocument()
   })
 
   it('a district manager sees the sensors waiting to be mounted but cannot mount them', async () => {

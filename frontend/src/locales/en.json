@@ -266,6 +266,28 @@
       "timeout": "Finding the location took too long. Try again"
     }
   },
+  "release": {
+    "open": "Mute for timber pickup",
+    "end": "End muting",
+    "duration": "Mute for",
+    "hours": "{{hours}} h",
+    "until": "The sensor watches again at {{time}}",
+    "carrier": "Carrier (optional)",
+    "logCount": "Number of logs (optional)",
+    "comment": "Comment (optional)",
+    "save": "Mute",
+    "saving": "Muting…",
+    "title": "Mute for timber pickup",
+    "description": "The sensor raises no alarm while the carrier loads the timber.",
+    "saved": "Muted: {{name}} until {{time}}",
+    "endTitle": "End muting?",
+    "endDescription": "When the carrier has left.",
+    "endQuestion": "Sensor “{{name}}” will raise alarms again.",
+    "endConfirm": "End",
+    "ending": "Ending…",
+    "cancel": "Cancel",
+    "ended": "{{name}} is watching again"
+  },
   "errors": {
     "network": "Cannot connect to the server",
     "http": "Error {{status}}"

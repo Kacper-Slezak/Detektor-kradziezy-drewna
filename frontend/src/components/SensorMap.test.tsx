@@ -79,6 +79,73 @@ describe('SensorMap', () => {
     expect(screen.queryByRole('button', { name: 'Przenieś czujnik' })).not.toBeInTheDocument()
   })
 
+  describe('muting for timber pickup', () => {
+    const noop = () => {}
+    // one pin of each kind: watching, muted, alarm while muted, switched off
+    const pins: Sensor[] = [
+      { ...base, id: 'A1', name: 'Czuwa', state: 'ok', open_alarm_id: null },
+      { ...base, id: 'A2', name: 'Wyciszony', lat: 50.07, state: 'muted', muted_until: '2026-11-20T18:00:00Z', open_alarm_id: null },
+      { ...base, id: 'A3', name: 'Alarm w trakcie wywozu', lat: 50.08, muted_until: '2026-11-20T18:00:00Z' },
+      { ...base, id: 'A4', name: 'Wyłączony', lat: 50.09, active: false, state: 'inactive', open_alarm_id: null },
+    ]
+
+    async function openPin(title: string, props = { onRelease: vi.fn(), onEndRelease: vi.fn() }) {
+      const user = userEvent.setup()
+      render(<SensorMap sensors={pins} {...props} />)
+      await user.click(screen.getByTitle(title))
+      await screen.findByText(title.split(':')[0], { selector: 'strong' })
+      await afterTap()
+      return { user, ...props }
+    }
+
+    it('offers muting a watching sensor', async () => {
+      const { user, onRelease } = await openPin('Czuwa: Działa')
+
+      expect(screen.queryByRole('button', { name: 'Zakończ wyciszenie' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Wycisz na czas wywozu' }))
+      expect(onRelease).toHaveBeenCalledWith(pins[0])
+    })
+
+    it('offers ending the muting of a muted sensor', async () => {
+      const { user, onEndRelease } = await openPin('Wyciszony: Wyciszony')
+
+      expect(screen.queryByRole('button', { name: 'Wycisz na czas wywozu' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Zakończ wyciszenie' }))
+      expect(onEndRelease).toHaveBeenCalledWith(pins[1])
+    })
+
+    it('knows a red pin is muted too when an alarm came before the release', async () => {
+      await openPin('Alarm w trakcie wywozu: Alarm')
+      expect(screen.getByRole('button', { name: 'Zakończ wyciszenie' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Wycisz na czas wywozu' })).not.toBeInTheDocument()
+    })
+
+    it('has nothing to mute on a switched-off sensor', async () => {
+      await openPin('Wyłączony: Wyłączony')
+      expect(screen.queryByRole('button', { name: 'Wycisz na czas wywozu' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Zakończ wyciszenie' })).not.toBeInTheDocument()
+    })
+
+    it('has no muting buttons when the page does not allow it', async () => {
+      const user = userEvent.setup()
+      render(<SensorMap sensors={pins} onMove={noop} />)
+      await user.click(screen.getByTitle('Czuwa: Działa'))
+
+      expect(await screen.findByRole('button', { name: 'Przenieś czujnik' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Wycisz na czas wywozu' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Zakończ wyciszenie' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('gives a pin a new title when its state changes', () => {
+    const { rerender } = render(<SensorMap sensors={[{ ...base, state: 'ok', open_alarm_id: null }]} />)
+    expect(screen.getByTitle('Skład przy drodze 5: Działa')).toBeInTheDocument()
+
+    rerender(<SensorMap sensors={[{ ...base, state: 'muted', open_alarm_id: null }]} />)
+    expect(screen.getByTitle('Skład przy drodze 5: Wyciszony')).toBeInTheDocument()
+    expect(screen.queryByTitle('Skład przy drodze 5: Działa')).not.toBeInTheDocument()
+  })
+
   it('shows the map without pins when there are no sensors', () => {
     const { container } = render(<SensorMap sensors={[]} />)
 
