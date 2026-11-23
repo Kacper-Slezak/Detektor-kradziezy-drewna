@@ -13,14 +13,14 @@ Kto co zmienia:
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import Select, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.deps import AdminUser, CurrentUser, require_role
-from app.models import Alarm, Range, Release, Sensor, User
+from app.models import Alarm, Message, Range, Release, Sensor, User
 from app.schemas import (
     AlarmBrief,
     ReleaseBrief,
@@ -228,6 +228,56 @@ async def update_sensor(
     await session.commit()
     log.info("%s zmienił czujnik %s: %s", user.login, sensor.id, sorted(changes))
     return await _one_out(session, sensor)
+
+
+@router.delete(
+    "/{sensor_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        403: {"description": "Tylko admin"},
+        404: {"description": "Brak czujnika"},
+        409: {"description": "Czujnik ma historię (alarmy lub wydania)"},
+    },
+)
+async def delete_sensor(sensor_id: str, admin: AdminUser, session: Session) -> Response:
+    """Trwale usuwa czujnik, który nie ma historii (literówka w DevEUI, test).
+
+    Alarmy i wydania to ewidencja (raporty, spory z przewoźnikiem), więc czujnika, który je ma,
+    nie usuwamy: trzeba go wyłączyć (`PATCH active=false`). Surowe ramki (`messages`) są kasowane
+    razem z czujnikiem, bo i tak wygasają po 90 dniach.
+    """
+    sensor = await session.get(Sensor, normalize_sensor_id(sensor_id))
+    if sensor is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, f"Czujnik o id {sensor_id} nie istnieje"
+        )
+    alarms = await session.scalar(
+        select(func.count()).select_from(Alarm).where(Alarm.sensor_id == sensor.id)
+    )
+    releases = await session.scalar(
+        select(func.count()).select_from(Release).where(Release.sensor_id == sensor.id)
+    )
+    if alarms or releases:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Czujnik ma historię (alarmy: {alarms}, wydania: {releases}), więc nie można go "
+            "usunąć. Wyłącz go zamiast tego (PATCH active=false).",
+        )
+    try:
+        await session.execute(delete(Message).where(Message.sensor_id == sensor.id))
+        await session.delete(sensor)
+        await session.commit()
+    except IntegrityError:
+        # w międzyczasie przyszedł alarm albo ktoś zrobił wydanie
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Czujnik właśnie dostał alarm albo wydanie, nie usunięto",
+        ) from None
+    log.info(
+        "%s usunął czujnik %s (%s)", admin.login, sensor.id, sensor.name or "bez nazwy"
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put(
