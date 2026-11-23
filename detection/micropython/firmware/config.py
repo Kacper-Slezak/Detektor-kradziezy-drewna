@@ -1,4 +1,4 @@
-"""Pycom LoPy v4.6 diagnostic configuration, NOT an alarm-enabled build.
+"""Pycom LoPy diagnostic configuration.
 
 SparkFun BOB-12758 is the selected analog microphone, but its pin assignment,
 ADC range, acquisition accuracy and real-world timing MUST be checked on hardware.
@@ -14,6 +14,9 @@ WINDOW_S = 2.0
 HOP_S = 1.0
 VIBRATION_INPUT = 'off'
 ACCEL_ENABLED = False
+ACCEL_SDA_PIN = 'P9'
+ACCEL_SCL_PIN = 'P10'
+ACCEL_I2C_ADDRESS = 0x53
 ALARM_OUTPUT_PIN = None
 PERSISTENCE_SECONDS = 15
 PERSISTENCE_FRACTION = 0.60
@@ -22,5 +25,7 @@ RESET_AFTER_S = 8
 MAX_LATE_SAMPLES_RATIO = 0.08
 MAX_SAMPLE_GAP_US = 250
 MAX_PROCESSING_GAP_US = 20000
+BURST_MAX_SAMPLE_LATE_US = 100
+BURST_MAX_SLOT_LATE_US = 2500
 ENABLE_PHYSICAL_ALARM = False
 CLOCK_IS_LOCAL_AND_SYNCED = False

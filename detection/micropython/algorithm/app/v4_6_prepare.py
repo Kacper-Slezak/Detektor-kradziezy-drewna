@@ -26,7 +26,12 @@ def features_per_second(wav4):
     with wave.open(str(wav4),'rb') as f:
         if (f.getnchannels(),f.getsampwidth(),f.getframerate()) != (1,2,SAMPLE_RATE):
             raise ValueError('Expected mono signed PCM16 WAV at 4000 Hz')
-        pcm=np.frombuffer(f.readframes(f.getnframes()),dtype='<i2').astype(np.float64)
+        pcm=np.frombuffer(f.readframes(f.getnframes()),dtype='<i2')
+    return features_per_second_pcm(pcm)
+
+
+def features_per_second_pcm(pcm):
+    pcm=np.asarray(pcm,dtype=np.float64)
     nsec=len(pcm)//SAMPLE_RATE
     if nsec==0:
         return (np.empty((0,4,N_BANDS),np.float32),

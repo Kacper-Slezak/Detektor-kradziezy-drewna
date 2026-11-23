@@ -1,5 +1,17 @@
 # Timber Guard v4.6: instrukcja instalacji, treningu i uruchamiania na Pycom LoPy
 
+The optional burst diagnostic includes a trained compact model for the original LoPy.
+Its measured comparison, reproduction commands and deployment procedure are in the
+[English technical report](BURST_TECHNICAL_REPORT.md). This README describes the v4.6 baseline.
+The [recall follow-up](RECALL_TECHNICAL_REPORT.md) compares real-only retraining and
+documents the new recording manifest and experimental model.
+The [acoustic diagnosis](ENGINE_RECALL_DIAGNOSIS.md) examines wet-clip provenance,
+capture and spectral features, and the effect of vote-rule duration.
+The [spectral feature follow-up](SPECTRAL_FEATURE_EVALUATION.md) reports the optional
+FFT probes and transfer to source-screened engine recordings.
+The [original LoPy bench and field recording runbook](LOPY_HARDWARE_VALIDATION.md)
+covers deployment, hardware acceptance tests, raw capture and session splits.
+
 Timber Guard v4.6 to eksperymentalny system wykrywania dźwięków silników w środowisku leśnym. Projekt obejmuje przygotowanie danych i trenowanie modelu na komputerze, analizę nagrań WAV, porównywanie wyników oraz diagnostyczną wersję oprogramowania MicroPython dla **oryginalnego modułu Pycom LoPy (ESP32)**.
 
 W tej wersji stosowany jest kompaktowy klasyfikator CNN. Model **YAMNet służy wyłącznie jako model nauczycielski podczas treningu na komputerze** i nie jest uruchamiany na LoPy. W udostępnionym projekcie obsługiwana jest eksperymentalna wersja **v4.6**; starsze warianty pozostawiono wyłącznie tam, gdzie są niezbędne do przygotowania danych.
