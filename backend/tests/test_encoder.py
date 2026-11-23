@@ -58,3 +58,30 @@ def test_boot():
 
 def test_licznik_przekreca_sie():
     assert decode(encode_boot(65536, battery_pct=1)).header.counter == 0
+
+
+def test_boot_z_boot_id_to_wersja_2():
+    payload = encode_boot(5, battery_pct=88, boot_id=42)
+    assert len(payload) == 8
+    frame = decode(payload)
+    assert isinstance(frame, BootFrame)
+    assert (frame.header.version, frame.header.counter, frame.boot_id) == (2, 5, 42)
+
+
+def test_boot_bez_boot_id_zostaje_wersja_1():
+    payload = encode_boot(5, battery_pct=88)
+    assert len(payload) == 6
+    frame = decode(payload)
+    assert (frame.header.version, frame.boot_id) == (1, None)
+
+
+def test_boot_id_przekreca_sie_jak_licznik():
+    assert decode(encode_boot(1, battery_pct=1, boot_id=65536)).boot_id == 0
+
+
+def test_alarm_i_heartbeat_mozna_oznaczyc_wersja_2():
+    alarm = encode_alarm(
+        1, confidence=80, duration_s=10, energy=100, battery_pct=70, version=2
+    )
+    assert decode(alarm).header.version == 2
+    assert decode(encode_heartbeat(1, battery_pct=70, version=2)).header.version == 2

@@ -11,6 +11,8 @@ from app.config import settings
 from app.models import Alarm, Message, Release, Sensor
 from app.protocol.decoder import (
     AlarmFrame,
+    BootFrame,
+    FrameError,
     MsgType,
     decode_hex,
     to_dict,
@@ -44,6 +46,33 @@ def is_duplicate(last_counter: int | None, counter: int, msg_type: MsgType) -> b
         return False
     diff = (counter - last_counter) % COUNTER_MOD
     return diff == 0 or diff > COUNTER_MOD // 2
+
+
+def is_boot_replay(last_boot_id: int | None, boot_id: int) -> bool:
+    """BOOT z boot_id nie większym niż ostatni przyjęty to powtórka starego BOOT.
+
+    Jak przy liczniku: arytmetyka modulo 2^16, więc przekręcenie 65535 -> 0 jest w porządku.
+    """
+    if last_boot_id is None:
+        return False
+    diff = (boot_id - last_boot_id) % COUNTER_MOD
+    return diff == 0 or diff > COUNTER_MOD // 2
+
+
+def check_boot(sensor: Sensor, frame: BootFrame) -> bool:
+    """True, gdy BOOT jest powtórką (nie przyjmujemy go i nie resetujemy licznika).
+
+    FrameError dla BOOT bez boot_id tam, gdzie to niedozwolone: gdy tak ustawiono
+    (`BOOT_ID_REQUIRED`) albo gdy czujnik już używał boot_id. Inaczej stary BOOT wersji 1
+    wystarczyłby, żeby zresetować licznik czujnika i powtórzyć jego dawne ramki.
+    """
+    if frame.boot_id is None:
+        if settings.boot_id_required:
+            raise FrameError("BOOT musi mieć boot_id (ramka wersji 2)")
+        if sensor.last_boot_id is not None:
+            raise FrameError("BOOT bez boot_id od czujnika, który wysyła boot_id")
+        return False
+    return is_boot_replay(sensor.last_boot_id, frame.boot_id)
 
 
 async def _is_muted(session: AsyncSession, sensor: Sensor, at: datetime) -> bool:
@@ -114,6 +143,14 @@ async def ingest(
         raise UnknownSensorError(device)
 
     header = frame.header
+    if isinstance(frame, BootFrame) and check_boot(sensor, frame):
+        log.warning(
+            "Powtórka BOOT z %s: boot_id %s (ostatni %s), licznik zostaje",
+            device,
+            frame.boot_id,
+            sensor.last_boot_id,
+        )
+        return IngestResult(status="duplicate")
     if is_duplicate(sensor.last_counter, header.counter, header.msg_type):
         log.info("Duplikat z %s: licznik %s (ostatni %s)", device, header.counter, sensor.last_counter)
         return IngestResult(status="duplicate")
@@ -136,6 +173,8 @@ async def ingest(
 
     sensor.last_seen = received_at
     sensor.last_counter = header.counter
+    if isinstance(frame, BootFrame) and frame.boot_id is not None:
+        sensor.last_boot_id = frame.boot_id
     sensor.battery_pct = frame.battery_pct  # każdy typ ramki niesie baterię
 
     result = IngestResult(status="stored")

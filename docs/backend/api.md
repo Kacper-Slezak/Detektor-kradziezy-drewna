@@ -271,6 +271,10 @@ Odpowiedź `200`: zaktualizowany czujnik. Wyłączony czujnik dalej wysyła hear
 - nie ma takiego leśnictwa → `400`
 - `"range_id": null`, `"active": null` albo pusta nazwa → `422` (leśnictwa nie da się odpiąć)
 
+### `POST /api/v1/sensors/{id}/reset-boot`
+
+Tylko admin. Po wymianie płytki albo skasowaniu jej pamięci numer uruchomienia (`boot_id`) zaczyna od nowa i backend uznaje BOOT za powtórkę. Ten endpoint zapomina ostatni `boot_id` i licznik ramek czujnika, więc następny BOOT zostanie przyjęty. Odpowiedź `204`, brak czujnika → `404`, inna rola niż admin → `403`. Opis: [boot-id.md](boot-id.md).
+
 ---
 
 ## 3. Wydania drewna (wyciszanie czujnika)
