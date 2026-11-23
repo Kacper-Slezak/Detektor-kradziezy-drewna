@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.routers import alarms, auth, ingest, releases, sensors, users
+from app.routers import alarms, auth, ingest, releases, reports, sensors, users
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -20,6 +20,7 @@ app.include_router(users.router)
 app.include_router(sensors.router)
 app.include_router(alarms.router)
 app.include_router(releases.router)
+app.include_router(reports.router)
 
 
 log = logging.getLogger(__name__)
