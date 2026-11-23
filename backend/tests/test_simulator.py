@@ -188,3 +188,41 @@ async def test_czekanie_na_backend():
 async def test_czekanie_konczy_sie_po_czasie():
     async with httpx.AsyncClient(transport=httpx.MockTransport(_down), base_url="http://x") as c:
         assert await wait_for_api(c, timeout_s=0, step_s=0) is False
+
+
+async def test_boot_id_rosnie_przy_kazdym_uruchomieniu(
+    client, session_maker, two_sensors, tmp_path
+):
+    """Dwa uruchomienia z tym samym plikiem stanu: drugi BOOT ma większy boot_id i jest przyjęty."""
+    await _run(client, tmp_path, "--alarm-chance", "0")
+    await _run(client, tmp_path, "--alarm-chance", "0")
+
+    boots = [
+        m for m in await _messages(session_maker, SENSOR_ID) if m.msg_type == "BOOT"
+    ]
+    assert [m.decoded["boot_id"] for m in boots] == [1, 2]
+    saved = json.loads((tmp_path / "state.json").read_text())
+    assert saved[SENSOR_ID]["boot_id"] == 2
+
+
+async def test_stary_plik_stanu_bez_boot_id_dziala(tmp_path):
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            {SENSOR_ID: {"id": SENSOR_ID, "counter": 7, "battery": 90, "silent": False}}
+        )
+    )
+    [sensor] = load_state(tmp_path / "state.json", [SENSOR_ID])
+    assert (sensor.counter, sensor.boot_id) == (7, 0)
+
+
+async def test_odrzucony_boot_podpowiada_reset(
+    client, session_maker, two_sensors, tmp_path, caplog
+):
+    """Plik stanu starszy niż baza: BOOT jest powtórką, symulator mówi, co zrobić."""
+    await _run(client, tmp_path, "--alarm-chance", "0")
+    (
+        tmp_path / "state.json"
+    ).unlink()  # symulator zaczyna boot_id od nowa, baza pamięta 1
+    with caplog.at_level(logging.WARNING):
+        await _run(client, tmp_path, "--alarm-chance", "0")
+    assert "reset-boot" in caplog.text

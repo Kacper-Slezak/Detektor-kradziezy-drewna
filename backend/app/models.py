@@ -84,6 +84,8 @@ class Sensor(Base):
     battery_pct: Mapped[int | None]
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_counter: Mapped[int | None]
+    # największy boot_id z przyjętego BOOT (wersja 2); None = czujnik nie używa boot_id
+    last_boot_id: Mapped[int | None]
 
 
 class Release(Base):

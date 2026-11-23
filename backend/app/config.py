@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Wspólne hasło kont demo z `python -m app.seed --demo`. Tylko do testów i prezentacji!
     seed_demo_password: str = "demo-haslo-1"
 
+    # Tylko BOOT z boot_id (ramka wersji 2). Ustaw `true`, gdy wszystkie płytki go wysyłają:
+    # BOOT bez boot_id da się powtórzyć i zresetować nim licznik ramek.
+    boot_id_required: bool = False
+
     # Powtórzenia ALARM (wysyłane 3x) z tego okna scalamy w jeden alarm.
     alarm_merge_window_s: int = 600
 
