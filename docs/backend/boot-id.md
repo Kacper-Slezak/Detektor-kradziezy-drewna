@@ -59,7 +59,7 @@ UPDATE sensors SET last_boot_id = NULL, last_counter = NULL WHERE id = '<DevEUI>
 
 ## Warstwa szyfrowania (PR #68)
 
-Moduł szyfrujący obcina dopełnienie zerami po odszyfrowaniu. Długość jawnej ramki trzeba brać z `frame_length(pierwszy_bajt)` z `app/protocol/decoder.py` (zależy od wersji i typu), a nie z `BODY[typ].size`, bo BOOT wersji 2 jest dłuższy.
+Po odszyfrowaniu backend obcina dopełnienie zerami według `frame_length(pierwszy_bajt)` z `app/protocol/decoder.py` (zależy od wersji i typu), więc zaszyfrowany BOOT wersji 2 (8 B) zachowuje `boot_id`. Opis szyfrowania: [szyfrowanie.md](szyfrowanie.md).
 
 ## Czego to nie robi
 
