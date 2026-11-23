@@ -57,4 +57,3 @@ Przeniesienie to ten sam endpoint: ponowny montaż czujnika, który ma już loka
 
 ## Dalej
 - wybór miejsca palcem na mapie, gdy GPS jest słaby
-- wydania drewna (wyciszanie czujnika na czas wywozu)
