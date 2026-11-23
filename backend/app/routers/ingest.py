@@ -21,7 +21,10 @@ ingest_key_header = APIKeyHeader(
     description="Klucz urządzeń (`INGEST_API_KEY` z `.env`)",
 )
 
-FRAME_AES_KEY = parse_aes_key(settings.frame_aes_key)
+# Sprawdzenie klucza już przy starcie: zły FRAME_AES_KEY zatrzymuje backend od razu.
+parse_aes_key(settings.frame_aes_key)
+if not settings.frame_aes_key:
+    log.warning("FRAME_AES_KEY nie jest ustawiony: ramki z urządzeń przyjmowane bez szyfrowania.")
 
 if not settings.ingest_api_key:
     log.warning(
@@ -61,7 +64,8 @@ async def ingest_frame(
     _: Annotated[None, Depends(require_ingest_key)],
 ) -> IngestOut:
     try:
-        payload_hex = decrypt_payload_hex(body.payload_hex, FRAME_AES_KEY)
+        # przy ustawionym FRAME_AES_KEY: odszyfruj; jawna ramka -> FrameError -> 422
+        payload_hex = decrypt_payload_hex(body.payload_hex, parse_aes_key(settings.frame_aes_key))
         result = await ingest(
             session, body.device, payload_hex, body.received_at, body.rssi
         )

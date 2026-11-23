@@ -5,7 +5,7 @@ import struct
 from dataclasses import asdict, dataclass
 from enum import IntEnum
 
-SUPPORTED_VERSIONS = {1}
+SUPPORTED_VERSIONS = {1, 2}  # 2 = jak 1, ale BOOT niesie boot_id (ochrona przed powtórką BOOT)
 HEADER = struct.Struct(">BH")  # wersja|typ, licznik
 
 
@@ -57,6 +57,8 @@ class BootFrame:
     firmware_version: int
     reset_reason: int  # 1 włączenie, 2 watchdog, 3 za niskie napięcie
     battery_pct: int
+    # wersja 2: numer uruchomienia, rośnie przy każdym starcie (pamięć nieulotna płytki); w wersji 1 brak
+    boot_id: int | None = None
 
 
 Frame = AlarmFrame | HeartbeatFrame | BootFrame
@@ -67,6 +69,32 @@ BODY = {
     MsgType.HEARTBEAT: struct.Struct(">BBB"),  # bateria, odrzucone, flagi
     MsgType.BOOT: struct.Struct(">BBB"),  # firmware, przyczyna, bateria
 }
+
+
+# BOOT w wersji 2: to samo co w 1 plus boot_id (2 B). Ramka jawna ma wtedy 8 B zamiast 6 B.
+BOOT_V2_BODY = struct.Struct(">BBBH")  # firmware, przyczyna, bateria, boot_id
+
+
+def body_struct(version: int, msg_type: MsgType) -> struct.Struct:
+    """Układ bajtów po nagłówku. Różni się tylko BOOT: wersja 2 ma boot_id."""
+    if msg_type is MsgType.BOOT and version >= 2:
+        return BOOT_V2_BODY
+    return BODY[msg_type]
+
+
+def frame_length(first_byte: int) -> int:
+    """Długość jawnej ramki w bajtach według pierwszego bajtu (wersja i typ).
+
+    Dla warstwy szyfrującej, która obcina dopełnienie zerami po odszyfrowaniu.
+    """
+    version, type_code = first_byte >> 4, first_byte & 0x0F
+    if version not in SUPPORTED_VERSIONS:
+        raise FrameError(f"nieobsługiwana wersja ramki: {version}")
+    try:
+        msg_type = MsgType(type_code)
+    except ValueError:
+        raise FrameError(f"nieznany typ wiadomości: {type_code}") from None
+    return HEADER.size + body_struct(version, msg_type).size
 
 
 def _percent(value: int, field: str) -> int:
@@ -89,7 +117,7 @@ def decode(payload: bytes) -> Frame:
     except ValueError:
         raise FrameError(f"nieznany typ wiadomości: {type_code}") from None
 
-    body = BODY[msg_type]
+    body = body_struct(version, msg_type)
     expected = HEADER.size + body.size
     if len(payload) != expected:
         raise FrameError(f"{msg_type.name}: oczekiwano {expected} B, jest {len(payload)} B")
@@ -114,8 +142,10 @@ def decode(payload: bytes) -> Frame:
             sensor_error=bool(flags & 0b100),
         )
 
-    firmware, reason, battery = fields
-    return BootFrame(header, firmware, reason, _percent(battery, "bateria"))
+    firmware, reason, battery, *rest = fields
+    return BootFrame(
+        header, firmware, reason, _percent(battery, "bateria"), boot_id=rest[0] if rest else None
+    )
 
 
 def decode_hex(payload_hex: str) -> Frame:
@@ -132,41 +162,62 @@ def to_dict(frame: Frame) -> dict:
     data["header"]["msg_type"] = frame.header.msg_type.name
     return data
 
-# AES
-aes_block = 16
+
+
+# Szyfrowanie ramek (AES-128)
+# Urządzenie dopełnia jawną ramkę zerami do 16 B (jeden blok AES) i szyfruje ją AES-128-ECB.
+# Przy ustawionym FRAME_AES_KEY backend przyjmuje TYLKO zaszyfrowane ramki (16 B):
+# jawna ramka -> 422, inaczej fałszywy alarm dałoby się wysłać bez znajomości klucza.
+
+AES_BLOCK = 16
+
 
 def parse_aes_key(key_hex: str) -> bytes | None:
-    """FRAME_AES_KEY z .env (32 znaki hex) -> 16 B, albo None jeśli nie podano."""
+    """FRAME_AES_KEY z .env (32 znaki hex) -> 16 B; pusty -> None (szyfrowanie wyłączone)."""
     if not key_hex:
         return None
     try:
         key = bytes.fromhex(key_hex)
     except ValueError:
-        raise FrameError("AES_KEY to nie jest poprawny hex") from None
-    if len(key) != aes_block:
-        raise FrameError(f"AES_KEY ma {len(key)} B, a powinien mieć {aes_block} B")
+        raise ValueError("FRAME_AES_KEY to nie jest poprawny hex") from None
+    if len(key) != AES_BLOCK:
+        raise ValueError(
+            f"FRAME_AES_KEY ma {len(key)} B, a powinien mieć {AES_BLOCK} B (32 znaki hex)"
+        )
     return key
 
+
 def decrypt_payload_hex(payload_hex: str, key: bytes | None) -> str:
-    """Zaszyfrowana ramka (16 B) -> hex jawnej ramki. Inne długości bez zmian."""
+    """Zaszyfrowana ramka (16 B) -> hex jawnej ramki.
+
+    Bez klucza (szyfrowanie wyłączone) zwraca payload bez zmian.
+    Z kluczem każda ramka musi być zaszyfrowana: inna długość niż 16 B -> FrameError (422).
+    """
     if key is None:
         return payload_hex
     try:
         data = bytes.fromhex(payload_hex)
     except ValueError:
         raise FrameError("payload_hex to nie jest poprawny hex") from None
-    if len(data) != aes_block:
-        return payload_hex
+    if len(data) != AES_BLOCK:
+        raise FrameError(
+            f"oczekiwano zaszyfrowanej ramki ({AES_BLOCK} B), jest {len(data)} B; "
+            "jawne ramki są odrzucane, gdy ustawiony jest FRAME_AES_KEY"
+        )
 
+    # import tutaj, żeby dekoder (i symulator) działał bez pakietu cryptography
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
     decryptor = Cipher(algorithms.AES(key), modes.ECB()).decryptor()
     block = decryptor.update(data) + decryptor.finalize()
 
+    # Długość jawnej ramki z pierwszego bajtu (wersja i typ), np. BOOT v1 = 6 B, BOOT v2 = 8 B
+    # (z boot_id), ALARM = 10 B. Nie z BODY[typ].size: obcięłoby boot_id z BOOT-a wersji 2.
+    # Zły klucz daje losowe bajty: wersja lub typ się nie zgadzają -> FrameError.
     try:
-        msg_type = MsgType(block[0] & 0x0F)
-    except ValueError:
+        length = frame_length(block[0])
+    except FrameError:
         raise FrameError(
-            "Nie da się odszyfrować ramki (zły klucz albo uszkodzony pakiet)"
+            "nie da się odszyfrować ramki (zły klucz albo uszkodzony pakiet)"
         ) from None
-    return block[: HEADER.size + BODY[msg_type].size].hex()
+    return block[:length].hex()

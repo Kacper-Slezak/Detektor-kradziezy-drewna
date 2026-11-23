@@ -112,7 +112,7 @@ Wydanie drewna na dowolnym czujniku (Swagger, konto leśniczego):
 2. `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once`: w logu `alarm pominięty (wyciszony/wyłączony)`.
 3. `POST /api/v1/releases/{id}/end`: koniec wydania; kolejny `theft` tworzy alarm.
 
-Liczniki czujników są zapisywane w `backend/.simulator-state.json` (plik poza repozytorium). Po `seed --demo --reset` plik nie przeszkadza, bo symulator zawsze zaczyna od ramki BOOT.
+Liczniki i `boot_id` czujników są zapisywane w `backend/.simulator-state.json` (plik poza repozytorium). Po `seed --demo --reset` plik nie przeszkadza, bo symulator zawsze zaczyna od ramki BOOT. Odwrotnie nie: jeśli skasujesz sam plik stanu, a baza zostanie, numer `boot_id` zaczyna od 1, backend uznaje BOOT za powtórkę (w logu symulatora: „BOOT odrzucony jako powtórka”). Wtedy `POST /api/v1/sensors/{id}/reset-boot` (admin) albo `seed --demo --reset`.
 
 ## 4. Ręczne wysyłanie ramek
 
@@ -126,6 +126,8 @@ curl -X POST localhost:8000/api/v1/ingest \
 ```
 
 W Swaggerze klucz wpisuje się w **Authorize** → `APIKeyHeader (X-Ingest-Key)`. Symulator bierze klucz z `INGEST_API_KEY` w `.env` (serwis `simulator` czyta ten plik) albo z opcji `--ingest-key`.
+
+Przykłady poniżej to ramki **jawne**: działają przy pustym `FRAME_AES_KEY`. Gdy klucz jest ustawiony, backend przyjmuje tylko ramki zaszyfrowane AES, a jawne (także z symulatora) odrzuca z `422` ([szyfrowanie.md](backend/szyfrowanie.md)).
 
 `payload_hex` to ramka z protokołu zapisana szesnastkowo. Przykłady:
 
@@ -153,10 +155,10 @@ Odpowiedzi `/ingest`:
 |---|---|---|
 | 201 | `stored` | zapisane; przy ALARM `alarm_created: true` (nowy alarm) albo `false` (doklejony do otwartego alarmu z ostatnich 10 min) |
 | 201 | `stored`, `muted: true` | czujnik wyłączony albo trwa wydanie: ramka zapisana, alarm nie powstaje |
-| 200 | `duplicate` | licznik nie większy niż ostatni zapisany dla czujnika; nic nie zapisano |
+| 200 | `duplicate` | licznik nie większy niż ostatni zapisany dla czujnika albo powtórka BOOT (`boot_id` nie większy niż ostatni); nic nie zapisano |
 | 401 | `Brak lub zły klucz X-Ingest-Key` | ustawiony `INGEST_API_KEY`, a nagłówka brak albo klucz się nie zgadza |
 | 404 | `Nieznany czujnik` | brak czujnika o tym ID w bazie |
-| 422 | `Błędna ramka: …` | zła długość, wersja, typ albo wartość procentowa > 100 |
+| 422 | `Błędna ramka: …` | zła długość, wersja, typ, wartość procentowa > 100 albo BOOT bez `boot_id` tam, gdzie jest wymagany ([boot-id.md](backend/boot-id.md)); przy ustawionym `FRAME_AES_KEY` także jawna ramka albo ramka zaszyfrowana innym kluczem ([szyfrowanie.md](backend/szyfrowanie.md)) |
 
 Licznik musi rosnąć. Ramka z licznikiem mniejszym lub równym ostatniemu jest traktowana jako duplikat. Wyjątek: po ramce BOOT backend przyjmuje licznik od nowa.
 
