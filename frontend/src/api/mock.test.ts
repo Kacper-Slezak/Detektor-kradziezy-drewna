@@ -229,6 +229,15 @@ describe('sensor management', () => {
     expect(listed?.range_id).toBe(2)
   })
 
+  it('switches a sensor off and back on to the state it had', async () => {
+    // Skład przy drodze 5 has an open alarm
+    const off = await mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { active: false })
+    expect(off).toMatchObject({ active: false, state: 'inactive' })
+
+    const on = await mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { active: true })
+    expect(on).toMatchObject({ active: true, state: 'alarm' })
+  })
+
   it('rejects editing by a non-admin (403), an unknown sensor (404) and an unknown range (400)', async () => {
     await expect(mock.mockUpdateSensor('mock-3', '70B3D57ED0051234', { range_id: 2 })).rejects.toMatchObject({
       status: 403,
@@ -239,6 +248,36 @@ describe('sensor management', () => {
     await expect(mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { range_id: 99 })).rejects.toMatchObject({
       status: 400,
     })
+  })
+})
+
+describe('deleting a sensor', () => {
+  // a fresh sensor, so the unmounted ones stay for the mounting tests below
+  const TYPO = '70B3D57ED0060002'
+
+  it('deletes a sensor with no history, also given like on the sticker', async () => {
+    await mock.mockCreateSensor('mock-1', { id: TYPO, range_id: 1, name: null })
+
+    await expect(mock.mockDeleteSensor('mock-1', '70:b3:d5:7e:d0:06:00:02')).resolves.toBeUndefined()
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).not.toContain(TYPO)
+    // gone, so a second time it is not found
+    await expect(mock.mockDeleteSensor('mock-1', TYPO)).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('keeps a sensor with alarms or releases (409 with the counts)', async () => {
+    // Skład przy leśniczówce: one alarm and one release
+    const error = mock.mockDeleteSensor('mock-1', '70B3D57ED005DEF0')
+    await expect(error).rejects.toMatchObject({ status: 409 })
+    await expect(error).rejects.toThrow('alarmy: 1, wydania: 1')
+    // only releases count too: Skład przy szlabanie
+    await expect(mock.mockDeleteSensor('mock-1', '70B3D57ED0055678')).rejects.toMatchObject({ status: 409 })
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).toContain('70B3D57ED005DEF0')
+  })
+
+  it('is only for the admin (403 for others)', async () => {
+    await expect(mock.mockDeleteSensor('mock-3', '70B3D57ED005A1B2')).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockDeleteSensor('mock-4', '70B3D57ED005A1B2')).rejects.toMatchObject({ status: 403 })
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).toContain('70B3D57ED005A1B2')
   })
 })
 

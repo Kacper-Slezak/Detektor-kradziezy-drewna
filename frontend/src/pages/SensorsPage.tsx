@@ -26,7 +26,9 @@ export function SensorsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Sensor | null>(null)
   // short confirmation above the tiles after adding or editing a sensor
-  const [notice, setNotice] = useState<{ kind: 'added' | 'saved'; id: string } | null>(null)
+  const [notice, setNotice] = useState<{ kind: 'added' | 'saved' | 'deleted' | 'switchedOff'; id: string } | null>(
+    null,
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -55,6 +57,18 @@ export function SensorsPage() {
   function handleSaved(sensor: Sensor) {
     setSensors((current) => (current ?? []).map((s) => (s.id === sensor.id ? sensor : s)))
     setNotice({ kind: 'saved', id: sensor.id })
+    setEditing(null)
+  }
+
+  function handleSwitchedOff(sensor: Sensor) {
+    setSensors((current) => (current ?? []).map((s) => (s.id === sensor.id ? sensor : s)))
+    setNotice({ kind: 'switchedOff', id: sensor.id })
+    setEditing(null)
+  }
+
+  function handleDeleted(id: string) {
+    setSensors((current) => (current ?? []).filter((s) => s.id !== id))
+    setNotice({ kind: 'deleted', id })
     setEditing(null)
   }
 
@@ -226,7 +240,16 @@ export function SensorsPage() {
             <SheetDescription>{t('sensors.edit.description')}</SheetDescription>
           </SheetHeader>
           {/* key: a fresh form for every sensor */}
-          {editing && <EditSensorForm key={editing.id} sensor={editing} ranges={rangeChoices} onSaved={handleSaved} />}
+          {editing && (
+            <EditSensorForm
+              key={editing.id}
+              sensor={editing}
+              ranges={rangeChoices}
+              onSaved={handleSaved}
+              onDeleted={handleDeleted}
+              onSwitchedOff={handleSwitchedOff}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </div>

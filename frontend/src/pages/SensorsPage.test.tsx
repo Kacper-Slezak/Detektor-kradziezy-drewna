@@ -152,6 +152,110 @@ describe('SensorsPage', () => {
     expect(within(edited).getByText('Jan Nowy')).toBeInTheDocument()
   })
 
+  it('switches a sensor off and on again', async () => {
+    const user = await renderAsAdmin()
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0052345' }))
+    let form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    expect(within(form).getByLabelText('Czujnik włączony')).toBeChecked()
+    await user.click(within(form).getByLabelText('Czujnik włączony'))
+    await user.click(within(form).getByRole('button', { name: 'Zapisz' }))
+
+    await screen.findByRole('status')
+    expect(within(row('70B3D57ED0052345')).getByText('Wyłączony')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0052345' }))
+    form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    expect(within(form).getByLabelText('Czujnik włączony')).not.toBeChecked()
+    await user.click(within(form).getByLabelText('Czujnik włączony'))
+    await user.click(within(form).getByRole('button', { name: 'Zapisz' }))
+
+    // back to what it was before
+    await vi.waitFor(() => expect(within(row('70B3D57ED0052345')).getByText('Działa')).toBeInTheDocument())
+  })
+
+  it('cannot switch on a sensor that is not mounted yet', async () => {
+    const user = await renderAsAdmin()
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0059ABC' }))
+    const form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+
+    expect(within(form).getByLabelText('Czujnik włączony')).toBeDisabled()
+    expect(within(form).getByText('Czujnik włączy się sam, gdy leśniczy go zamontuje.')).toBeInTheDocument()
+  })
+
+  it('deletes a sensor with no history after a second question', async () => {
+    const user = await renderAsAdmin()
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0059ABC' }))
+    const form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    expect(within(form).getByText('Usunąć czujnik 70B3D57ED0059ABC na stałe?')).toBeInTheDocument()
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Usunięto czujnik 70B3D57ED0059ABC.')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /70B3D57ED0059ABC/ })).not.toBeInTheDocument()
+  })
+
+  it('deletes nothing when the admin cancels', async () => {
+    const user = await renderAsAdmin()
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0059ABC' }))
+    const form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Anuluj' }))
+
+    // back to the first button, the sensor stays
+    expect(within(form).getByRole('button', { name: 'Usuń czujnik' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(row('70B3D57ED0059ABC')).toBeInTheDocument()
+  })
+
+  it('offers to switch off a sensor that has history instead of deleting it', async () => {
+    const user = await renderAsAdmin()
+
+    // Skład przy paśniku has an answered alarm
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0052345' }))
+    const form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+
+    const why = await within(form).findByRole('status')
+    expect(why).toHaveTextContent('Tego czujnika nie można usunąć, bo ma alarmy lub wydania.')
+    // our own words, not the backend's text for API users, and not as an error
+    expect(why).not.toHaveTextContent('PATCH')
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.click(within(form).getByRole('button', { name: 'Wyłącz czujnik' }))
+
+    expect(await screen.findByText('Wyłączono czujnik 70B3D57ED0052345.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(within(row('70B3D57ED0052345')).getByText('Wyłączony')).toBeInTheDocument()
+  })
+
+  it('only explains it when the sensor with history is off already', async () => {
+    const user = await renderAsAdmin()
+
+    // switch it off first
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0052345' }))
+    let form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByLabelText('Czujnik włączony'))
+    await user.click(within(form).getByRole('button', { name: 'Zapisz' }))
+    await screen.findByRole('status')
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED0052345' }))
+    form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+
+    expect(await within(form).findByText('Zostaje w systemie jako wyłączony, razem z historią.')).toBeInTheDocument()
+    expect(within(form).queryByRole('button', { name: 'Wyłącz czujnik' })).not.toBeInTheDocument()
+    await user.click(within(form).getByRole('button', { name: 'OK' }))
+    expect(within(form).getByRole('button', { name: 'Usuń czujnik' })).toBeInTheDocument()
+  })
+
   it('shows an error when the user is not an admin', async () => {
     setToken('mock-3')
     render(<SensorsPage />)
