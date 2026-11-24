@@ -136,7 +136,9 @@ export interface ReleaseFilters {
   // releases that lasted at least partly between from and to (ISO 8601)
   from?: string
   to?: string
+  // a page of the list: at most limit releases (backend default 100, max 500), skipping offset
   limit?: number
+  offset?: number
 }
 
 // Types from section 4. Alarmy

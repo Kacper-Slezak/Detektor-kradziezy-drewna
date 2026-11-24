@@ -349,22 +349,38 @@ describe('timber releases', () => {
 
   it('a forester sees the releases of their range, newest first', async () => {
     const list = await mock.mockListReleases('mock-3')
-    expect(list.map((r) => [r.id, r.sensor_name, r.active])).toEqual([
-      [8, 'Skład przy szlabanie', true],
-      [7, 'Skład przy drodze 5', false],
-    ])
+    // 11 and 14 are in Olszyny
+    expect(list.map((r) => r.id)).toEqual([8, 9, 10, 12, 13, 7, 15, 16, 17])
+    expect(list[0]).toMatchObject({ sensor_name: 'Skład przy szlabanie', active: true })
+    expect(list.slice(1).every((r) => !r.active)).toBe(true)
     // the ongoing release is the one muting the sensor on the map
     expect(list[0].ends_at).toBe((await sensor(SZLABAN)).muted_until)
   })
 
   it('a district manager sees all ranges and can filter', async () => {
-    expect((await mock.mockListReleases('mock-4')).map((r) => r.id)).toEqual([8, 7, 6])
-    expect((await mock.mockListReleases('mock-4', { active: true })).map((r) => r.id)).toEqual([8])
-    expect((await mock.mockListReleases('mock-4', { active: false })).map((r) => r.id)).toEqual([7, 6])
-    expect((await mock.mockListReleases('mock-4', { sensor_id: DROGA })).map((r) => r.id)).toEqual([7])
-    // releases that lasted at least partly on 14 October
-    const day = { from: '2026-10-14T00:00:00Z', to: '2026-10-14T23:59:59Z' }
-    expect((await mock.mockListReleases('mock-4', day)).map((r) => r.id)).toEqual([7])
+    const ids = async (filters: Parameters<typeof mock.mockListReleases>[1]) =>
+      (await mock.mockListReleases('mock-4', filters)).map((r) => r.id)
+
+    expect(await ids({})).toEqual([8, 9, 10, 11, 12, 13, 14, 7, 6, 15, 16, 17])
+    expect(await ids({ active: true })).toEqual([8])
+    expect(await ids({ active: false })).toEqual([9, 10, 11, 12, 13, 14, 7, 6, 15, 16, 17])
+    expect(await ids({ sensor_id: DROGA })).toEqual([10, 7, 16])
+    // releases that lasted at least partly during release 7
+    const seven = (await mock.mockListReleases('mock-4')).find((r) => r.id === 7)!
+    expect(await ids({ from: seven.starts_at, to: seven.starts_at })).toEqual([7])
+  })
+
+  it('gives the history of the last days, a page at a time', async () => {
+    const daysAgo = (days: number) => new Date(Date.now() - days * 24 * HOUR).toISOString()
+    const ids = async (filters: Parameters<typeof mock.mockListReleases>[1]) =>
+      (await mock.mockListReleases('mock-4', filters)).map((r) => r.id)
+
+    expect(await ids({ active: false, from: daysAgo(7) })).toEqual([9, 10, 11])
+    expect(await ids({ active: false, from: daysAgo(30) })).toEqual([9, 10, 11, 12, 13, 14])
+    // "show older": the next page starts where the first one ended
+    expect(await ids({ active: false, limit: 4 })).toEqual([9, 10, 11, 12])
+    expect(await ids({ active: false, limit: 4, offset: 4 })).toEqual([13, 14, 7, 6])
+    expect(await ids({ active: false, limit: 4, offset: 12 })).toEqual([])
   })
 
   it('mutes a sensor for 4 h by default', async () => {
@@ -372,7 +388,7 @@ describe('timber releases', () => {
     const release = await mock.mockCreateRelease('mock-3', PASNIK, { carrier: 'Trans-Las', log_count: 12 })
 
     expect(release).toMatchObject({
-      id: 9,
+      id: 18,
       sensor_id: PASNIK,
       sensor_name: 'Skład przy paśniku',
       active: true,
