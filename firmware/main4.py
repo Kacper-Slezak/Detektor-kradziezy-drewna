@@ -1,11 +1,12 @@
 import machine
-from machine import Pin
+from machine import Pin, ADC
 from network import WLAN
 import usocket as socket
 import time
 import ubinascii
 import struct
 import pycom
+import gc
 
 pycom.heartbeat(False)
 
@@ -16,10 +17,15 @@ API_URL = "http://srv18.mikr.us:20376"
 DEVICE_ID = "70B3D57ED00D0009"
 INGEST_KEY = ""
 
-PIN_MIKROFON_ID = "P19"
-PIN_DRGANIA_ID  = "P20"
+PIN_MIKROFON_ID = "P19"      # Wyjście cyfrowe (DO) mikrofonu do wybudzania
+PIN_MIKROFON_ADC_ID = "P16"  # Wyjście analogowe (AO) mikrofonu do nagrywania (piny P13-P20)
+PIN_DRGANIA_ID = "P20"
 CZAS_SNU_SZTYWNEGO_MS = 600000
 FIRMWARE_VER = 1
+
+# Parametry nagrywania audio
+CZAS_NAGRANIA_S = 10
+CZESTOTLIWOSC_HZ = 4000      # 4 kHz * 10 s * 2 B = ~80 KB RAM
 
 # Stałe domyślne dla backendu (poza analizą alarmową)
 DOMYSLNY_CZAS_S = 1
@@ -109,7 +115,7 @@ def wyslij_payload(ramka):
         return True
     return False
 
-# ================= CZUJNIKI I ANALIZA =================
+# ================= CZUJNIKI, AUDIO I ANALIZA =================
 def inicjalizuj_pin(pin_id):
     try:
         return Pin(pin_id, mode=Pin.IN, pull=Pin.PULL_DOWN)
@@ -118,6 +124,33 @@ def inicjalizuj_pin(pin_id):
 
 pin_mic = inicjalizuj_pin(PIN_MIKROFON_ID)
 pin_vib = inicjalizuj_pin(PIN_DRGANIA_ID)
+
+def nagraj_audio(pin_id=PIN_MIKROFON_ADC_ID, czas_s=CZAS_NAGRANIA_S, fs_hz=CZESTOTLIWOSC_HZ):
+    gc.collect()
+    liczba_probek = czas_s * fs_hz
+    okres_us = 1000000 // fs_hz
+
+    adc = ADC(bits=12)
+    apin = adc.channel(pin=pin_id, attn=ADC.ATTN_11DB)
+
+    # 2 bajty na próbkę (16-bit unsigned little-endian, wartości 0-4095)
+    bufor = bytearray(liczba_probek * 2)
+
+    print("Start nagrywania ({} s, {} Hz)...".format(czas_s, fs_hz))
+    t_nastepna = time.ticks_us()
+    idx = 0
+    for _ in range(liczba_probek):
+        val = apin()
+        bufor[idx] = val & 0xFF
+        bufor[idx + 1] = (val >> 8) & 0xFF
+        idx += 2
+
+        t_nastepna = time.ticks_add(t_nastepna, okres_us)
+        while time.ticks_diff(t_nastepna, time.ticks_us()) > 0:
+            pass
+
+    print("Nagrano bajtów:", len(bufor))
+    return bufor
 
 def analizuj_sygnaly(mic_aktywny, vib_aktywny):
     czy_alarm = mic_aktywny or vib_aktywny
@@ -224,7 +257,15 @@ def main():
         mic_aktywny = (pin_mic.value() == 1) or any(p.id() == PIN_MIKROFON_ID for p in piny_wybudzajace)
         vib_aktywny = (pin_vib.value() == 1) or any(p.id() == PIN_DRGANIA_ID for p in piny_wybudzajace)
 
+        # Nagranie 10-sekundowej próbki audio zaraz po wybudzeniu
+        probka_audio = nagraj_audio()
+
+        # TODO: Tu przekaż probka_audio do analizy (kod Kiryła)
         czy_alarm, event_type, confidence = analizuj_sygnaly(mic_aktywny, vib_aktywny)
+
+        # Zwolnienie RAM przed uruchomieniem Wi-Fi
+        del probka_audio
+        gc.collect()
 
         if czy_alarm:
             ramka = przygotuj_ramke_alarm(
