@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from 'cn'
 
@@ -50,22 +50,19 @@ export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
   const [sensorId, setSensorId] = useState('')
   const [period, setPeriod] = useState<Period>(30)
   const [query, setQuery] = useState<ReleaseFilters>(() => queryFor('', 30))
+  // the filters of the list on screen: an older page asked for under other filters must not be
+  // added to it when the forester changed the filters while it was loading
+  const shownQuery = useRef(query)
   const [releases, setReleases] = useState<Release[] | null>(null)
   // whether the backend has more than what is shown
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // one more than a page is asked for: if it comes, there is something older to show
-  async function loadPage(offset: number) {
-    const page = await listReleases({ ...query, active: false, limit: HISTORY_PAGE + 1, offset })
-    setHasMore(page.length > HISTORY_PAGE)
-    return page.slice(0, HISTORY_PAGE)
-  }
-
   // the history does not change by itself, so it is loaded once per filter, not every 20 s
   useEffect(() => {
     let cancelled = false
+    // one more than a page is asked for: if it comes, there is something older to show
     listReleases({ ...query, active: false, limit: HISTORY_PAGE + 1 })
       .then((page) => {
         if (cancelled) return
@@ -81,27 +78,40 @@ export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
   }, [query, t])
 
   function changeFilters(nextSensorId: string, nextPeriod: Period) {
+    const next = queryFor(nextSensorId, nextPeriod)
+    shownQuery.current = next
     setSensorId(nextSensorId)
     setPeriod(nextPeriod)
     setReleases(null)
     setHasMore(false)
+    setLoadingMore(false)
     setError(null)
-    setQuery(queryFor(nextSensorId, nextPeriod))
+    setQuery(next)
   }
 
   const sensorOptions = [...sensors].sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id, i18n.language))
   const filtered = sensorId !== '' || period !== 'all'
 
   async function showOlder() {
+    const asked = query
+    // the answer is for the list on screen only while its filters stay the same
+    const stillShown = () => shownQuery.current === asked
     setLoadingMore(true)
     setError(null)
     try {
-      const older = await loadPage(releases?.length ?? 0)
-      setReleases((current) => [...(current ?? []), ...older])
+      const page = await listReleases({
+        ...asked,
+        active: false,
+        limit: HISTORY_PAGE + 1,
+        offset: releases?.length ?? 0,
+      })
+      if (!stillShown()) return
+      setHasMore(page.length > HISTORY_PAGE)
+      setReleases((current) => [...(current ?? []), ...page.slice(0, HISTORY_PAGE)])
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('errors.network'))
+      if (stillShown()) setError(err instanceof ApiError ? err.message : t('errors.network'))
     } finally {
-      setLoadingMore(false)
+      if (stillShown()) setLoadingMore(false)
     }
   }
 

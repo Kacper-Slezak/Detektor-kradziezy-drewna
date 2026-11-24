@@ -75,6 +75,27 @@ describe('ReleaseHistory', () => {
     expect(screen.queryByRole('button', { name: 'Pokaż starsze' })).not.toBeInTheDocument()
   })
 
+  it('drops an older page that comes after the filters were changed', async () => {
+    // the older page is held back until the filters have changed
+    let olderArrives: (page: Release[]) => void = () => {}
+    vi.mocked(listReleases)
+      .mockResolvedValueOnce(releases(HISTORY_PAGE + 1))
+      .mockReturnValueOnce(new Promise((resolve) => (olderArrives = resolve)))
+      .mockResolvedValueOnce(releases(2, 100))
+    const user = renderHistory()
+    await cards()
+
+    await user.click(screen.getByRole('button', { name: 'Pokaż starsze' }))
+    await user.click(within(screen.getByRole('group', { name: 'Okres' })).getByRole('button', { name: '7 dni' }))
+    expect(await cards()).toHaveLength(2)
+
+    olderArrives(releases(3, 51))
+    // give the late answer a moment to (not) land
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(await cards()).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /Pokaż starsze|Wczytywanie/ })).not.toBeInTheDocument()
+  })
+
   it('has no "show older" when everything fits on one page', async () => {
     renderHistory()
 
