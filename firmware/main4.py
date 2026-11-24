@@ -25,7 +25,8 @@ FIRMWARE_VER = 1
 
 # Parametry nagrywania audio
 CZAS_NAGRANIA_S = 10
-CZESTOTLIWOSC_HZ = 4000      # 4 kHz * 10 s * 2 B = ~80 KB RAM
+CZESTOTLIWOSC_HZ = 4000
+ROZMIAR_BLOKU_PROBEK = 4000  # 1 s = 4000 próbek = 8000 bajtów (8 KB RAM)
 
 # Stałe domyślne dla backendu (poza analizą alarmową)
 DOMYSLNY_CZAS_S = 1
@@ -125,32 +126,34 @@ def inicjalizuj_pin(pin_id):
 pin_mic = inicjalizuj_pin(PIN_MIKROFON_ID)
 pin_vib = inicjalizuj_pin(PIN_DRGANIA_ID)
 
-def nagraj_audio(pin_id=PIN_MIKROFON_ADC_ID, czas_s=CZAS_NAGRANIA_S, fs_hz=CZESTOTLIWOSC_HZ):
+def nagraj_audio(pin_id=PIN_MIKROFON_ADC_ID, czas_s=CZAS_NAGRANIA_S,
+                 fs_hz=CZESTOTLIWOSC_HZ, blok_probek=ROZMIAR_BLOKU_PROBEK):
     gc.collect()
-    liczba_probek = czas_s * fs_hz
+    liczba_blokow = (czas_s * fs_hz) // blok_probek
     okres_us = 1000000 // fs_hz
 
     adc = ADC(bits=12)
     apin = adc.channel(pin=pin_id, attn=ADC.ATTN_11DB)
 
-    # 2 bajty na próbkę (16-bit unsigned little-endian, wartości 0-4095)
-    bufor = bytearray(liczba_probek * 2)
+    # Jeden bufor 8 KB używany wielokrotnie (bez ponownych alokacji)
+    bufor = bytearray(blok_probek * 2)
 
-    print("Start nagrywania ({} s, {} Hz)...".format(czas_s, fs_hz))
-    t_nastepna = time.ticks_us()
-    idx = 0
-    for _ in range(liczba_probek):
-        val = apin()
-        bufor[idx] = val & 0xFF
-        bufor[idx + 1] = (val >> 8) & 0xFF
-        idx += 2
+    print("Start nagrywania ({} bloków po {} próbek)...".format(liczba_blokow, blok_probek))
+    for _ in range(liczba_blokow):
+        # Reset zegara na początku każdego bloku, żeby po yield pętla nie "nadrabiała" czasu
+        t_nastepna = time.ticks_us()
+        idx = 0
+        for _ in range(blok_probek):
+            val = apin()
+            bufor[idx] = val & 0xFF
+            bufor[idx + 1] = (val >> 8) & 0xFF
+            idx += 2
 
-        t_nastepna = time.ticks_add(t_nastepna, okres_us)
-        while time.ticks_diff(t_nastepna, time.ticks_us()) > 0:
-            pass
+            t_nastepna = time.ticks_add(t_nastepna, okres_us)
+            while time.ticks_diff(t_nastepna, time.ticks_us()) > 0:
+                pass
 
-    print("Nagrano bajtów:", len(bufor))
-    return bufor
+        yield bufor
 
 def analizuj_sygnaly(mic_aktywny, vib_aktywny):
     czy_alarm = mic_aktywny or vib_aktywny
@@ -257,15 +260,16 @@ def main():
         mic_aktywny = (pin_mic.value() == 1) or any(p.id() == PIN_MIKROFON_ID for p in piny_wybudzajace)
         vib_aktywny = (pin_vib.value() == 1) or any(p.id() == PIN_DRGANIA_ID for p in piny_wybudzajace)
 
-        # Nagranie 10-sekundowej próbki audio zaraz po wybudzeniu
-        probka_audio = nagraj_audio()
+        # Przetwarzanie strumieniowe po 1 sekundzie (8 KB)
+        for blok_audio in nagraj_audio():
+            # TODO: Tu przekaż blok_audio do algorytmu (np. analizator.przetworz(blok_audio))
+            # UWAGA: nie zachowuj referencji do blok_audio poza pętlą — w kolejnej iteracji zostanie nadpisany
+            pass
 
-        # TODO: Tu przekaż probka_audio do analizy (kod Kiryła)
-        czy_alarm, event_type, confidence = analizuj_sygnaly(mic_aktywny, vib_aktywny)
-
-        # Zwolnienie RAM przed uruchomieniem Wi-Fi
-        del probka_audio
         gc.collect()
+
+        # TODO: Tu pobierz końcowy wynik analizy z algorytmu
+        czy_alarm, event_type, confidence = analizuj_sygnaly(mic_aktywny, vib_aktywny)
 
         if czy_alarm:
             ramka = przygotuj_ramke_alarm(
