@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # BOOT bez boot_id da się powtórzyć i zresetować nim licznik ramek.
     boot_id_required: bool = False
 
+    # Przyjmuj ramki wersji 1 i 2 (okres przejściowy, zanim wszystkie płytki wyślą wersję 3).
+    # Ustaw `false`, gdy wszystkie płytki wysyłają wersję 3: wtedy ramki 1 i 2 -> 422.
+    # Wersje 1 i 2 nie chronią przed powtórką starych ramek po restarcie płytki.
+    legacy_frames: bool = True
+
     # Powtórzenia ALARM (wysyłane 3x) z tego okna scalamy w jeden alarm.
     alarm_merge_window_s: int = 600
 

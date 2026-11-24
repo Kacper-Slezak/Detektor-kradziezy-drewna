@@ -112,7 +112,9 @@ Wydanie drewna na dowolnym czujniku (Swagger, konto leśniczego):
 2. `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once`: w logu `alarm pominięty (wyciszony/wyłączony)`.
 3. `POST /api/v1/releases/{id}/end`: koniec wydania; kolejny `theft` tworzy alarm.
 
-Liczniki i `boot_id` czujników są zapisywane w `backend/.simulator-state.json` (plik poza repozytorium). Po `seed --demo --reset` plik nie przeszkadza, bo symulator zawsze zaczyna od ramki BOOT. Odwrotnie nie: jeśli skasujesz sam plik stanu, a baza zostanie, numer `boot_id` zaczyna od 1, backend uznaje BOOT za powtórkę (w logu symulatora: „BOOT odrzucony jako powtórka”). Wtedy `POST /api/v1/sensors/{id}/reset-boot` (admin) albo `seed --demo --reset`.
+Liczniki i `boot_id` czujników są zapisywane w `backend/.simulator-state.json` (plik poza repozytorium). Po `seed --demo --reset` plik nie przeszkadza, bo symulator zawsze zaczyna od ramki BOOT. Odwrotnie nie: jeśli skasujesz sam plik stanu, a baza zostanie, numer `boot_id` zaczyna od 1, backend uznaje ramki za powtórkę (w logu symulatora: „BOOT odrzucony jako powtórka”, potem same `duplicate`). Wtedy `POST /api/v1/sensors/{id}/reset-boot` (admin) albo `seed --demo --reset`.
+
+Symulator domyślnie wysyła ramki wersji 3. `--frame-version 2` wysyła jak dawniej (BOOT wersji 2, reszta wersji 1); działa tylko przy `LEGACY_FRAMES=true`.
 
 ## 4. Ręczne wysyłanie ramek
 
@@ -122,31 +124,35 @@ Endpoint `POST /api/v1/ingest` jest wspólny dla symulatora, płytki i testów r
 curl -X POST localhost:8000/api/v1/ingest \
   -H "Content-Type: application/json" \
   -H "X-Ingest-Key: <INGEST_API_KEY>" \
-  -d '{"device": "70B3D57ED00D0008", "payload_hex": "1200FF5A0000"}'
+  -d '{"device": "70B3D57ED00D0008", "payload_hex": "3200070001580000"}'
 ```
 
 W Swaggerze klucz wpisuje się w **Authorize** → `APIKeyHeader (X-Ingest-Key)`. Symulator bierze klucz z `INGEST_API_KEY` w `.env` (serwis `simulator` czyta ten plik) albo z opcji `--ingest-key`.
 
 Przykłady poniżej to ramki **jawne**: działają przy pustym `FRAME_AES_KEY`. Gdy klucz jest ustawiony, backend przyjmuje tylko ramki zaszyfrowane AES, a jawne (także z symulatora) odrzuca z `422` ([szyfrowanie.md](backend/szyfrowanie.md)).
 
-`payload_hex` to ramka z protokołu zapisana szesnastkowo. Przykłady:
+`payload_hex` to ramka z protokołu zapisana szesnastkowo. Płytki wysyłają **wersję 3** (`boot_id` w nagłówku, [boot-id.md](backend/boot-id.md)). Przykłady:
 
 | Ramka | Zawartość |
 |---|---|
-| `130001010158` | BOOT, licznik 1, firmware 1, zwykłe włączenie, bateria 88% |
-| `1200FF5A0000` | HEARTBEAT, licznik 255, bateria 90% |
-| `11002A0101570028B440` | ALARM, licznik 42, mikrofon, pewność 87, 40 s, bateria 64% |
+| `3300070001010158` | BOOT v3, `boot_id` 7, licznik 1, firmware 1, zwykłe włączenie, bateria 88% |
+| `3200070002580000` | HEARTBEAT v3, `boot_id` 7, licznik 2, bateria 88% |
+| `3100070003010157002AB440` | ALARM v3, `boot_id` 7, licznik 3, mikrofon, pewność 87, 42 s, bateria 64% |
+
+Ramki wersji 1 i 2 (np. `130001010158`, `1200FF5A0000`, `11002A0101570028B440`) backend przyjmuje tylko przy `LEGACY_FRAMES=true` (domyślnie, okres przejściowy).
+
+W wersji 3 kolejne ramki muszą mieć nowszą parę (`boot_id`, licznik): ten sam `boot_id` i większy licznik albo większy `boot_id` (nowa sesja, licznik od dowolnej wartości). Powtórzone `curl` z tą samą ramką dostanie `duplicate`.
 
 Złożenie własnej ramki koderem backendu:
 
 ```bash
-docker compose run --rm web python -c "from app.protocol.encoder import encode_alarm; print(encode_alarm(300, sources=['microphone','vibration'], confidence=95, duration_s=120, energy=220, battery_pct=70).hex())"
+docker compose run --rm web python -c "from app.protocol.encoder import encode_alarm; print(encode_alarm(300, sources=['microphone','vibration'], confidence=95, duration_s=120, energy=220, battery_pct=70, version=3, boot_id=7).hex())"
 ```
 
 Odczytanie ramki dekoderem:
 
 ```bash
-docker compose run --rm web python -c "from app.protocol.decoder import decode_hex, to_dict; print(to_dict(decode_hex('11002A0101570028B440')))"
+docker compose run --rm web python -c "from app.protocol.decoder import decode_hex, to_dict; print(to_dict(decode_hex('3100070003010157002AB440')))"
 ```
 
 Odpowiedzi `/ingest`:
@@ -155,12 +161,12 @@ Odpowiedzi `/ingest`:
 |---|---|---|
 | 201 | `stored` | zapisane; przy ALARM `alarm_created: true` (nowy alarm) albo `false` (doklejony do otwartego alarmu z ostatnich 10 min) |
 | 201 | `stored`, `muted: true` | czujnik wyłączony albo trwa wydanie: ramka zapisana, alarm nie powstaje |
-| 200 | `duplicate` | licznik nie większy niż ostatni zapisany dla czujnika albo powtórka BOOT (`boot_id` nie większy niż ostatni); nic nie zapisano |
+| 200 | `duplicate` | wersja 3: para (`boot_id`, licznik) nie nowsza niż ostatnio przyjęta, np. powtórzona ramka albo ramka z poprzedniej sesji. Wersje 1 i 2: licznik nie większy niż ostatni albo powtórka BOOT (`boot_id` nie większy niż ostatni). Nic nie zapisano |
 | 401 | `Brak lub zły klucz X-Ingest-Key` | ustawiony `INGEST_API_KEY`, a nagłówka brak albo klucz się nie zgadza |
 | 404 | `Nieznany czujnik` | brak czujnika o tym ID w bazie |
-| 422 | `Błędna ramka: …` | zła długość, wersja, typ, wartość procentowa > 100 albo BOOT bez `boot_id` tam, gdzie jest wymagany ([boot-id.md](backend/boot-id.md)); przy ustawionym `FRAME_AES_KEY` także jawna ramka albo ramka zaszyfrowana innym kluczem ([szyfrowanie.md](backend/szyfrowanie.md)) |
+| 422 | `Błędna ramka: …` | zła długość, wersja, typ, wartość procentowa > 100 albo BOOT bez `boot_id` tam, gdzie jest wymagany ([boot-id.md](backend/boot-id.md)), ramka wersji 1 lub 2 przy `LEGACY_FRAMES=false`; przy ustawionym `FRAME_AES_KEY` także jawna ramka albo ramka zaszyfrowana innym kluczem ([szyfrowanie.md](backend/szyfrowanie.md)) |
 
-Licznik musi rosnąć. Ramka z licznikiem mniejszym lub równym ostatniemu jest traktowana jako duplikat. Wyjątek: po ramce BOOT backend przyjmuje licznik od nowa.
+Wersja 3: w jednej sesji (ten sam `boot_id`) licznik musi rosnąć; nowa sesja (większy `boot_id`) zaczyna licznik od nowa, także bez BOOT-a. Wersje 1 i 2: licznik musi rosnąć, a po ramce BOOT backend przyjmuje go od nowa.
 
 ## 5. Sprawdzanie zapisu
 

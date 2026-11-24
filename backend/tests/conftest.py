@@ -32,6 +32,9 @@ def _jwt_secret(monkeypatch):
     monkeypatch.setattr(settings, "ingest_api_key", "")
     # testy innych endpointów wysyłają jawne ramki; szyfrowanie sprawdza test_frame_crypto.py
     monkeypatch.setattr(settings, "frame_aes_key", "")
+    # okres przejściowy: wersje 1 i 2 przyjmowane; wyłączenie sprawdza test_frame_v3.py
+    monkeypatch.setattr(settings, "legacy_frames", True)
+    monkeypatch.setattr(settings, "boot_id_required", False)
 
 
 @pytest.fixture

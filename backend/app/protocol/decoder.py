@@ -5,8 +5,12 @@ import struct
 from dataclasses import asdict, dataclass
 from enum import IntEnum
 
-SUPPORTED_VERSIONS = {1, 2}  # 2 = jak 1, ale BOOT niesie boot_id (ochrona przed powtórką BOOT)
-HEADER = struct.Struct(">BH")  # wersja|typ, licznik
+# 1 = pierwotna, 2 = BOOT niesie boot_id (przejściowo, docs/backend/boot-id.md),
+# 3 = boot_id w nagłówku KAŻDEJ ramki: para (boot_id, licznik) chroni przed powtórkami
+SUPPORTED_VERSIONS = {1, 2, 3}
+SESSION_VERSION = 3  # od tej wersji boot_id jest w nagłówku
+HEADER = struct.Struct(">BH")  # wersje 1 i 2: wersja|typ, licznik
+HEADER_V3 = struct.Struct(">BHH")  # wersja 3: wersja|typ, boot_id, licznik
 
 
 class FrameError(ValueError):
@@ -28,6 +32,8 @@ class Header:
     version: int
     msg_type: MsgType
     counter: int
+    # wersja 3: numer uruchomienia płytki (sesji) z nagłówka; w wersjach 1 i 2 brak
+    boot_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -57,7 +63,8 @@ class BootFrame:
     firmware_version: int
     reset_reason: int  # 1 włączenie, 2 watchdog, 3 za niskie napięcie
     battery_pct: int
-    # wersja 2: numer uruchomienia, rośnie przy każdym starcie (pamięć nieulotna płytki); w wersji 1 brak
+    # numer uruchomienia, rośnie przy każdym starcie (pamięć nieulotna płytki):
+    # wersja 2 z treści BOOT, wersja 3 z nagłówka; w wersji 1 brak
     boot_id: int | None = None
 
 
@@ -75,9 +82,17 @@ BODY = {
 BOOT_V2_BODY = struct.Struct(">BBBH")  # firmware, przyczyna, bateria, boot_id
 
 
+def header_struct(version: int) -> struct.Struct:
+    """Układ nagłówka: wersja 3 ma boot_id (5 B), wersje 1 i 2 nie (3 B)."""
+    return HEADER_V3 if version >= SESSION_VERSION else HEADER
+
+
 def body_struct(version: int, msg_type: MsgType) -> struct.Struct:
-    """Układ bajtów po nagłówku. Różni się tylko BOOT: wersja 2 ma boot_id."""
-    if msg_type is MsgType.BOOT and version >= 2:
+    """Układ bajtów po nagłówku. Różni się tylko BOOT wersji 2: ma boot_id w treści.
+
+    W wersji 3 boot_id jest w nagłówku, więc treść BOOT jest taka jak w wersji 1.
+    """
+    if msg_type is MsgType.BOOT and version == 2:
         return BOOT_V2_BODY
     return BODY[msg_type]
 
@@ -94,7 +109,7 @@ def frame_length(first_byte: int) -> int:
         msg_type = MsgType(type_code)
     except ValueError:
         raise FrameError(f"nieznany typ wiadomości: {type_code}") from None
-    return HEADER.size + body_struct(version, msg_type).size
+    return header_struct(version).size + body_struct(version, msg_type).size
 
 
 def _percent(value: int, field: str) -> int:
@@ -107,8 +122,8 @@ def decode(payload: bytes) -> Frame:
     if len(payload) < HEADER.size:
         raise FrameError(f"za krótka ramka: {len(payload)} B, nagłówek ma {HEADER.size} B")
 
-    first, counter = HEADER.unpack_from(payload)
-    version, type_code = first >> 4, first & 0x0F
+    version = payload[0] >> 4
+    type_code = payload[0] & 0x0F
 
     if version not in SUPPORTED_VERSIONS:
         raise FrameError(f"nieobsługiwana wersja ramki: {version}")
@@ -117,13 +132,21 @@ def decode(payload: bytes) -> Frame:
     except ValueError:
         raise FrameError(f"nieznany typ wiadomości: {type_code}") from None
 
+    head = header_struct(version)
     body = body_struct(version, msg_type)
-    expected = HEADER.size + body.size
+    expected = head.size + body.size
     if len(payload) != expected:
-        raise FrameError(f"{msg_type.name}: oczekiwano {expected} B, jest {len(payload)} B")
+        raise FrameError(
+            f"{msg_type.name} wersji {version}: oczekiwano {expected} B, jest {len(payload)} B"
+        )
 
-    header = Header(version, msg_type, counter)
-    fields = body.unpack_from(payload, HEADER.size)
+    if version >= SESSION_VERSION:
+        _, boot_id, counter = head.unpack_from(payload)
+        header = Header(version, msg_type, counter, boot_id)
+    else:
+        _, counter = head.unpack_from(payload)
+        header = Header(version, msg_type, counter)
+    fields = body.unpack_from(payload, head.size)
 
     if msg_type is MsgType.ALARM:
         event_type, source_bits, confidence, duration_s, energy, battery = fields
@@ -143,9 +166,8 @@ def decode(payload: bytes) -> Frame:
         )
 
     firmware, reason, battery, *rest = fields
-    return BootFrame(
-        header, firmware, reason, _percent(battery, "bateria"), boot_id=rest[0] if rest else None
-    )
+    boot_id = rest[0] if rest else header.boot_id  # wersja 2: z treści, wersja 3: z nagłówka
+    return BootFrame(header, firmware, reason, _percent(battery, "bateria"), boot_id=boot_id)
 
 
 def decode_hex(payload_hex: str) -> Frame:

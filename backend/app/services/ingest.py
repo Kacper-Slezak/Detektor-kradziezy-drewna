@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models import Alarm, Message, Release, Sensor
 from app.protocol.decoder import (
+    SESSION_VERSION,
     AlarmFrame,
     BootFrame,
     FrameError,
@@ -36,16 +37,44 @@ class IngestResult:
     muted: bool = False
 
 
+def _older_or_equal(last: int, value: int) -> bool:
+    """value nie jest nowsze niż last.
+
+    Arytmetyka modulo 2^16, więc przekręcenie 65535 -> 0 jest w porządku.
+
+    Skok do przodu o więcej niż połowę zakresu traktujemy jak starą wartość.
+    """
+    diff = (value - last) % COUNTER_MOD
+    return diff == 0 or diff > COUNTER_MOD // 2
+
+
+def is_replay(
+    last_boot_id: int | None, last_counter: int | None, boot_id: int, counter: int
+) -> bool:
+    """Wersja 3: para (boot_id, licznik) musi być nowsza niż ostatnio przyjęta.
+
+    - nowszy boot_id (restart płytki): przyjmujemy przy dowolnym liczniku,
+      także gdy BOOT zginął,
+    - ten sam boot_id: licznik musi rosnąć,
+    - starszy boot_id: ramka z poprzedniej sesji, czyli powtórka.
+    BOOT nie ma tu wyjątku: to zwykła pierwsza ramka nowej sesji.
+    """
+    if last_boot_id is None:
+        return False
+    if boot_id == last_boot_id:
+        return last_counter is not None and _older_or_equal(last_counter, counter)
+    return _older_or_equal(last_boot_id, boot_id)
+
+
 def is_duplicate(last_counter: int | None, counter: int, msg_type: MsgType) -> bool:
-    """Ramka z licznikiem nie większym niż ostatni = duplikat albo stara ramka.
+    """Wersje 1 i 2: ramka z licznikiem nie większym niż ostatni = duplikat albo stara ramka.
 
     Po BOOT licznik może zacząć od nowa, więc go akceptujemy.
     Uwzględnia przekręcenie 65535 -> 0.
     """
     if last_counter is None or msg_type is MsgType.BOOT:
         return False
-    diff = (counter - last_counter) % COUNTER_MOD
-    return diff == 0 or diff > COUNTER_MOD // 2
+    return _older_or_equal(last_counter, counter)
 
 
 def is_boot_replay(last_boot_id: int | None, boot_id: int) -> bool:
@@ -55,8 +84,7 @@ def is_boot_replay(last_boot_id: int | None, boot_id: int) -> bool:
     """
     if last_boot_id is None:
         return False
-    diff = (boot_id - last_boot_id) % COUNTER_MOD
-    return diff == 0 or diff > COUNTER_MOD // 2
+    return _older_or_equal(last_boot_id, boot_id)
 
 
 def check_boot(sensor: Sensor, frame: BootFrame) -> bool:
@@ -143,19 +171,45 @@ async def ingest(
         raise UnknownSensorError(device)
 
     header = frame.header
-    if isinstance(frame, BootFrame) and check_boot(sensor, frame):
-        log.warning(
-            "Powtórka BOOT z %s: boot_id %s (ostatni %s), licznik zostaje",
-            device,
-            frame.boot_id,
-            sensor.last_boot_id,
-        )
-        return IngestResult(status="duplicate")
-    if is_duplicate(sensor.last_counter, header.counter, header.msg_type):
-        log.info("Duplikat z %s: licznik %s (ostatni %s)", device, header.counter, sensor.last_counter)
-        return IngestResult(status="duplicate")
+    if header.version >= SESSION_VERSION:
+        # wersja 3: jedna zasada dla wszystkich typów, BOOT bez wyjątku
+        if is_replay(sensor.last_boot_id, sensor.last_counter, header.boot_id, header.counter):
+            log.info(
+                "Powtórka/duplikat z %s: boot_id %s licznik %s (ostatnio %s / %s)",
+                device,
+                header.boot_id,
+                header.counter,
+                sensor.last_boot_id,
+                sensor.last_counter,
+            )
+            return IngestResult(status="duplicate")
+        same_session = header.boot_id == sensor.last_boot_id
+    else:
+        # wersje 1 i 2: przejściowo, logika sprzed wersji 3
+        if not settings.legacy_frames:
+            raise FrameError(
+                f"ramki wersji {header.version} są wyłączone (LEGACY_FRAMES=false), "
+                f"wymagana wersja {SESSION_VERSION}"
+            )
+        if isinstance(frame, BootFrame) and check_boot(sensor, frame):
+            log.warning(
+                "Powtórka BOOT z %s: boot_id %s (ostatni %s), licznik zostaje",
+                device,
+                frame.boot_id,
+                sensor.last_boot_id,
+            )
+            return IngestResult(status="duplicate")
+        if is_duplicate(sensor.last_counter, header.counter, header.msg_type):
+            log.info(
+                "Duplikat z %s: licznik %s (ostatni %s)",
+                device,
+                header.counter,
+                sensor.last_counter,
+            )
+            return IngestResult(status="duplicate")
+        same_session = header.msg_type is not MsgType.BOOT
 
-    if sensor.last_counter is not None and header.msg_type is not MsgType.BOOT:
+    if same_session and sensor.last_counter is not None:
         lost = (header.counter - sensor.last_counter) % COUNTER_MOD - 1
         if lost > 0:
             log.warning("Czujnik %s: zgubione ramki: %s", device, lost)
@@ -173,7 +227,9 @@ async def ingest(
 
     sensor.last_seen = received_at
     sensor.last_counter = header.counter
-    if isinstance(frame, BootFrame) and frame.boot_id is not None:
+    if header.boot_id is not None:  # wersja 3: każda ramka niesie boot_id
+        sensor.last_boot_id = header.boot_id
+    elif isinstance(frame, BootFrame) and frame.boot_id is not None:  # wersja 2: tylko BOOT
         sensor.last_boot_id = frame.boot_id
     sensor.battery_pct = frame.battery_pct  # każdy typ ramki niesie baterię
 

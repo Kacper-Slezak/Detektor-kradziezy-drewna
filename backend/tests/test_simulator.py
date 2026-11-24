@@ -112,14 +112,31 @@ async def test_silent_wysyla_tylko_boot(client, session_maker, two_sensors, tmp_
     assert len(await _messages(session_maker, SECOND)) == 2
 
 
-async def test_licznik_przetrwa_restart(client, session_maker, two_sensors, tmp_path):
+async def test_v3_boot_id_przetrwa_restart_licznik_od_nowa(
+    client, session_maker, two_sensors, tmp_path
+):
+    """Wersja 3: po restarcie nowa sesja (boot_id + 1), licznik znowu od 1, wszystko przyjęte."""
     await _run(client, tmp_path, "--alarm-chance", "0")
+    saved = json.loads((tmp_path / "state.json").read_text())
+    assert (saved[SENSOR_ID]["boot_id"], saved[SENSOR_ID]["counter"]) == (1, 2)
+
+    await _run(client, tmp_path, "--alarm-chance", "0")
+    msgs = await _messages(session_maker, SENSOR_ID)
+    assert [(m.decoded["header"]["boot_id"], m.counter) for m in msgs] == [
+        (1, 1), (1, 2), (2, 1), (2, 2),
+    ]
+
+
+async def test_v2_licznik_przetrwa_restart(client, session_maker, two_sensors, tmp_path):
+    """--frame-version 2 (przejściowo): licznik przetrwa restart, BOOT wersji 2 z boot_id."""
+    await _run(client, tmp_path, "--alarm-chance", "0", "--frame-version", "2")
     saved = json.loads((tmp_path / "state.json").read_text())
     assert saved[SENSOR_ID]["counter"] == 2
 
-    await _run(client, tmp_path, "--alarm-chance", "0")
-    counters = [m.counter for m in await _messages(session_maker, SENSOR_ID)]
-    assert counters == [1, 2, 3, 4]  # po restarcie BOOT z licznikiem 3, nie od zera
+    await _run(client, tmp_path, "--alarm-chance", "0", "--frame-version", "2")
+    msgs = await _messages(session_maker, SENSOR_ID)
+    assert [m.counter for m in msgs] == [1, 2, 3, 4]  # po restarcie BOOT z licznikiem 3
+    assert [m.decoded["header"]["version"] for m in msgs] == [2, 1, 2, 1]
 
 
 async def test_nieznany_czujnik_nie_wywala_symulatora(

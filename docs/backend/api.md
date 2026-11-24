@@ -273,7 +273,7 @@ Odpowiedź `200`: zaktualizowany czujnik. Wyłączony czujnik dalej wysyła hear
 
 ### `POST /api/v1/sensors/{id}/reset-boot`
 
-Tylko admin. Po wymianie płytki albo skasowaniu jej pamięci numer uruchomienia (`boot_id`) zaczyna od nowa i backend uznaje BOOT za powtórkę. Ten endpoint zapomina ostatni `boot_id` i licznik ramek czujnika, więc następny BOOT zostanie przyjęty. Odpowiedź `204`, brak czujnika → `404`, inna rola niż admin → `403`. Opis: [boot-id.md](boot-id.md).
+Tylko admin. Po wymianie płytki albo skasowaniu jej pamięci numer uruchomienia (`boot_id`) zaczyna od nowa i backend uznaje ramki za powtórkę (`duplicate`). Ten endpoint zapomina ostatni `boot_id` i licznik ramek czujnika, więc następna ramka zostanie przyjęta (w wersji 3 dowolna, w wersji 2 BOOT). Odpowiedź `204`, brak czujnika → `404`, inna rola niż admin → `403`. Opis: [boot-id.md](boot-id.md).
 
 ---
 
