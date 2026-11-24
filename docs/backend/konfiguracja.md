@@ -18,6 +18,8 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `LOGIN_MAX_FAILURES` | Ile nieudanych logowań na jeden login w oknie `LOGIN_WINDOW_S`, zanim kolejne próby dostaną `429` (domyślnie `5`) |
 | `LOGIN_WINDOW_S` | Okno liczenia nieudanych logowań w sekundach (domyślnie `900`, czyli 15 min). Liczniki są w pamięci backendu: restart je zeruje |
 | `SENSOR_SILENT_AFTER_H` | Po ilu godzinach bez żadnej ramki czujnik dostaje stan `silent` (domyślnie `12`, heartbeat leci co ~6 h) |
+| `BATTERY_LOW_PCT` | Poniżej tylu % bateria jest słaba i leśniczy dostaje push `low_battery` (domyślnie `20`, ten sam próg co na mapie) |
+| `NOTIFY_CHECK_INTERVAL_S` | Co ile sekund backend sprawdza czujniki bez kontaktu i zakończone wydania, żeby wysłać push `silent` / `release_ended` (domyślnie `300`) |
 | `RELEASE_DEFAULT_HOURS` | Długość wydania drewna (wyciszenia), gdy apka nie poda końca (domyślnie `4`) |
 | `RELEASE_MAX_HOURS` | Najdłuższe dopuszczalne wydanie w godzinach (domyślnie `24`); dłuższe → `422` |
 

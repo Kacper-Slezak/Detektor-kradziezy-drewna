@@ -1,15 +1,17 @@
-"""Powiadomienia Web Push: subskrypcje (api.md, sekcja 6) i wysyłka przy nowym alarmie."""
+"""Powiadomienia Web Push: subskrypcje (api.md, sekcja 6) i wysyłka: alarm, bateria, brak kontaktu, koniec wydania."""
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import requests
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app import db
 from app.config import settings
-from app.models import Alarm, PushSubscription, Range, Sensor, User
+from app.models import Alarm, PushSubscription, Range, Release, Sensor, User
+from app.protocol.encoder import encode_heartbeat
 from app.services import push
 from tests.conftest import SENSOR_ID
 from tests.utils import auth
@@ -458,3 +460,170 @@ def test_prawdziwa_wysylka_jest_odszyfrowywalna_i_podpisana(monkeypatch, vapid):
     )
     assert jwt_claims["sub"] == "mailto:test@example.com"
     assert jwt_claims["aud"] == "https://push.example"
+
+
+# --- słaba bateria (z /ingest) ---
+
+
+def heartbeat(counter, battery, low_flag=False):
+    return encode_heartbeat(counter, battery_pct=battery, low_battery=low_flag).hex()
+
+
+async def test_slaba_bateria_push_raz_i_znowu_po_wymianie(
+    client, sent, session_maker, make_user, ranges
+):
+    await make_user("blazej", range_id=ranges[0])
+    await add_sub(session_maker, "blazej", EP1)
+
+    for counter, battery in enumerate([50, 15, 14, 22, 18], start=1):
+        await post_frame(client, heartbeat(counter, battery))
+    # 15 %: push; 14 %: już był; 22 % to za mało, żeby uznać baterię za dobrą (próg + 5)
+    assert [p["type"] for _, p in sent.calls] == ["low_battery"]
+    assert sent.calls[0][1] == {
+        "type": "low_battery",
+        "sensor_id": SENSOR_ID,
+        "title": "Słaba bateria: Skład przy drodze 5",
+        "body": "Bateria 15%, wymień ją przy najbliższej wizycie",
+        "url": "/",
+    }
+
+    await post_frame(client, heartbeat(6, 90))  # nowa bateria
+    await post_frame(client, heartbeat(7, 12))
+    assert [p["body"] for _, p in sent.calls][1] == (
+        "Bateria 12%, wymień ją przy najbliższej wizycie"
+    )
+    assert len(sent.calls) == 2
+
+
+async def test_flaga_slabej_baterii_z_heartbeatu(
+    client, sent, session_maker, make_user, ranges
+):
+    await make_user("blazej", range_id=ranges[0])
+    await add_sub(session_maker, "blazej", EP1)
+
+    r = await post_frame(client, heartbeat(1, 40, low_flag=True))
+    assert r.status_code == 201 and "low_battery_push" not in r.json()
+    assert [p["type"] for _, p in sent.calls] == ["low_battery"]
+
+
+# --- brak kontaktu i koniec wydania (pętla w tle) ---
+
+
+async def set_last_seen(session_maker, when):
+    async with session_maker() as s:
+        (await s.get(Sensor, SENSOR_ID)).last_seen = when
+        await s.commit()
+
+
+async def add_release(session_maker, starts_at, ends_at) -> int:
+    async with session_maker() as s:
+        release = Release(sensor_id=SENSOR_ID, starts_at=starts_at, ends_at=ends_at)
+        s.add(release)
+        await s.commit()
+        return release.id
+
+
+async def test_brak_kontaktu_push_raz_i_znowu_po_nastepnej_ciszy(
+    client, sent, session_maker, make_user, ranges
+):
+    await make_user("blazej", range_id=ranges[0])
+    await add_sub(session_maker, "blazej", EP1)
+    now = datetime.now(UTC)
+    await set_last_seen(session_maker, now - timedelta(hours=11))
+
+    await push.check_silent_and_ended(now)  # 11 h < 12 h: jeszcze nie
+    assert sent.calls == []
+
+    await set_last_seen(session_maker, now - timedelta(hours=13))
+    await push.check_silent_and_ended(now)
+    await push.check_silent_and_ended(now)  # drugie przejście nie powtarza
+    assert [p for _, p in sent.calls] == [
+        {
+            "type": "silent",
+            "sensor_id": SENSOR_ID,
+            "title": "Brak kontaktu: Skład przy drodze 5",
+            "body": "Czujnik nie odzywa się od 13 h",
+            "url": "/",
+        }
+    ]
+
+    await post_frame(client, heartbeat(1, 80))  # odezwał się: flaga kasowana
+    await set_last_seen(session_maker, now - timedelta(hours=20))
+    await push.check_silent_and_ended(now)
+    assert len(sent.calls) == 2
+
+
+async def test_brak_kontaktu_nie_dla_nowego_wylaczonego_ani_wyciszonego(
+    sent, session_maker, make_user, ranges
+):
+    await make_user("blazej", range_id=ranges[0])
+    await add_sub(session_maker, "blazej", EP1)
+    now = datetime.now(UTC)
+
+    await push.check_silent_and_ended(now)  # nigdy się nie odezwał: świeżo zamontowany
+    async with session_maker() as s:
+        sensor = await s.get(Sensor, SENSOR_ID)
+        sensor.last_seen = now - timedelta(hours=13)
+        sensor.active = False
+        await s.commit()
+    await push.check_silent_and_ended(now)
+    assert sent.calls == []
+
+    async with session_maker() as s:
+        (await s.get(Sensor, SENSOR_ID)).active = True
+        await s.commit()
+    await add_release(session_maker, now - timedelta(hours=1), now + timedelta(hours=1))
+    await push.check_silent_and_ended(now)  # trwa wydanie
+    assert sent.calls == []
+    async with session_maker() as s:
+        assert (await s.get(Sensor, SENSOR_ID)).silent_notified is False
+
+
+async def test_koniec_wydania_push_raz(sent, session_maker, make_user, ranges):
+    await make_user("blazej", range_id=ranges[0])
+    await add_sub(session_maker, "blazej", EP1)
+    now = datetime.now(UTC)
+    await set_last_seen(session_maker, now - timedelta(minutes=10))
+    release_id = await add_release(
+        session_maker, now - timedelta(hours=4), now - timedelta(minutes=5)
+    )
+    await add_release(session_maker, now - timedelta(hours=2), now + timedelta(hours=2))
+    await push.check_silent_and_ended(now)  # zaraz po nim trwa następne: nic
+    assert sent.calls == []
+
+    async with session_maker() as s:
+        await s.execute(delete(Release).where(Release.ends_at > now))
+        (await s.get(Release, release_id)).end_notified = False
+        await s.commit()
+    await push.check_silent_and_ended(now)
+    await push.check_silent_and_ended(now)
+    assert [p for _, p in sent.calls] == [
+        {
+            "type": "release_ended",
+            "sensor_id": SENSOR_ID,
+            "release_id": release_id,
+            "title": "Koniec wydania: Skład przy drodze 5",
+            "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły",
+            "url": "/",
+        }
+    ]
+
+
+async def test_stare_i_recznie_zakonczone_wydanie_bez_pusha(
+    client, forester, sent, session_maker
+):
+    await add_sub(session_maker, "blazej", EP1)
+    now = datetime.now(UTC)
+    old_id = await add_release(
+        session_maker, now - timedelta(hours=8), now - timedelta(hours=3)
+    )
+    ended_id = await add_release(
+        session_maker, now - timedelta(hours=1), now + timedelta(hours=3)
+    )
+    r = await client.post(f"/api/v1/releases/{ended_id}/end", headers=forester)
+    assert r.status_code == 200
+
+    await push.check_silent_and_ended(datetime.now(UTC))
+    assert sent.calls == []
+    async with session_maker() as s:
+        assert (await s.get(Release, old_id)).end_notified is True

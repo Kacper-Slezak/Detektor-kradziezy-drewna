@@ -317,8 +317,11 @@ docker compose up -d                                                 # backend w
    docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once
    ```
 3. Telefon dostaje powiadomienie „Alarm: …” (leśniczy z innego leśnictwa i nadleśniczy nie dostają). Kolejne ramki tego samego alarmu pusha nie powtarzają.
+4. Słaba bateria: symulator `--scenario battery-drain --target 70B3D57ED00D0009` (bateria −5 pkt na heartbeat). Gdy spadnie poniżej 20%, przychodzi „Słaba bateria: …” raz; następne ramki już nie.
+5. Koniec wydania: założyć w aplikacji wydanie, poczekać na jego koniec; w ciągu 5 min przychodzi „Koniec wydania: …”. Zakończenie przyciskiem w aplikacji pusha nie daje.
+6. Brak kontaktu: najszybciej z `SENSOR_SILENT_AFTER_H=1` w `.env` i czujnikiem, który przestał nadawać; po godzinie (+ do 5 min) przychodzi „Brak kontaktu: …”.
 
-Subskrypcje w bazie: `SELECT user_id, left(endpoint, 40), device_label FROM push_subscriptions;`. W logu backendu po alarmie: `Push o alarmie N: wysłano X/Y, usunięto wygasłych Z`.
+Subskrypcje w bazie: `SELECT user_id, left(endpoint, 40), device_label FROM push_subscriptions;`. W logu backendu po każdej wysyłce: `Push alarm (czujnik …): wysłano X/Y, usunięto wygasłych Z` (zamiast `alarm` odpowiednio `low_battery`, `silent`, `release_ended`).
 
 ## 7. Telefon
 
