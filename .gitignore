@@ -19,6 +19,7 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 .venv/
+.venv*/
 venv/
 .pytest_cache/
 .ipynb_checkpoints/
@@ -54,3 +55,11 @@ detection/temp_results
 
 # ---- Docker ----
 docker-data/
+
+# ---- Local AI agent workspace customizations & artifacts ----
+.agents/
+.agent/
+.antigravity/
+.gemini/
+AGENTS.md
+GEMINI.md
