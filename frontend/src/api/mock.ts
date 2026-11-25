@@ -378,6 +378,11 @@ type MockRelease = Omit<Release, 'sensor_name' | 'active'>
 const RELEASE_DEFAULT_HOURS = 4
 const RELEASE_MAX_HOURS = 24
 
+// start of a past release `days` ago, or its end when it lasted `hours`; counted from today,
+// so the history filters (7 days, 30 days, a year) always have something to show
+const daysAgo = (days: number, hours = 0) => hoursFromNow(-24 * days + hours)
+
+// the ongoing one, then the history (ids follow the order they were added to the mock, not the dates)
 const releases: MockRelease[] = [
   {
     id: 8,
@@ -392,8 +397,8 @@ const releases: MockRelease[] = [
   {
     id: 7,
     sensor_id: '70B3D57ED0051234',
-    starts_at: '2026-10-14T08:00:00Z',
-    ends_at: '2026-10-14T11:20:00Z',
+    starts_at: daysAgo(41),
+    ends_at: daysAgo(41, 3.33),
     carrier: 'Trans-Las',
     log_count: 30,
     comment: 'odjechał wcześniej',
@@ -402,12 +407,102 @@ const releases: MockRelease[] = [
   {
     id: 6,
     sensor_id: '70B3D57ED005DEF0',
-    starts_at: '2026-10-12T07:30:00Z',
-    ends_at: '2026-10-12T11:30:00Z',
+    starts_at: daysAgo(43),
+    ends_at: daysAgo(43, 4),
     carrier: null,
     log_count: null,
     comment: null,
     created_by: 'nowy.lesniczy',
+  },
+  {
+    id: 9,
+    sensor_id: '70B3D57ED0052345',
+    starts_at: daysAgo(1),
+    ends_at: daysAgo(1, 3),
+    carrier: 'Trans-Las',
+    log_count: 18,
+    comment: null,
+    created_by: 'blazej',
+  },
+  {
+    id: 10,
+    sensor_id: '70B3D57ED0051234',
+    starts_at: daysAgo(3),
+    ends_at: daysAgo(3, 4),
+    carrier: 'Transdrew Sp. z o.o.',
+    log_count: 40,
+    comment: 'dwa kursy',
+    created_by: 'blazej',
+  },
+  {
+    id: 11,
+    sensor_id: '70B3D57ED005DEF0',
+    starts_at: daysAgo(6),
+    ends_at: daysAgo(6, 2),
+    carrier: 'Drewex',
+    log_count: 12,
+    comment: null,
+    created_by: 'nowy.lesniczy',
+  },
+  {
+    id: 12,
+    sensor_id: '70B3D57ED0055678',
+    starts_at: daysAgo(10),
+    ends_at: daysAgo(10, 4),
+    carrier: 'Trans-Las',
+    log_count: 25,
+    comment: null,
+    created_by: 'blazej',
+  },
+  {
+    id: 13,
+    sensor_id: '70B3D57ED0052345',
+    starts_at: daysAgo(18),
+    ends_at: daysAgo(18, 1),
+    carrier: null,
+    log_count: null,
+    comment: 'odbiór próbek do badań',
+    created_by: 'blazej',
+  },
+  {
+    id: 14,
+    sensor_id: '70B3D57ED005DEF0',
+    starts_at: daysAgo(25),
+    ends_at: daysAgo(25, 4),
+    carrier: 'Drewex',
+    log_count: 30,
+    comment: null,
+    created_by: 'nowy.lesniczy',
+  },
+  {
+    id: 15,
+    sensor_id: '70B3D57ED0055678',
+    starts_at: daysAgo(90),
+    ends_at: daysAgo(90, 3),
+    carrier: 'Transdrew Sp. z o.o.',
+    log_count: 22,
+    comment: null,
+    created_by: 'blazej',
+  },
+  {
+    id: 16,
+    sensor_id: '70B3D57ED0051234',
+    starts_at: daysAgo(200),
+    ends_at: daysAgo(200, 4),
+    carrier: 'Trans-Las',
+    log_count: 35,
+    comment: 'przyjechał godzinę później',
+    created_by: 'blazej',
+  },
+  {
+    id: 17,
+    sensor_id: '70B3D57ED0052345',
+    starts_at: daysAgo(400),
+    ends_at: daysAgo(400, 2),
+    carrier: null,
+    log_count: 15,
+    comment: null,
+    created_by: 'blazej',
   },
 ]
 
@@ -518,7 +613,7 @@ export async function mockListReleases(token: string | null, filters: ReleaseFil
     .filter((r) => !filters.from || Date.parse(r.ends_at) >= Date.parse(filters.from))
     .filter((r) => !filters.to || Date.parse(r.starts_at) <= Date.parse(filters.to))
     .sort((a, b) => b.starts_at.localeCompare(a.starts_at) || b.id - a.id)
-    .slice(0, filters.limit ?? 100)
+    .slice(filters.offset ?? 0, (filters.offset ?? 0) + (filters.limit ?? 100))
     .map(toRelease)
 }
 

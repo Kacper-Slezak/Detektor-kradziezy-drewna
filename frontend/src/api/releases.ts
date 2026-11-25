@@ -28,6 +28,7 @@ export function listReleases(filters: ReleaseFilters = {}): Promise<Release[]> {
   if (filters.from) params.set('from', filters.from)
   if (filters.to) params.set('to', filters.to)
   if (filters.limit !== undefined) params.set('limit', String(filters.limit))
+  if (filters.offset !== undefined) params.set('offset', String(filters.offset))
   const query = params.toString()
   return apiFetch<Release[]>(query ? `/releases?${query}` : '/releases')
 }

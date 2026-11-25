@@ -33,8 +33,26 @@ Gdy wyciszenie właśnie minęło albo zakończył je ktoś inny, aplikacja też
 
 Nadleśniczy nie ma tych przycisków (backend zwróciłby mu `403`). Admin nie korzysta z mapy.
 
+## Panel wydań
+
+Przycisk **🚚 Wydania** w górnym pasku, obok Mapy i Alarmów (adres `/releases`). Niebieska liczba przy nim to trwające wyciszenia. Leśniczy widzi wydania swojego leśnictwa, nadleśniczy wszystkich leśnictw.
+
+**Trwające**:
+
+- karta dla każdego wyciszonego czujnika: do kiedy i ile jeszcze, przewoźnik i kłody, komentarz, kto i od kiedy
+- leśniczy ma na karcie **Zakończ wyciszenie**, z tym samym pytaniem co w dymku na mapie. Po zakończeniu karta znika, liczba przy przycisku maleje, a pinezka na mapie wraca do zielonej
+- lista odświeża się co 20 s, a wyciszenie, które minęło, znika samo
+- pusto: „Żaden czujnik nie jest teraz wyciszony.”
+
+**Historia**, czyli zakończone wydania, od najnowszych, do raportów i sporów z przewoźnikiem:
+
+- filtr **Czujnik** (lista czujników, które widać na mapie) i **Okres**: 7 dni / **30 dni** (domyślnie) / Rok / Wszystko. „30 dni” to wydania, które choć częściowo trwały w ostatnich 30 dniach
+- po 50 naraz; **Pokaż starsze** dociąga kolejne z tymi samymi filtrami
+- historia nie odświeża się sama, tylko przy zmianie filtra albo zakładki
+- karty bez przycisków, z czasem od–do („14.10.2026, 08:00 – 11:20”)
+
+Nadleśniczy widzi obie zakładki, ale bez przycisku kończenia, bo backend pozwala wyciszać i kończyć tylko leśniczemu i adminowi.
 
 ## Dalej
 
-- panel wydań: lista trwających i historia, kończenie z listy
 - push `release_ended`, gdy wyciszenie się skończy (wymaga backendu push)

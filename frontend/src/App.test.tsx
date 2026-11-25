@@ -237,6 +237,38 @@ describe('sensor map', () => {
     expect(window.location.pathname).toBe('/')
   })
 
+  it('opens the releases, ends one there, and the map follows', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await screen.findByTitle('Skład przy szlabanie: Wyciszony', {}, mapTimeout)
+    const views = screen.getByRole('navigation', { name: 'Widok' })
+
+    // the number of ongoing releases is in the name of the button
+    await user.click(within(views).getByRole('button', { name: 'Wydania, 1 trwa' }))
+    expect(screen.getByRole('heading', { name: 'Wydania drewna' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/releases')
+
+    const list = await screen.findByRole('list', { name: 'Trwające wydania' }, mapTimeout)
+    await user.click(within(list).getByRole('button', { name: 'Zakończ wyciszenie' }))
+    const panel = await screen.findByRole('dialog', { name: 'Zakończyć wyciszenie?' })
+    await user.click(within(panel).getByRole('button', { name: 'Zakończ' }))
+    expect(await screen.findByText('Skład przy szlabanie znów czuwa')).toBeInTheDocument()
+
+    // no ongoing release left, so the badge is gone
+    expect(await within(views).findByRole('button', { name: 'Wydania' }, mapTimeout)).toBeInTheDocument()
+    await user.click(within(views).getByRole('button', { name: 'Mapa' }))
+    expect(await screen.findByTitle('Skład przy szlabanie: Działa', {}, mapTimeout)).toBeInTheDocument()
+  })
+
+  it('opens the releases from the address', async () => {
+    window.history.replaceState(null, '', '/releases')
+    setToken('mock-3')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Wydania drewna' }, mapTimeout)).toBeInTheDocument()
+    expect(await screen.findByRole('list', { name: 'Trwające wydania' }, mapTimeout)).toHaveTextContent('Skład przy szlabanie')
+  })
+
   it('opens the alarm from the address, e.g. after tapping a push', async () => {
     window.history.replaceState(null, '', '/alarms/41')
     setToken('mock-3')

@@ -86,6 +86,9 @@ class Sensor(Base):
     last_counter: Mapped[int | None]
     # największy boot_id z przyjętego BOOT (wersja 2); None = czujnik nie używa boot_id
     last_boot_id: Mapped[int | None]
+    # push już poszedł; kasowane, gdy bateria wróci powyżej progu / przyjdzie ramka
+    low_battery_notified: Mapped[bool] = mapped_column(default=False)
+    silent_notified: Mapped[bool] = mapped_column(default=False)
 
 
 class Release(Base):
@@ -101,6 +104,8 @@ class Release(Base):
     log_count: Mapped[int | None]
     comment: Mapped[str | None] = mapped_column(String(500))
     created_by: Mapped[str | None] = mapped_column(String(50))  # login leśniczego
+    # push „wyciszenie się skończyło” już obsłużony (wysłany albo zbędny)
+    end_notified: Mapped[bool] = mapped_column(default=False)
 
 
 class Message(Base):
@@ -140,3 +145,8 @@ class Alarm(Base):
     # pozycja z telefonu leśniczego przy odpowiedzi (dowód obecności, nie jest sprawdzana)
     response_lat: Mapped[float | None]
     response_lon: Mapped[float | None]
+
+    @property
+    def possible_tampering(self) -> bool:
+        """Same wibracje bez dźwięku: raczej ktoś przy czujniku niż kradzież."""
+        return self.sources == ["vibration"]

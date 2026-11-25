@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bell, KeyRound, LocateFixed, LogOut, Map as MapIcon, Menu } from 'lucide-react'
+import { Bell, KeyRound, LocateFixed, LogOut, Map as MapIcon, Menu, Truck } from 'lucide-react'
 import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
@@ -20,8 +20,11 @@ import { REFRESH_MS } from '@/lib/refresh'
 import { goTo, parseRoute, type Route } from '@/lib/route'
 import { formatDateTime, STATUS_DOT, statusOf, type Status } from '@/lib/sensor-status'
 import { AlarmsPage } from '@/pages/AlarmsPage'
+import { ReleasesPage } from '@/pages/ReleasesPage'
 
-type View = 'map' | 'alarms'
+type View = Route['view']
+
+const TITLE = { map: 'map.title', alarms: 'alarms.title', releases: 'releases.title' } as const
 
 // big enough to hit with a thumb (about 44 px)
 const VIEW_BUTTON = 'h-11 gap-2 px-3 text-base [&_svg]:size-5!'
@@ -64,7 +67,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   }, [])
 
   function setView(next: View) {
-    const nextRoute: Route = next === 'map' ? { view: 'map' } : { view: 'alarms', alarmId: null }
+    const nextRoute: Route = next === 'alarms' ? { view: 'alarms', alarmId: null } : { view: next }
     goTo(nextRoute)
     setRoute(nextRoute)
   }
@@ -143,13 +146,18 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   })).filter(({ count }) => count > 0)
   // sensors with an alarm that waits for the forester; refreshed together with the map
   const openAlarms = (sensors ?? []).filter((s) => s.open_alarm_id !== null).length
+  // a sensor is muted only while a release lasts, so this is the number of ongoing releases
+  const ongoingReleases = (sensors ?? []).filter((s) => s.muted_until !== null).length
+  // three labels do not fit a narrow phone: there only the open view keeps its label,
+  // the others show the icon (the screen reader still reads the whole name)
+  const label = (of: View) => cn(view !== of && 'max-sm:sr-only')
 
   return (
     <div className="flex h-svh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3">
         <img src="/logo.svg" alt="" className="size-7 rounded" />
         {/* on phones the view buttons already say where we are */}
-        <h1 className="truncate font-semibold max-sm:sr-only">{t(view === 'map' ? 'map.title' : 'alarms.title')}</h1>
+        <h1 className="truncate font-semibold max-sm:sr-only">{t(TITLE[view])}</h1>
         <nav aria-label={t('map.views')} className="flex flex-1 items-center gap-1 sm:justify-center">
           <Button
             variant={view === 'map' ? 'secondary' : 'ghost'}
@@ -158,7 +166,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             onClick={() => setView('map')}
           >
             <MapIcon />
-            {t('map.viewMap')}
+            <span className={label('map')}>{t('map.viewMap')}</span>
           </Button>
           <Button
             variant={view === 'alarms' ? 'secondary' : 'ghost'}
@@ -168,10 +176,28 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             onClick={() => setView('alarms')}
           >
             <Bell />
-            {t('map.viewAlarms')}
+            <span className={label('alarms')}>{t('map.viewAlarms')}</span>
             {openAlarms > 0 && (
               <span className="min-w-6 rounded-full bg-red-600 px-1.5 text-sm leading-6 text-white tabular-nums">
                 {openAlarms}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant={view === 'releases' ? 'secondary' : 'ghost'}
+            aria-current={view === 'releases' ? 'page' : undefined}
+            aria-label={
+              ongoingReleases > 0 ? t('map.viewReleasesOngoing', { count: ongoingReleases }) : t('map.viewReleases')
+            }
+            className={VIEW_BUTTON}
+            onClick={() => setView('releases')}
+          >
+            <Truck />
+            <span className={label('releases')}>{t('map.viewReleases')}</span>
+            {ongoingReleases > 0 && (
+              // blue like a muted pin, so it is not taken for an alarm
+              <span className="min-w-6 rounded-full bg-sky-600 px-1.5 text-sm leading-6 text-white tabular-nums">
+                {ongoingReleases}
               </span>
             )}
           </Button>
@@ -186,7 +212,9 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
       </header>
 
       <main className="relative min-h-0 flex-1">
-        {view === 'alarms' ? (
+        {view === 'releases' ? (
+          <ReleasesPage sensors={sensors ?? []} canEnd={user.role === 'forester'} onEnded={reloadSensors} />
+        ) : view === 'alarms' ? (
           <AlarmsPage
             // a new alarm from the address starts the list again
             key={route.alarmId ?? 'list'}

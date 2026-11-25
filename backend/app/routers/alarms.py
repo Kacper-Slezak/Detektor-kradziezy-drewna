@@ -60,8 +60,7 @@ def _to_out(alarm: Alarm, sensor: Sensor) -> AlarmOut:
         duration_s=alarm.duration_s,
         energy=alarm.energy,
         repeats=alarm.repeats,
-        # same wibracje bez dźwięku: raczej ktoś przy czujniku niż kradzież
-        possible_tampering=alarm.sources == ["vibration"],
+        possible_tampering=alarm.possible_tampering,
         status=alarm.status,
         response=response,
     )
