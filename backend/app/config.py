@@ -50,5 +50,10 @@ class Settings(BaseSettings):
     release_default_hours: int = 4
     release_max_hours: int = 24
 
+    # Klucz AES-128 do odszyfrowania ramek z urządzeń: 32 znaki hex (16 B).
+    # Ustawiony = przyjmujemy tylko zaszyfrowane ramki (jawne -> 422).
+    # Pusty = bez szyfrowania, przyjmujemy tylko jawne ramki (np. lokalnie z symulatorem).
+    frame_aes_key: str = ""
+
 
 settings = Settings()

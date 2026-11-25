@@ -161,3 +161,67 @@ def to_dict(frame: Frame) -> dict:
     data = asdict(frame)
     data["header"]["msg_type"] = frame.header.msg_type.name
     return data
+
+
+
+# Szyfrowanie ramek (AES-128)
+# Urządzenie dopełnia jawną ramkę zerami do 16 B (jeden blok AES) i szyfruje ją AES-128-ECB.
+# Przy ustawionym FRAME_AES_KEY backend przyjmuje TYLKO zaszyfrowane ramki (16 B):
+# jawna ramka -> 422, inaczej fałszywy alarm dałoby się wysłać bez znajomości klucza.
+
+AES_BLOCK = 16
+
+
+def parse_aes_key(key_hex: str) -> bytes | None:
+    """FRAME_AES_KEY z .env (32 znaki hex) -> 16 B; pusty -> None (szyfrowanie wyłączone)."""
+    if not key_hex:
+        return None
+    try:
+        key = bytes.fromhex(key_hex)
+    except ValueError:
+        raise ValueError("FRAME_AES_KEY to nie jest poprawny hex") from None
+    if len(key) != AES_BLOCK:
+        raise ValueError(
+            f"FRAME_AES_KEY ma {len(key)} B, a powinien mieć {AES_BLOCK} B (32 znaki hex)"
+        )
+    return key
+
+
+def decrypt_payload_hex(payload_hex: str, key: bytes | None) -> str:
+    """Zaszyfrowana ramka (16 B) -> hex jawnej ramki.
+
+    Bez klucza (szyfrowanie wyłączone) zwraca payload bez zmian.
+    Z kluczem każda ramka musi być zaszyfrowana: inna długość niż 16 B -> FrameError (422).
+    """
+    if key is None:
+        return payload_hex
+    try:
+        data = bytes.fromhex(payload_hex)
+    except ValueError:
+        raise FrameError("payload_hex to nie jest poprawny hex") from None
+    if len(data) != AES_BLOCK:
+        raise FrameError(
+            f"oczekiwano zaszyfrowanej ramki ({AES_BLOCK} B), jest {len(data)} B; "
+            "jawne ramki są odrzucane, gdy ustawiony jest FRAME_AES_KEY"
+        )
+
+    # import tutaj, żeby dekoder (i symulator) działał bez pakietu cryptography
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    decryptor = Cipher(algorithms.AES(key), modes.ECB()).decryptor()
+    block = decryptor.update(data) + decryptor.finalize()
+
+    # Długość jawnej ramki z pierwszego bajtu (wersja i typ), np. BOOT v1 = 6 B, BOOT v2 = 8 B
+    # (z boot_id), ALARM = 10 B. Nie z BODY[typ].size: obcięłoby boot_id z BOOT-a wersji 2.
+    # Zły klucz albo losowy pakiet daje losowe bajty. Sam pierwszy bajt (wersja, typ) to za mało:
+    # losowy pakiet bez klucza przechodził wtedy jako ramka w ok. 0,7% prób. Dlatego dopełnienie
+    # musi być zerami: jedyny test integralności bez podpisu (MIC), szansa 2^-32 .. 2^-80.
+    try:
+        length = frame_length(block[0])
+    except FrameError:
+        length = None
+    if length is None or any(block[length:]):
+        raise FrameError(
+            "nie da się odszyfrować ramki (zły klucz albo uszkodzony pakiet)"
+        )
+    return block[:length].hex()

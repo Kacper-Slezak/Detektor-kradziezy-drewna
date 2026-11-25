@@ -6,6 +6,7 @@
 | [konfiguracja.md](konfiguracja.md) | Zmienne środowiskowe i `DATABASE_URL` (Docker vs lokalnie) |
 | [model-danych.md](model-danych.md) | Tabele, relacje, hypertable `messages` i migracje Alembic |
 | [boot-id.md](boot-id.md) | Ramka wersji 2: `boot_id` w BOOT, ochrona przed powtórką BOOT, reset |
+| [szyfrowanie.md](szyfrowanie.md) | Szyfrowanie ramek AES-128 (`FRAME_AES_KEY`), odszyfrowanie w `/ingest` |
 
 Szybki start: [backend/README.md](../../backend/README.md).
 
