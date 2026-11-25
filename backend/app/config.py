@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # Puste = /ingest bez zabezpieczenia (tylko lokalnie, przy starcie leci ostrzeżenie).
     ingest_api_key: str = ""
 
+    # Web Push (VAPID). Para kluczy z `python -m tools.generate_vapid_keys`.
+    # Puste = backend działa, ale nie wysyła powiadomień.
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = ""  # mailto:… albo https://…
+
     # Konto admina tworzone przez `python -m app.seed`. Bez hasła zostanie wylosowane.
     seed_admin_login: str = "admin"
     seed_admin_password: str = ""
@@ -30,6 +36,11 @@ class Settings(BaseSettings):
 
     # Brak ramki dłużej niż tyle godzin = stan "silent" (heartbeat co ~6 h, więc 2 zgubione).
     sensor_silent_after_h: int = 12
+
+    # Poniżej tylu % bateria jest słaba (push `low_battery`; ten sam próg co we froncie).
+    battery_low_pct: int = 20
+    # Co ile sekund backend sprawdza czujniki bez kontaktu i zakończone wydania (push).
+    notify_check_interval_s: int = 300
 
     # Wydanie drewna (wyciszenie czujnika): domyślna i najdłuższa długość w godzinach.
     release_default_hours: int = 4

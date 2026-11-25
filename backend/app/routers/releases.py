@@ -157,6 +157,7 @@ async def end_release(release_id: int, user: Releaser, session: Session) -> Rele
     if as_utc(release.ends_at) <= now:
         raise HTTPException(status.HTTP_409_CONFLICT, "Wydanie już się zakończyło")
     release.ends_at = now
+    release.end_notified = True  # leśniczy sam kończy, push o tym zbędny
     await session.commit()
     log.info("%s zakończył wydanie %s (czujnik %s)", user.login, release.id, sensor.id)
     return _to_out(release, sensor, now)
