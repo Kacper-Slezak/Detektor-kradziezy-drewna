@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_session
-from app.protocol.decoder import FrameError
+from app.protocol.decoder import FrameError, decrypt_payload_hex, parse_aes_key
 from app.schemas import IngestIn, IngestOut
 from app.services.ingest import UnknownSensorError, ingest
 from app.services.push import notify_alarm, notify_low_battery
@@ -29,6 +29,11 @@ ingest_key_header = APIKeyHeader(
     auto_error=False,
     description="Klucz urządzeń (`INGEST_API_KEY` z `.env`)",
 )
+
+# Sprawdzenie klucza już przy starcie: zły FRAME_AES_KEY zatrzymuje backend od razu.
+parse_aes_key(settings.frame_aes_key)
+if not settings.frame_aes_key:
+    log.warning("FRAME_AES_KEY nie jest ustawiony: ramki z urządzeń przyjmowane bez szyfrowania.")
 
 if not settings.ingest_api_key:
     log.warning(
@@ -69,8 +74,10 @@ async def ingest_frame(
     _: Annotated[None, Depends(require_ingest_key)],
 ) -> IngestOut:
     try:
+        # przy ustawionym FRAME_AES_KEY: odszyfruj; jawna ramka -> FrameError -> 422
+        payload_hex = decrypt_payload_hex(body.payload_hex, parse_aes_key(settings.frame_aes_key))
         result = await ingest(
-            session, body.device, body.payload_hex, body.received_at, body.rssi
+            session, body.device, payload_hex, body.received_at, body.rssi
         )
     except FrameError as e:
         log.warning("Błędna ramka od %s (%s): %s", body.device, body.payload_hex, e)

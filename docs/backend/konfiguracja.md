@@ -7,6 +7,7 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `POSTGRES_PASSWORD` | Hasło użytkownika `detektor` w bazie; używane przez compose |
 | `DATABASE_URL` | Adres bazy dla aplikacji (sterownik async: `postgresql+asyncpg://`) |
 | `INGEST_API_KEY` | Klucz dla `POST /api/v1/ingest`: urządzenia, bramka i symulator wysyłają go w nagłówku `X-Ingest-Key`, bez niego dostają `401`. Pusty = endpoint bez zabezpieczenia, dopuszczalne tylko lokalnie (backend ostrzega przy starcie). Wygeneruj: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Klucz trzymamy tylko w `.env` (nie w repo) |
+| `FRAME_AES_KEY` | Klucz AES-128 do odszyfrowania ramek z urządzeń: 32 znaki hex (16 B), ten sam co na płytce. **Ustawiony** = `/ingest` przyjmuje tylko ramki zaszyfrowane (16 B), jawne dostają `422`, także z symulatora i `curl`. **Pusty** = bez szyfrowania, ramki jawne (lokalnie, z symulatorem). Zły klucz → `422`. Wygeneruj: `python -c "import secrets; print(secrets.token_hex(16))"`. Klucz trzymamy tylko w `.env` i na płytce (nie w repo). Opis: [szyfrowanie.md](szyfrowanie.md) |
 | `TTN_WEBHOOK_SECRET` | Sekret webhooka z The Things Network |
 | `VAPID_PUBLIC_KEY` | Klucz publiczny Web Push (VAPID), base64url. Front pobiera go z `GET /api/v1/push/vapid-public-key` jako `applicationServerKey`. Para kluczy: `python -m tools.generate_vapid_keys` (w kontenerze: `docker compose run --rm web python -m tools.generate_vapid_keys`) albo `npx web-push generate-vapid-keys`. Puste = backend działa bez powiadomień, a `GET /push/vapid-public-key` zwraca `503` |
 | `VAPID_PRIVATE_KEY` | Klucz prywatny VAPID z tej samej pary; podpisuje wysyłane pushe. Tylko w `.env`, nigdy we froncie ani w repo. Zmiana pary unieważnia wszystkie subskrypcje |
@@ -22,6 +23,8 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `NOTIFY_CHECK_INTERVAL_S` | Co ile sekund backend sprawdza czujniki bez kontaktu i zakończone wydania, żeby wysłać push `silent` / `release_ended` (domyślnie `300`) |
 | `RELEASE_DEFAULT_HOURS` | Długość wydania drewna (wyciszenia), gdy apka nie poda końca (domyślnie `4`) |
 | `RELEASE_MAX_HOURS` | Najdłuższe dopuszczalne wydanie w godzinach (domyślnie `24`); dłuższe → `422` |
+| `BOOT_ID_REQUIRED` | Dotyczy tylko ramek wersji 1 i 2: `true` przyjmuje tylko BOOT z `boot_id` (ramka wersji 2), inny → `422` ([boot-id.md](boot-id.md)); domyślnie `false` |
+| `LEGACY_FRAMES` | `true` (domyślnie): przyjmuje też ramki wersji 1 i 2 (okres przejściowy). `false`: tylko wersja 3, ramki 1 i 2 → `422`. Ustaw `false`, gdy wszystkie płytki wysyłają wersję 3 ([boot-id.md](boot-id.md)) |
 
 ## Konto admina (seed)
 

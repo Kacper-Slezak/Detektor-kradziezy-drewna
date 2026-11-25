@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     # Wspólne hasło kont demo z `python -m app.seed --demo`. Tylko do testów i prezentacji!
     seed_demo_password: str = "demo-haslo-1"
 
+    # Tylko BOOT z boot_id (ramka wersji 2). Ustaw `true`, gdy wszystkie płytki go wysyłają:
+    # BOOT bez boot_id da się powtórzyć i zresetować nim licznik ramek.
+    boot_id_required: bool = False
+
+    # Przyjmuj ramki wersji 1 i 2 (okres przejściowy, zanim wszystkie płytki wyślą wersję 3).
+    # Ustaw `false`, gdy wszystkie płytki wysyłają wersję 3: wtedy ramki 1 i 2 -> 422.
+    # Wersje 1 i 2 nie chronią przed powtórką starych ramek po restarcie płytki.
+    legacy_frames: bool = True
+
     # Powtórzenia ALARM (wysyłane 3x) z tego okna scalamy w jeden alarm.
     alarm_merge_window_s: int = 600
 
@@ -45,6 +54,11 @@ class Settings(BaseSettings):
     # Wydanie drewna (wyciszenie czujnika): domyślna i najdłuższa długość w godzinach.
     release_default_hours: int = 4
     release_max_hours: int = 24
+
+    # Klucz AES-128 do odszyfrowania ramek z urządzeń: 32 znaki hex (16 B).
+    # Ustawiony = przyjmujemy tylko zaszyfrowane ramki (jawne -> 422).
+    # Pusty = bez szyfrowania, przyjmujemy tylko jawne ramki (np. lokalnie z symulatorem).
+    frame_aes_key: str = ""
 
 
 settings = Settings()

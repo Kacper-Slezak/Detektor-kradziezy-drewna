@@ -2,6 +2,7 @@
 fastapi
 uvicorn[standard]
 pydantic-settings
+cryptography
 
 # --- Logowanie ---
 argon2-cffi

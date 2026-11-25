@@ -18,8 +18,13 @@ Scenariusze (dotyczą czujnika --target, reszta wysyła zwykłe heartbeaty):
     silent         czujnik przestaje nadawać (po ~12 h w bazie będzie "silent")
     duplicate      każda ramka wysłana dwa razy; backend ma odpowiedzieć "duplicate"
 
-Licznik i bateria każdego czujnika są zapisywane w pliku stanu (--state), bo w firmware
-licznik też przetrwa restart. Na starcie każdy czujnik wysyła BOOT, jak po włączeniu.
+Licznik, boot_id i bateria każdego czujnika są zapisywane w pliku stanu (--state), bo w firmware
+numer uruchomienia przetrwa restart. Na starcie każdy czujnik wysyła BOOT z kolejnym boot_id,
+jak po włączeniu.
+
+Domyślnie ramki wersji 3 (boot_id w nagłówku każdej ramki, licznik od 1 w każdej sesji).
+--frame-version 2 wysyła jak dawniej: BOOT wersji 2 z boot_id, reszta wersji 1
+(działa tylko przy LEGACY_FRAMES=true).
 """
 
 import argparse
@@ -34,7 +39,12 @@ from pathlib import Path
 import httpx
 
 from app.demo import DEMO_SENSORS
-from app.protocol.encoder import encode_alarm, encode_boot, encode_heartbeat
+from app.protocol.encoder import (
+    VERSION_SESSION,
+    encode_alarm,
+    encode_boot,
+    encode_heartbeat,
+)
 
 log = logging.getLogger("simulator")
 
@@ -56,6 +66,9 @@ class VirtualSensor:
     counter: int = 0
     battery: int = 95
     silent: bool = False
+    boot_id: int = (
+        0  # jak w płytce: rośnie przy każdym starcie i przetrwa restart (plik stanu)
+    )
 
     def next_counter(self) -> int:
         self.counter = (self.counter + 1) % (1 << 16)
@@ -71,13 +84,21 @@ class Simulator:
         rng: random.Random | None = None,
         repeat_gap_s: float = 5.0,
         duplicate: bool = False,
+        frame_version: int = VERSION_SESSION,
     ):
         self.client = client
         self.sensors = sensors
         self.rng = rng or random.Random()
         self.repeat_gap_s = repeat_gap_s
         self.duplicate = duplicate
+        self.frame_version = frame_version
         self.drain: set[str] = set()
+
+    def _session(self, sensor: VirtualSensor) -> dict:
+        """Parametry nagłówka: w wersji 3 boot_id w każdej ramce, w starszych nic."""
+        if self.frame_version >= VERSION_SESSION:
+            return {"version": self.frame_version, "boot_id": sensor.boot_id}
+        return {}
 
     async def send(self, sensor: VirtualSensor, payload: bytes) -> list[dict]:
         """Wysyła ramkę (przy --scenario duplicate dwa razy). Zwraca odpowiedzi backendu."""
@@ -123,9 +144,27 @@ class Simulator:
         return results
 
     async def boot(self, sensor: VirtualSensor) -> list[dict]:
-        return await self.send(
-            sensor, encode_boot(sensor.next_counter(), battery_pct=sensor.battery)
-        )
+        sensor.boot_id = (sensor.boot_id + 1) % (1 << 16)
+        if self.frame_version >= VERSION_SESSION:
+            sensor.counter = 0  # wersja 3: nowa sesja, licznik od 1 (jak w firmware)
+            payload = encode_boot(
+                sensor.next_counter(), battery_pct=sensor.battery, **self._session(sensor)
+            )
+        else:
+            payload = encode_boot(
+                sensor.next_counter(), battery_pct=sensor.battery, boot_id=sensor.boot_id
+            )
+        results = await self.send(sensor, payload)
+        if any(r.get("status") == "duplicate" for r in results):
+            log.warning(
+                "%s: BOOT odrzucony jako powtórka (boot_id %s nie większy niż w bazie). "
+                "Plik stanu jest starszy niż baza: POST /api/v1/sensors/%s/reset-boot "
+                "(admin) albo --state z nowym plikiem po seed --reset",
+                sensor.id,
+                sensor.boot_id,
+                sensor.id,
+            )
+        return results
 
     async def heartbeat(self, sensor: VirtualSensor) -> list[dict]:
         if sensor.silent:
@@ -137,6 +176,7 @@ class Simulator:
             battery_pct=sensor.battery,
             rejected_events=self.rng.randint(0, 3),
             low_battery=sensor.battery < 20,
+            **self._session(sensor),
         )
         return await self.send(sensor, payload)
 
@@ -163,7 +203,10 @@ class Simulator:
             if i:
                 await asyncio.sleep(self.repeat_gap_s)
             payload = encode_alarm(
-                sensor.next_counter(), battery_pct=sensor.battery, **params
+                sensor.next_counter(),
+                battery_pct=sensor.battery,
+                **params,
+                **self._session(sensor),
             )
             results += await self.send(sensor, payload)
         return results
@@ -248,6 +291,7 @@ async def run(args: argparse.Namespace, client: httpx.AsyncClient) -> None:
         rng=random.Random(args.seed),
         repeat_gap_s=args.repeat_gap,
         duplicate=args.scenario == "duplicate",
+        frame_version=args.frame_version,
     )
     log.info(
         "Czujniki: %s, scenariusz: %s (cel: %s)", len(sensors), args.scenario, target.id
@@ -308,6 +352,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--ingest-key",
         default=os.environ.get("INGEST_API_KEY", ""),
         help="klucz X-Ingest-Key (domyślnie INGEST_API_KEY ze środowiska / .env)",
+    )
+    p.add_argument(
+        "--frame-version",
+        type=int,
+        choices=[2, VERSION_SESSION],
+        default=VERSION_SESSION,
+        help="wersja ramek: 3 (domyślnie) albo 2 (jak dawniej, wymaga LEGACY_FRAMES=true)",
     )
     p.add_argument("--once", action="store_true", help="jeden obrót i koniec")
     p.add_argument(

@@ -271,6 +271,10 @@ Odpowiedź `200`: zaktualizowany czujnik. Wyłączony czujnik dalej wysyła hear
 - nie ma takiego leśnictwa → `400`
 - `"range_id": null`, `"active": null` albo pusta nazwa → `422` (leśnictwa nie da się odpiąć)
 
+### `POST /api/v1/sensors/{id}/reset-boot`
+
+Tylko admin. Po wymianie płytki albo skasowaniu jej pamięci numer uruchomienia (`boot_id`) zaczyna od nowa i backend uznaje ramki za powtórkę (`duplicate`). Ten endpoint zapomina ostatni `boot_id` i licznik ramek czujnika, więc następna ramka zostanie przyjęta (w wersji 3 dowolna, w wersji 2 BOOT). Odpowiedź `204`, brak czujnika → `404`, inna rola niż admin → `403`. Opis: [boot-id.md](boot-id.md).
+
 ---
 
 ## 3. Wydania drewna (wyciszanie czujnika)
@@ -412,9 +416,13 @@ Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponow
 ---
  
 ## 5. Raporty (nadleśniczy)
- 
+
+Dostęp: `district_manager` i `admin` (wszystkie leśnictwa). Leśniczy dostaje `403`, bez tokena `401`.
+
+Oba endpointy biorą ten sam okres: `from` i `to` są **wymagane**, w formacie `RRRR-MM-DD`. To dni kalendarzowe w **UTC**, od `from` 00:00 do końca dnia `to` **włącznie**. `to` przed `from`, zła data albo okres dłuższy niż **366 dni** → `422`. Alarm należy do okresu według czasu wykrycia (`detected_at`), wydanie według czasu rozpoczęcia (`starts_at`).
+
 ### `GET /api/v1/reports/summary?from=2026-07-01&to=2026-09-30`
- 
+
 ```json
 {
   "period": { "from": "2026-07-01", "to": "2026-09-30" },
@@ -431,15 +439,36 @@ Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponow
   ]
 }
 ```
- 
-`per_week` służy do wykresu.
- 
+
+- `alarms.unanswered`: alarmy w statusie `new` (bez odpowiedzi leśniczego); `theft` i `false_alarm` to odpowiedzi leśniczego
+- `sensors` to **stan z chwili zapytania**, nie z okresu: `total` to czujniki zamontowane (z lokalizacją), `silent` to te w stanie `silent` ([stan czujnika](#stan-czujnika-state)), `low_battery` to bateria poniżej 20%
+- `per_sensor`: zamontowane czujniki oraz te, które miały alarm lub wydanie w okresie; od najwięcej alarmów, potem po nazwie; czujniki bez danych mają zera
+- `per_week` służy do wykresu: **każdy** tydzień ISO od `from` do `to` po kolei (`RRRR-Wnn`), także bez alarmów; tydzień ISO bywa z innego roku niż data (np. 1 stycznia 2027 to `2026-W53`)
+
 ### `GET /api/v1/reports/export.csv?from=2026-07-01&to=2026-09-30`
- 
-Plik CSV z alarmami i wydaniami (do Excela). `Content-Type: text/csv`, a frontend robi z tego zwykły link do pobrania.
- 
+
+Plik CSV z alarmami **i** wydaniami z okresu w jednej tabeli, od najstarszego (do Excela). Odpowiedź `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="raport-2026-07-01_2026-09-30.csv"`, więc frontend robi z tego zwykły link do pobrania (z tokenem w nagłówku trzeba pobrać plik zapytaniem i zapisać go jako plik).
+
+- kodowanie UTF-8 **z BOM**, separator `;`, końce wierszy CRLF: Excel w polskich ustawieniach otwiera plik bez importu i poprawnie pokazuje polskie znaki
+- czas w UTC, `RRRR-MM-DD GG:MM:SS`
+- pierwszy wiersz to nagłówek; kolumny:
+
+| kolumna | alarm | wydanie |
+|---|---|---|
+| `typ` | `alarm` | `wydanie` |
+| `id`, `czujnik_id`, `czujnik`, `leśnictwo` | tak | tak |
+| `start (UTC)`, `koniec (UTC)` | wykrycie, ostatnia ramka | początek, koniec wydania |
+| `status` | `nowy` / `kradzież` / `fałszywy alarm` | `trwa` / `zakończone` |
+| `pewność %`, `źródła`, `powtórzenia` | tak (źródła: `dźwięk, wibracje`) | puste |
+| `odpowiedź: kto`, `odpowiedź: kiedy (UTC)` | tak (puste bez odpowiedzi) | puste |
+| `komentarz` | komentarz leśniczego | komentarz do wydania |
+| `przewoźnik`, `liczba kłód`, `utworzył` | puste | tak |
+
+- tekst zaczynający się od `=`, `+`, `-` albo `@` dostaje na początku apostrof (`'=…`), żeby Excel nie wykonał go jak formuły; komentarze i nazwy wpisują użytkownicy
+- okres bez danych daje plik z samym nagłówkiem
+
 ---
- 
+
 ## 6. Powiadomienia push (Web Push, VAPID)
  
 Standardowy Web Push przeglądarki z kluczami VAPID, bez Firebase. Pushe dostaje tylko leśniczy (`forester`). Nadleśniczy korzysta z raportów.

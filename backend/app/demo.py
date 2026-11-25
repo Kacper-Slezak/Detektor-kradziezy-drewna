@@ -18,7 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import Alarm, Message, PushSubscription, Range, Release, Sensor, User
-from app.protocol.encoder import encode_alarm, encode_boot, encode_heartbeat
+from app.protocol.encoder import (
+    VERSION_SESSION,
+    encode_alarm,
+    encode_boot,
+    encode_heartbeat,
+)
 from app.security import hash_password
 from app.services.ingest import ingest
 
@@ -29,6 +34,10 @@ DEMO_PREFIX = "70B3D57ED00D"
 HISTORY_DAYS = 7
 HEARTBEAT_EVERY = timedelta(hours=6)
 REPEAT_GAP = timedelta(seconds=30)  # ALARM wysyłany 3 razy co 30 s
+# Historia demo to jedna sesja płytki: ramki wersji 3 z boot_id 0. Symulator przy starcie
+# wysyła boot_id >= 1, więc jego ramki są nowszą sesją i backend je przyjmuje.
+DEMO_BOOT_ID = 0
+_V3 = {"version": VERSION_SESSION, "boot_id": DEMO_BOOT_ID}
 
 DABROWA = "Leśnictwo Dąbrowa"
 OLSZYNY = "Leśnictwo Olszyny"
@@ -123,7 +132,7 @@ class _Plan:
 def _burst(start: datetime, counter: int, **alarm) -> list[_Frame]:
     """ALARM wysłany 3 razy, jak w firmware. Backend scali je w jeden alarm."""
     return [
-        _Frame(start + i * REPEAT_GAP, encode_alarm(counter + i, **alarm))
+        _Frame(start + i * REPEAT_GAP, encode_alarm(counter + i, **alarm, **_V3))
         for i in range(3)
     ]
 
@@ -135,7 +144,7 @@ def _plan(sensor: DemoSensor, now: datetime, rng: random.Random) -> _Plan:
     if sensor.scenario == "bench":
         # sprawdzony na biurku: jedna ramka BOOT godzinę temu
         plan.frames.append(
-            _Frame(now - timedelta(hours=1), encode_boot(0, battery_pct=100))
+            _Frame(now - timedelta(hours=1), encode_boot(0, battery_pct=100, **_V3))
         )
         return plan
 
@@ -143,7 +152,9 @@ def _plan(sensor: DemoSensor, now: datetime, rng: random.Random) -> _Plan:
     end = now - timedelta(hours=20) if sensor.scenario == "silent" else now
     battery = float(sensor.battery_start)
     counter = 0
-    plan.frames.append(_Frame(start, encode_boot(counter, battery_pct=round(battery))))
+    plan.frames.append(
+        _Frame(start, encode_boot(counter, battery_pct=round(battery), **_V3))
+    )
 
     # zdarzenia: (czas, funkcja tworząca ramki dla danego licznika)
     events: list[tuple[datetime, str]] = []
@@ -199,6 +210,7 @@ def _plan(sensor: DemoSensor, now: datetime, rng: random.Random) -> _Plan:
                     battery_pct=round(battery),
                     rejected_events=rng.randint(0, 4),
                     low_battery=battery < 20,
+                    **_V3,
                 ),
             )
         )
