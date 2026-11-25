@@ -340,6 +340,9 @@ export async function mockCreateSensor(token: string | null, newSensor: NewSenso
   return { ...sensor }
 }
 
+// state of a sensor before the admin switched it off, given back when it is switched on again
+const stateBeforeOff = new Map<string, Sensor['state']>()
+
 export async function mockUpdateSensor(token: string | null, id: string, changes: SensorChanges): Promise<Sensor> {
   await delay()
   adminByToken(token)
@@ -348,8 +351,37 @@ export async function mockUpdateSensor(token: string | null, id: string, changes
   if (changes.range_id !== undefined && !ranges.some((r) => r.id === changes.range_id)) {
     throw new ApiError(400, 'Nie ma takiego leśnictwa')
   }
+  if (changes.active === false && sensor.active) {
+    stateBeforeOff.set(sensor.id, sensor.state)
+    sensor.state = 'inactive'
+  } else if (changes.active === true && !sensor.active && sensor.lat !== null) {
+    // like the backend: on again it shows what it really is; a sensor never heard from is silent
+    sensor.state = stateBeforeOff.get(sensor.id) ?? (sensor.last_seen ? 'ok' : 'silent')
+    stateBeforeOff.delete(sensor.id)
+  }
   Object.assign(sensor, changes)
   return { ...sensor }
+}
+
+// DELETE /sensors/{id}: like the backend, alarms and releases are records, so a sensor
+// that has any is not deleted (409 with the counts)
+export async function mockDeleteSensor(token: string | null, id: string): Promise<void> {
+  await delay()
+  adminByToken(token)
+  // the ID can be typed like on the sticker, with colons and in lower case
+  const normalized = id.replace(/:/g, '').toUpperCase()
+  const index = sensors.findIndex((s) => s.id === normalized)
+  if (index === -1) throw new ApiError(404, `Czujnik o id ${id} nie istnieje`)
+  const alarmCount = alarms.filter((a) => a.sensor.id === normalized).length
+  const releaseCount = releases.filter((r) => r.sensor_id === normalized).length
+  if (alarmCount || releaseCount) {
+    throw new ApiError(
+      409,
+      `Czujnik ma historię (alarmy: ${alarmCount}, wydania: ${releaseCount}), więc nie można go usunąć. ` +
+        'Wyłącz go zamiast tego (PATCH active=false).',
+    )
+  }
+  sensors.splice(index, 1)
 }
 
 export async function mockMountSensor(token: string | null, id: string, mount: SensorMount): Promise<Sensor> {

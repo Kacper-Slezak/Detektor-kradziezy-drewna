@@ -35,8 +35,16 @@ Czujnik trzeba dodać w panelu, zanim zacznie wysyłać dane. Backend odrzuca ra
   - leśnictwo jest wymagane, bo bez niego żaden leśniczy nie zobaczy czujnika na liście do montażu
   - nazwa jest opcjonalna, zwykle nadaje ją leśniczy przy montażu
 - nowy czujnik jest nieaktywny i bez lokalizacji. Aktywny staje się po montażu przez leśniczego (`PUT /sensors/{id}/mount`)
-- **✏️ w wierszu** otwiera edycję: można zmienić leśnictwo i nazwę. ID się nie zmienia, bo pochodzi z urządzenia
+- **✏️ w wierszu** otwiera edycję: można zmienić leśnictwo, nazwę i **włączenie**. ID się nie zmienia, bo pochodzi z urządzenia
 - **leśniczego przypisujemy przez leśnictwo.** Czujnik obsługują aktywni leśniczy jego leśnictwa, więc kolumna Leśniczy i listy leśnictw w formularzach („Leśnictwo Dąbrowa · Błażej Kowalski”) wynikają z kont użytkowników. Gdy leśniczy się zmieni, wystarczy przepiąć konto, a czujniki przejdą same
+
+### Wyłączanie i usuwanie
+
+- **Czujnik włączony** : wyłączony czujnik nie zgłasza alarmów, a jego pinezka jest szara. Historia alarmów i wydań zostaje, a po włączeniu czujnik wraca do swojego stanu. Niezamontowanego czujnika nie da się włączyć, bo włącza go montaż
+- **Usuń czujnik** : tylko czujnik **bez alarmów i wydań**, np. dodany z literówką w ID albo testowy. Po usunięciu znika z tabeli
+- czujnik z historią backend odrzuca (`409`), bo alarmy i wydania to ewidencja. Apka nie pokazuje wtedy błędu, tylko wyjaśnienie i przycisk **Wyłącz czujnik**. Gdy czujnik jest już wyłączony, zostaje samo wyjaśnienie
+
+Endpointy: `PATCH /sensors/{id}` z `{ "active": false }` i `DELETE /sensors/{id}` ([api.md, sekcja 2](../backend/api.md)).
 
 Endpointy `GET /sensors` (wszystkie czujniki), `POST /sensors` z polami `{ "id", "range_id", "name" }` i pole `range_id` w `PATCH /sensors/{id}` są uzgodnione z backendem, ale jeszcze ich nie ma ani w `api.md`, ani w kodzie. Do tego czasu sekcja działa tylko na mocku (`VITE_USE_MOCK=true`), a na prawdziwym backendzie pokazuje błąd 404. Sekcja pobiera też `GET /users`, żeby pokazać leśniczych.
 

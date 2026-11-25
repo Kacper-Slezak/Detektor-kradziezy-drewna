@@ -122,6 +122,24 @@
     "added": "Sensor {{id}} added. The forester will mount it in the app.",
     "addedDone": "OK",
     "saved": "Changes to sensor {{id}} saved.",
+    "deleted": "Sensor {{id}} deleted.",
+    "switchedOff": "Sensor {{id}} switched off.",
+    "delete": {
+      "section": "Deleting the sensor",
+      "open": "Delete sensor",
+      "hint": "Only a sensor with no alarms or releases.",
+      "question": "Delete sensor {{id}} for good?",
+      "cannotUndo": "This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…",
+      "hasHistory": "This sensor cannot be deleted, because it has alarms or releases.",
+      "switchOffHint": "You can switch it off: it stops raising alarms, and the history stays.",
+      "alreadyOff": "It stays in the system switched off, with its history.",
+      "switchOff": "Switch the sensor off",
+      "switchingOff": "Switching off…",
+      "ok": "OK"
+    },
     "form": {
       "title": "New sensor",
       "description": "The sensor will show up on the forester’s list to mount. The phone saves its location when mounting.",
@@ -144,7 +162,10 @@
       "title": "Edit sensor",
       "description": "After changing the forest range, the sensor is shown to the forester of the new range.",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "active": "Sensor switched on",
+      "activeHint": "A switched-off sensor raises no alarms and its pin is grey. The alarm and release history stays.",
+      "activeUnmounted": "The sensor switches on by itself when a forester mounts it."
     },
     "stats": {
       "all": "All sensors",

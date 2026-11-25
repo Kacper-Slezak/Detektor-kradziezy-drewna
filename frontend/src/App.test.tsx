@@ -134,6 +134,30 @@ describe('admin panel', () => {
     expect(await screen.findByText('Skład przy drodze 5')).toBeInTheDocument()
   })
 
+  it('deletes a test sensor and switches off one with history instead', async () => {
+    render(<App />)
+    const user = await logIn('admin', 'admin123')
+    await user.click(within(await screen.findByRole('navigation', { name: 'Menu panelu' })).getByRole('button', { name: 'Czujniki' }))
+    await screen.findByText('Skład przy drodze 5')
+
+    // not mounted, no alarms or releases: it can go
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED005A1B2' }))
+    let form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+    expect(await screen.findByText('Usunięto czujnik 70B3D57ED005A1B2.')).toBeInTheDocument()
+    expect(screen.queryByText('70B3D57ED005A1B2')).not.toBeInTheDocument()
+
+    // an alarm and a release: it stays, switched off
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED005DEF0' }))
+    form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+    await user.click(await within(form).findByRole('button', { name: 'Wyłącz czujnik' }))
+    expect(await screen.findByText('Wyłączono czujnik 70B3D57ED005DEF0.')).toBeInTheDocument()
+    expect(within(screen.getByRole('row', { name: /70B3D57ED005DEF0/ })).getByText('Wyłączony')).toBeInTheDocument()
+  })
+
   it('a new forester can sign in with the temporary password', async () => {
     render(<App />)
     const user = await logIn('admin', 'admin123')

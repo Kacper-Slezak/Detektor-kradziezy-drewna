@@ -122,6 +122,24 @@
     "added": "Dodano czujnik {{id}}. Leśniczy zamontuje go w aplikacji.",
     "addedDone": "OK",
     "saved": "Zapisano zmiany czujnika {{id}}.",
+    "deleted": "Usunięto czujnik {{id}}.",
+    "switchedOff": "Wyłączono czujnik {{id}}.",
+    "delete": {
+      "section": "Usuwanie czujnika",
+      "open": "Usuń czujnik",
+      "hint": "Tylko czujnik bez alarmów i wydań.",
+      "question": "Usunąć czujnik {{id}} na stałe?",
+      "cannotUndo": "Tego nie da się cofnąć.",
+      "cancel": "Anuluj",
+      "confirm": "Usuń",
+      "deleting": "Usuwanie…",
+      "hasHistory": "Tego czujnika nie można usunąć, bo ma alarmy lub wydania.",
+      "switchOffHint": "Możesz go wyłączyć: przestanie zgłaszać alarmy, a historia zostanie.",
+      "alreadyOff": "Zostaje w systemie jako wyłączony, razem z historią.",
+      "switchOff": "Wyłącz czujnik",
+      "switchingOff": "Wyłączanie…",
+      "ok": "OK"
+    },
     "form": {
       "title": "Nowy czujnik",
       "description": "Czujnik pojawi się u leśniczego na liście do montażu. Lokalizację zapisze telefon przy montażu.",
@@ -144,7 +162,10 @@
       "title": "Edycja czujnika",
       "description": "Po zmianie leśnictwa czujnik zobaczy leśniczy z nowego leśnictwa.",
       "save": "Zapisz",
-      "saving": "Zapisywanie…"
+      "saving": "Zapisywanie…",
+      "active": "Czujnik włączony",
+      "activeHint": "Wyłączony czujnik nie zgłasza alarmów, a jego pinezka jest szara. Historia alarmów i wydań zostaje.",
+      "activeUnmounted": "Czujnik włączy się sam, gdy leśniczy go zamontuje."
     },
     "stats": {
       "all": "Wszystkie czujniki",

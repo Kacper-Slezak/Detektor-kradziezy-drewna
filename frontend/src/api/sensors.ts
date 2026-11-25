@@ -2,7 +2,7 @@
 // POST /sensors (admin) and range_id in PATCH are not in api.md yet either
 
 import { USE_MOCK, apiFetch, getToken } from './client'
-import { mockCreateSensor, mockListSensors, mockMountSensor, mockUpdateSensor } from './mock'
+import { mockCreateSensor, mockDeleteSensor, mockListSensors, mockMountSensor, mockUpdateSensor } from './mock'
 import type { NewSensor, Sensor, SensorChanges, SensorFilters, SensorMount } from './types'
 
 // A forester gets the sensors of their own range, a district manager and the admin get everything
@@ -30,6 +30,13 @@ export function updateSensor(id: string, changes: SensorChanges): Promise<Sensor
     method: 'PATCH',
     body: JSON.stringify(changes),
   })
+}
+
+// Admin only, for a sensor with no history (a typo in the DevEUI, a test device): 204.
+// A sensor with alarms or releases gives 409; it can be switched off instead (active: false)
+export function deleteSensor(id: string): Promise<void> {
+  if (USE_MOCK) return mockDeleteSensor(getToken(), id)
+  return apiFetch<void>(`/sensors/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 // The forester mounts a sensor of their range; after this it is active and has a pin on the map
