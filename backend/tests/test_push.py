@@ -604,7 +604,7 @@ async def test_koniec_wydania_push_raz(sent, session_maker, make_user, ranges):
             "release_id": release_id,
             "title": "Koniec wydania: Skład przy drodze 5",
             "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły",
-            "url": "/releases",
+            "url": f"/releases/{release_id}",
         }
     ]
 

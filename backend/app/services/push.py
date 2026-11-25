@@ -102,7 +102,7 @@ def release_ended_payload(release: Release, sensor: Sensor) -> dict:
         "release_id": release.id,
         "title": f"Koniec wydania: {_label(sensor)}",
         "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły",
-        "url": "/releases",
+        "url": f"/releases/{release.id}",
     }
 
 
