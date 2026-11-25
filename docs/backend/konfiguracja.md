@@ -22,6 +22,7 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `NOTIFY_CHECK_INTERVAL_S` | Co ile sekund backend sprawdza czujniki bez kontaktu i zakończone wydania, żeby wysłać push `silent` / `release_ended` (domyślnie `300`) |
 | `RELEASE_DEFAULT_HOURS` | Długość wydania drewna (wyciszenia), gdy apka nie poda końca (domyślnie `4`) |
 | `RELEASE_MAX_HOURS` | Najdłuższe dopuszczalne wydanie w godzinach (domyślnie `24`); dłuższe → `422` |
+| `BOOT_ID_REQUIRED` | `true` przyjmuje tylko BOOT z `boot_id` (ramka wersji 2), inny → `422`. Włącz, gdy wszystkie płytki go wysyłają ([boot-id.md](boot-id.md)); domyślnie `false` |
 
 ## Konto admina (seed)
 

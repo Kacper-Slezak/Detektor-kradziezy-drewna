@@ -5,7 +5,7 @@ import struct
 from dataclasses import asdict, dataclass
 from enum import IntEnum
 
-SUPPORTED_VERSIONS = {1}
+SUPPORTED_VERSIONS = {1, 2}  # 2 = jak 1, ale BOOT niesie boot_id (ochrona przed powtórką BOOT)
 HEADER = struct.Struct(">BH")  # wersja|typ, licznik
 
 
@@ -57,6 +57,8 @@ class BootFrame:
     firmware_version: int
     reset_reason: int  # 1 włączenie, 2 watchdog, 3 za niskie napięcie
     battery_pct: int
+    # wersja 2: numer uruchomienia, rośnie przy każdym starcie (pamięć nieulotna płytki); w wersji 1 brak
+    boot_id: int | None = None
 
 
 Frame = AlarmFrame | HeartbeatFrame | BootFrame
@@ -67,6 +69,32 @@ BODY = {
     MsgType.HEARTBEAT: struct.Struct(">BBB"),  # bateria, odrzucone, flagi
     MsgType.BOOT: struct.Struct(">BBB"),  # firmware, przyczyna, bateria
 }
+
+
+# BOOT w wersji 2: to samo co w 1 plus boot_id (2 B). Ramka jawna ma wtedy 8 B zamiast 6 B.
+BOOT_V2_BODY = struct.Struct(">BBBH")  # firmware, przyczyna, bateria, boot_id
+
+
+def body_struct(version: int, msg_type: MsgType) -> struct.Struct:
+    """Układ bajtów po nagłówku. Różni się tylko BOOT: wersja 2 ma boot_id."""
+    if msg_type is MsgType.BOOT and version >= 2:
+        return BOOT_V2_BODY
+    return BODY[msg_type]
+
+
+def frame_length(first_byte: int) -> int:
+    """Długość jawnej ramki w bajtach według pierwszego bajtu (wersja i typ).
+
+    Dla warstwy szyfrującej, która obcina dopełnienie zerami po odszyfrowaniu.
+    """
+    version, type_code = first_byte >> 4, first_byte & 0x0F
+    if version not in SUPPORTED_VERSIONS:
+        raise FrameError(f"nieobsługiwana wersja ramki: {version}")
+    try:
+        msg_type = MsgType(type_code)
+    except ValueError:
+        raise FrameError(f"nieznany typ wiadomości: {type_code}") from None
+    return HEADER.size + body_struct(version, msg_type).size
 
 
 def _percent(value: int, field: str) -> int:
@@ -89,7 +117,7 @@ def decode(payload: bytes) -> Frame:
     except ValueError:
         raise FrameError(f"nieznany typ wiadomości: {type_code}") from None
 
-    body = BODY[msg_type]
+    body = body_struct(version, msg_type)
     expected = HEADER.size + body.size
     if len(payload) != expected:
         raise FrameError(f"{msg_type.name}: oczekiwano {expected} B, jest {len(payload)} B")
@@ -114,8 +142,10 @@ def decode(payload: bytes) -> Frame:
             sensor_error=bool(flags & 0b100),
         )
 
-    firmware, reason, battery = fields
-    return BootFrame(header, firmware, reason, _percent(battery, "bateria"))
+    firmware, reason, battery, *rest = fields
+    return BootFrame(
+        header, firmware, reason, _percent(battery, "bateria"), boot_id=rest[0] if rest else None
+    )
 
 
 def decode_hex(payload_hex: str) -> Frame:

@@ -312,3 +312,28 @@ async def mount_sensor(
         sensor.lon,
     )
     return await _one_out(session, sensor)
+
+
+@router.post(
+    "/{sensor_id}/reset-boot",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        403: {"description": "Tylko admin"},
+        404: {"description": "Brak czujnika"},
+    },
+)
+async def reset_boot(sensor_id: str, admin: AdminUser, session: Session) -> Response:
+    """Po wymianie płytki albo skasowaniu jej pamięci (numer uruchomienia zaczyna od nowa).
+
+    Zapomina ostatni `boot_id` i licznik ramek, więc następny BOOT czujnika zostanie przyjęty.
+    """
+    sensor = await session.get(Sensor, normalize_sensor_id(sensor_id))
+    if sensor is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, f"Czujnik o id {sensor_id} nie istnieje"
+        )
+    sensor.last_boot_id = None
+    sensor.last_counter = None
+    await session.commit()
+    log.info("%s wyzerował boot_id i licznik czujnika %s", admin.login, sensor.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

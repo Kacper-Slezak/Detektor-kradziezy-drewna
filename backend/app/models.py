@@ -84,6 +84,8 @@ class Sensor(Base):
     battery_pct: Mapped[int | None]
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_counter: Mapped[int | None]
+    # największy boot_id z przyjętego BOOT (wersja 2); None = czujnik nie używa boot_id
+    last_boot_id: Mapped[int | None]
     # push już poszedł; kasowane, gdy bateria wróci powyżej progu / przyjdzie ramka
     low_battery_notified: Mapped[bool] = mapped_column(default=False)
     silent_notified: Mapped[bool] = mapped_column(default=False)

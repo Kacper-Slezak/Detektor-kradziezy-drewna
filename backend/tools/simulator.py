@@ -18,8 +18,9 @@ Scenariusze (dotyczą czujnika --target, reszta wysyła zwykłe heartbeaty):
     silent         czujnik przestaje nadawać (po ~12 h w bazie będzie "silent")
     duplicate      każda ramka wysłana dwa razy; backend ma odpowiedzieć "duplicate"
 
-Licznik i bateria każdego czujnika są zapisywane w pliku stanu (--state), bo w firmware
-licznik też przetrwa restart. Na starcie każdy czujnik wysyła BOOT, jak po włączeniu.
+Licznik, boot_id i bateria każdego czujnika są zapisywane w pliku stanu (--state), bo w firmware
+licznik i numer uruchomienia też przetrwają restart. Na starcie każdy czujnik wysyła BOOT
+z kolejnym boot_id (ramka wersji 2), jak po włączeniu.
 """
 
 import argparse
@@ -56,6 +57,9 @@ class VirtualSensor:
     counter: int = 0
     battery: int = 95
     silent: bool = False
+    boot_id: int = (
+        0  # jak w płytce: rośnie przy każdym starcie i przetrwa restart (plik stanu)
+    )
 
     def next_counter(self) -> int:
         self.counter = (self.counter + 1) % (1 << 16)
@@ -123,9 +127,25 @@ class Simulator:
         return results
 
     async def boot(self, sensor: VirtualSensor) -> list[dict]:
-        return await self.send(
-            sensor, encode_boot(sensor.next_counter(), battery_pct=sensor.battery)
+        sensor.boot_id = (sensor.boot_id + 1) % (1 << 16)
+        results = await self.send(
+            sensor,
+            encode_boot(
+                sensor.next_counter(),
+                battery_pct=sensor.battery,
+                boot_id=sensor.boot_id,
+            ),
         )
+        if any(r.get("status") == "duplicate" for r in results):
+            log.warning(
+                "%s: BOOT odrzucony jako powtórka (boot_id %s nie większy niż w bazie). "
+                "Plik stanu jest starszy niż baza: POST /api/v1/sensors/%s/reset-boot "
+                "(admin) albo --state z nowym plikiem po seed --reset",
+                sensor.id,
+                sensor.boot_id,
+                sensor.id,
+            )
+        return results
 
     async def heartbeat(self, sensor: VirtualSensor) -> list[dict]:
         if sensor.silent:
