@@ -237,6 +237,32 @@ class ReleaseOut(BaseModel):
     created_by: str | None
 
 
+# --- Powiadomienia push ---
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(min_length=1, max_length=100)
+    auth: str = Field(min_length=1, max_length=50)
+
+
+class PushSubscriptionIn(BaseModel):
+    """To, co zwraca `PushSubscription.toJSON()` w przeglądarce, plus etykieta urządzenia."""
+
+    endpoint: str = Field(min_length=1, max_length=2000, pattern=r"^https://")
+    keys: PushKeys
+    device_label: str | None = Field(default=None, max_length=100)
+    # przeglądarka go wysyła, ale go nie używamy
+    expirationTime: float | None = None
+
+
+class PushSubscriptionOut(BaseModel):
+    id: int
+
+
+class VapidKeyOut(BaseModel):
+    public_key: str
+
+
 # --- Alarmy ---
 
 AlarmStatus = Literal["new", "theft", "false_alarm"]

@@ -1,4 +1,7 @@
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -7,13 +10,25 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.routers import alarms, auth, ingest, releases, reports, sensors, users
+from app.routers import alarms, auth, ingest, push, releases, sensors, users
+from app.services.push import run_periodic_checks
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
 )
 
-app = FastAPI(title="Detektor kradzieży drewna")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Pętla pushy bez ramki (brak kontaktu, koniec wydania) żyje tyle, co aplikacja."""
+    task = asyncio.create_task(run_periodic_checks())
+    yield
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+
+app = FastAPI(title="Detektor kradzieży drewna", lifespan=lifespan)
 app.include_router(ingest.router)
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -21,6 +36,7 @@ app.include_router(sensors.router)
 app.include_router(alarms.router)
 app.include_router(releases.router)
 app.include_router(reports.router)
+app.include_router(push.router)
 
 
 log = logging.getLogger(__name__)

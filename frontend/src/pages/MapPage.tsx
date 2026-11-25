@@ -1,25 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bell, KeyRound, LocateFixed, LogOut, Map as MapIcon, Menu } from 'lucide-react'
+import { Bell, KeyRound, LocateFixed, LogOut, Map as MapIcon, Menu, Truck } from 'lucide-react'
 import { cn } from 'cn'
 
 import { ApiError } from '@/api/client'
 import { listSensors } from '@/api/sensors'
-import type { Sensor, User } from '@/api/types'
+import type { Release, Sensor, User } from '@/api/types'
+import { EndReleaseConfirm } from '@/components/EndReleaseConfirm'
 import { InstallButton } from '@/components/InstallButton'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { MountSensorForm } from '@/components/MountSensorForm'
 import { PushButton } from '@/components/PushButton'
+import { ReleaseForm } from '@/components/ReleaseForm'
 import { SensorMap } from '@/components/SensorMap'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { REFRESH_MS } from '@/lib/refresh'
 import { goTo, parseRoute, type Route } from '@/lib/route'
-import { STATUS_DOT, statusOf, type Status } from '@/lib/sensor-status'
+import { formatDateTime, STATUS_DOT, statusOf, type Status } from '@/lib/sensor-status'
 import { AlarmsPage } from '@/pages/AlarmsPage'
+import { ReleasesPage } from '@/pages/ReleasesPage'
 
-type View = 'map' | 'alarms'
+type View = Route['view']
+
+const TITLE = { map: 'map.title', alarms: 'alarms.title', releases: 'releases.title' } as const
 
 // big enough to hit with a thumb (about 44 px)
 const VIEW_BUTTON = 'h-11 gap-2 px-3 text-base [&_svg]:size-5!'
@@ -36,7 +41,7 @@ interface MapPageProps {
 
 // Home screen of a forester and a district manager: full-screen map of sensors, or the alarm list
 export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: MapPageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [sensors, setSensors] = useState<Sensor[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -48,8 +53,11 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   const [mountOpen, setMountOpen] = useState(false)
   // the mounted sensor the forester is moving to another stack (same panel as mounting)
   const [moving, setMoving] = useState<Sensor | null>(null)
-  // the sensor just mounted or moved, for the message over the map
-  const [saved, setSaved] = useState<{ name: string; moved: boolean } | null>(null)
+  // the sensor being muted for timber pickup, and the one whose muting is being ended
+  const [releasing, setReleasing] = useState<Sensor | null>(null)
+  const [endingRelease, setEndingRelease] = useState<Sensor | null>(null)
+  // what the forester has just done (mounted, moved, muted...), for the message over the map
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     // the phone's back button
@@ -59,7 +67,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   }, [])
 
   function setView(next: View) {
-    const nextRoute: Route = next === 'map' ? { view: 'map' } : { view: 'alarms', alarmId: null }
+    const nextRoute: Route = next === 'alarms' ? { view: 'alarms', alarmId: null } : { view: next }
     goTo(nextRoute)
     setRoute(nextRoute)
   }
@@ -91,16 +99,41 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   // api.md: only a forester mounts (the district manager would get 403)
   const canMount = user.role === 'forester' && unmountedSensors.length > 0
 
+  // after any change the pins load again at once, not after REFRESH_MS
+  const reloadSensors = () => setSensorsKey((k) => k + 1)
+
   function handleMounted(sensor: Sensor) {
-    setSaved({ name: sensor.name ?? sensor.id, moved: moving !== null })
+    setNotice(t(moving ? 'mount.moved' : 'mount.saved', { name: sensor.name ?? sensor.id }))
     closeMount()
-    // the new pin shows up at once, not after REFRESH_MS
-    setSensorsKey((k) => k + 1)
+    reloadSensors()
   }
 
   function startMove(sensor: Sensor) {
-    setSaved(null)
+    setNotice(null)
     setMoving(sensor)
+  }
+
+  function startRelease(sensor: Sensor) {
+    setNotice(null)
+    setReleasing(sensor)
+  }
+
+  function handleReleased(release: Release) {
+    const name = releasing?.name ?? release.sensor_name ?? release.sensor_id
+    setNotice(t('release.saved', { name, time: formatDateTime(release.ends_at, i18n.language) }))
+    setReleasing(null)
+    reloadSensors()
+  }
+
+  function startEndRelease(sensor: Sensor) {
+    setNotice(null)
+    setEndingRelease(sensor)
+  }
+
+  function handleReleaseEnded() {
+    if (endingRelease) setNotice(t('release.ended', { name: endingRelease.name ?? endingRelease.id }))
+    setEndingRelease(null)
+    reloadSensors()
   }
 
   function closeMount() {
@@ -113,13 +146,18 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   })).filter(({ count }) => count > 0)
   // sensors with an alarm that waits for the forester; refreshed together with the map
   const openAlarms = (sensors ?? []).filter((s) => s.open_alarm_id !== null).length
+  // a sensor is muted only while a release lasts, so this is the number of ongoing releases
+  const ongoingReleases = (sensors ?? []).filter((s) => s.muted_until !== null).length
+  // three labels do not fit a narrow phone: there only the open view keeps its label,
+  // the others show the icon (the screen reader still reads the whole name)
+  const label = (of: View) => cn(view !== of && 'max-sm:sr-only')
 
   return (
     <div className="flex h-svh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3">
         <img src="/logo.svg" alt="" className="size-7 rounded" />
         {/* on phones the view buttons already say where we are */}
-        <h1 className="truncate font-semibold max-sm:sr-only">{t(view === 'map' ? 'map.title' : 'alarms.title')}</h1>
+        <h1 className="truncate font-semibold max-sm:sr-only">{t(TITLE[view])}</h1>
         <nav aria-label={t('map.views')} className="flex flex-1 items-center gap-1 sm:justify-center">
           <Button
             variant={view === 'map' ? 'secondary' : 'ghost'}
@@ -128,7 +166,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             onClick={() => setView('map')}
           >
             <MapIcon />
-            {t('map.viewMap')}
+            <span className={label('map')}>{t('map.viewMap')}</span>
           </Button>
           <Button
             variant={view === 'alarms' ? 'secondary' : 'ghost'}
@@ -138,10 +176,28 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             onClick={() => setView('alarms')}
           >
             <Bell />
-            {t('map.viewAlarms')}
+            <span className={label('alarms')}>{t('map.viewAlarms')}</span>
             {openAlarms > 0 && (
               <span className="min-w-6 rounded-full bg-red-600 px-1.5 text-sm leading-6 text-white tabular-nums">
                 {openAlarms}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant={view === 'releases' ? 'secondary' : 'ghost'}
+            aria-current={view === 'releases' ? 'page' : undefined}
+            aria-label={
+              ongoingReleases > 0 ? t('map.viewReleasesOngoing', { count: ongoingReleases }) : t('map.viewReleases')
+            }
+            className={VIEW_BUTTON}
+            onClick={() => setView('releases')}
+          >
+            <Truck />
+            <span className={label('releases')}>{t('map.viewReleases')}</span>
+            {ongoingReleases > 0 && (
+              // blue like a muted pin, so it is not taken for an alarm
+              <span className="min-w-6 rounded-full bg-sky-600 px-1.5 text-sm leading-6 text-white tabular-nums">
+                {ongoingReleases}
               </span>
             )}
           </Button>
@@ -156,7 +212,9 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
       </header>
 
       <main className="relative min-h-0 flex-1">
-        {view === 'alarms' ? (
+        {view === 'releases' ? (
+          <ReleasesPage sensors={sensors ?? []} canEnd={user.role === 'forester'} onEnded={reloadSensors} />
+        ) : view === 'alarms' ? (
           <AlarmsPage
             // a new alarm from the address starts the list again
             key={route.alarmId ?? 'list'}
@@ -171,8 +229,10 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
         ) : (
           <SensorMap
             sensors={sensors ?? []}
-            // api.md: a forester moves sensors of their range (the district manager would get 403)
+            // api.md: a forester moves and mutes sensors of their range (the district manager would get 403)
             onMove={user.role === 'forester' ? startMove : undefined}
+            onRelease={user.role === 'forester' ? startRelease : undefined}
+            onEndRelease={user.role === 'forester' ? startEndRelease : undefined}
           />
         )}
 
@@ -184,9 +244,9 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
                 {t('home.passwordChanged')}
               </p>
             )}
-            {saved && (
+            {notice && (
               <p role="status" className="rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-foreground/10">
-                {t(saved.moved ? 'mount.moved' : 'mount.saved', { name: saved.name })}
+                {notice}
               </p>
             )}
             {error && (
@@ -221,7 +281,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
               <Button
                 className="mt-1 h-11 text-base [&_svg]:size-5!"
                 onClick={() => {
-                  setSaved(null)
+                  setNotice(null)
                   setMountOpen(true)
                 }}
               >
@@ -244,6 +304,33 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             <MountSensorForm key={moving.id} sensors={[moving]} onMounted={handleMounted} moving />
           ) : (
             mountOpen && <MountSensorForm sensors={unmountedSensors} onMounted={handleMounted} />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={releasing !== null} onOpenChange={(open) => !open && setReleasing(null)}>
+        <SheetContent closeLabel={t('mount.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('release.title')}</SheetTitle>
+            <SheetDescription>{t('release.description')}</SheetDescription>
+          </SheetHeader>
+          {releasing && <ReleaseForm key={releasing.id} sensor={releasing} onReleased={handleReleased} />}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={endingRelease !== null} onOpenChange={(open) => !open && setEndingRelease(null)}>
+        <SheetContent closeLabel={t('mount.close')}>
+          <SheetHeader>
+            <SheetTitle>{t('release.endTitle')}</SheetTitle>
+            <SheetDescription>{t('release.endDescription')}</SheetDescription>
+          </SheetHeader>
+          {endingRelease && (
+            <EndReleaseConfirm
+              key={endingRelease.id}
+              sensor={endingRelease}
+              onEnded={handleReleaseEnded}
+              onCancel={() => setEndingRelease(null)}
+            />
           )}
         </SheetContent>
       </Sheet>

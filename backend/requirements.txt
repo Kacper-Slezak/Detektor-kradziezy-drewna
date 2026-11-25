@@ -7,6 +7,9 @@ pydantic-settings
 argon2-cffi
 pyjwt
 
+# --- Web Push (VAPID, RFC 8292; szyfrowanie wiadomości RFC 8291) ---
+pywebpush
+
 # --- Baza (PostgreSQL / TimescaleDB) ---
 sqlalchemy[asyncio]
 asyncpg

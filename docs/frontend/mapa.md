@@ -7,11 +7,11 @@ Leśniczy i nadleśniczy po zalogowaniu widzą mapę na cały ekran. Admin jej n
 - **pinezka = zamontowany czujnik.** Czujnik bez lokalizacji (jeszcze niezamontowany) nie ma pinezki
 - kolor pinezki to stan, ten sam co w tabeli admina: 🟢 działa, 🔵 wyciszony, 🔴 alarm, 🟠 bez kontaktu, ⚪ wyłączony
 - **alarm** ma większą, pulsującą pinezkę i leży na wierzchu. Przy systemowym „ogranicz animacje” nie pulsuje
-- stuknięcie pinezki otwiera dymek z nazwą, ID, stanem („Wyciszony do …”), baterią (poniżej 20% na czerwono) i ostatnim kontaktem. Leśniczy ma tam przycisk **Przenieś czujnik** ([montaz.md, sekcja Przeniesienie](montaz.md#przeniesienie-czujnika))
+- stuknięcie pinezki otwiera dymek z nazwą, ID, stanem („Wyciszony do …”), baterią (poniżej 20% na czerwono) i ostatnim kontaktem. Leśniczy ma tam przyciski **Wycisz na czas wywozu** albo **Zakończ wyciszenie** ([wydania.md](wydania.md)) i **Przenieś czujnik** ([montaz.md, sekcja Przeniesienie](montaz.md#przeniesienie-czujnika))
 - **legenda** w lewym dolnym rogu liczy czujniki w każdym stanie i pokazuje, ile czeka na montaż. Leśniczy ma tam przycisk **Zamontuj** ([montaz.md](montaz.md))
 - mapa sama przybliża się tak, żeby były widoczne wszystkie pinezki. Bez czujników pokazuje całą Polskę
 - **☰** w górnym pasku otwiera menu: zmiana hasła, wylogowanie, motyw, język, instalacja aplikacji
-- obok są przyciski **Mapa / Alarmy**, które przełączają na listę alarmów ([alarmy.md](alarmy.md))
+- obok są przyciski **Mapa / Alarmy / Wydania**, które przełączają na listę alarmów ([alarmy.md](alarmy.md)) i panel wydań ([wydania.md](wydania.md#panel-wydań)). Czerwona liczba przy Alarmach to otwarte alarmy, niebieska przy Wydaniach to trwające wyciszenia. Na wąskim telefonie napis ma tylko otwarty widok, pozostałe same ikony
 
 ## Dane
 
