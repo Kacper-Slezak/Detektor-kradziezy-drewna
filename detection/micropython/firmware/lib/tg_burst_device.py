@@ -25,8 +25,12 @@ class Monitor:
         self.spectrum = Spectrum(model.BURST_SAMPLES)
         self.classifier = Classifier(model)
         self.votes = Votes(model.THRESHOLD, model.SPAN, model.REQUIRED)
-        self.frames = array('f', [0]) * (WINDOW_FRAMES * (BANDS + 1))
-        self.features = array('f', [0]) * FEATURES
+        self.frames = array('f', range(WINDOW_FRAMES * (BANDS + 1)))
+        for i in range(len(self.frames)):
+            self.frames[i] = 0.0
+        self.features = array('f', range(FEATURES))
+        for i in range(len(self.features)):
+            self.features[i] = 0.0
         self.cursor = 0
         self.phase = 0
         self.valid_frames = 0

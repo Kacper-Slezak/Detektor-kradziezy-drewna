@@ -16,6 +16,15 @@ def band_bins(size):
     return tuple((hz * size + RATE - 1) // RATE for hz in BAND_EDGES)
 
 
+def _zeros(tc, size):
+    """Allocate a zero-initialized array without array*int (Pycom MicroPython v1.11)."""
+    arr = array(tc, range(size))
+    zero = 0.0 if tc == 'f' else 0
+    for i in range(size):
+        arr[i] = zero
+    return arr
+
+
 class Spectrum:
     """One reused block of PCM16 and an in-place radix-2 FFT."""
 
@@ -23,13 +32,13 @@ class Spectrum:
         if size not in (256, 512):
             raise ValueError('Expected 256 or 512 PCM16 samples per block')
         self.size = size
-        self.pcm = array('h', [0]) * size
-        self.real = array('f', [0]) * size
-        self.imag = array('f', [0]) * size
-        self.cos = array('f', [0]) * (size // 2)
-        self.sin = array('f', [0]) * (size // 2)
-        self.hann = array('f', [0]) * size
-        self.reverse = array('H', [0]) * size
+        self.pcm = _zeros('h', size)
+        self.real = _zeros('f', size)
+        self.imag = _zeros('f', size)
+        self.cos = _zeros('f', size // 2)
+        self.sin = _zeros('f', size // 2)
+        self.hann = _zeros('f', size)
+        self.reverse = _zeros('H', size)
         for k in range(size // 2):
             angle = 2 * math.pi * k / size
             self.cos[k], self.sin[k] = math.cos(angle), -math.sin(angle)
@@ -127,7 +136,7 @@ class Classifier:
                 or len(model.BIASES) != self.hidden + 1
                 or len(model.WEIGHTS) != self.inputs * (self.hidden or 1) + self.hidden):
             raise ValueError('Incompatible burst model')
-        self.values = array('f', [0]) * self.inputs
+        self.values = _zeros('f', self.inputs)
 
     def score(self, features):
         m = self.model

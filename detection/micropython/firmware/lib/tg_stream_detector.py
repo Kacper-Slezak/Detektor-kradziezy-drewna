@@ -51,6 +51,21 @@ def _signed_i8(b):
     return b - 256 if b > 127 else b
 
 
+def _zeros(tc, size):
+    """Allocate a zero-initialized array compatible with Pycom MicroPython v1.11.
+
+    Avoids `array(tc, [0]) * size` (unsupported in MicroPython v1.11) and avoids
+    large intermediate Python lists or generator realloc fragmentation.
+    """
+    if size <= 32767 or tc != 'h':
+        arr = array(tc, range(size))
+        zero = 0.0 if tc == 'f' else 0
+        for i in range(size):
+            arr[i] = zero
+        return arr
+    return array(tc, [0] * size)
+
+
 def _sparse_bands():
     """24 triangular mel filters over 35..1900 Hz matching tg_temporal_v46."""
     low = 1127.0 * math.log(1.0 + BAND_MIN_HZ / 700.0)
@@ -76,7 +91,10 @@ def _sparse_bands():
         s = sum(weights)
         if s <= 0.0:
             raise ValueError('Empty mel filter at band %d' % i)
-        out.append((array('H', ids), array('f', (w / s for w in weights))))
+        w_arr = _zeros('f', len(weights))
+        for j in range(len(weights)):
+            w_arr[j] = weights[j] / s
+        out.append((array('H', ids), w_arr))
     return tuple(out)
 
 
@@ -113,7 +131,7 @@ def decode_adc_u16_le(raw_bytes, out=None):
         raise ValueError('ADC buffer length must be even, got %d bytes' % n_bytes)
     n_samples = n_bytes // 2
     if out is None:
-        out = array('h', [0]) * n_samples
+        out = _zeros('h', n_samples)
     elif len(out) < n_samples:
         raise ValueError('Output array too small for %d samples' % n_samples)
     decode_adc_frame_into(raw_bytes, 0, n_samples, out)
@@ -171,14 +189,20 @@ class _StreamingMelFFT:
 
     def __init__(self):
         half_fft = FFT_N // 2
-        self.cos = array('f', (math.cos(2.0 * math.pi * k / FFT_N) for k in range(half_fft)))
-        self.sin = array('f', (-math.sin(2.0 * math.pi * k / FFT_N) for k in range(half_fft)))
+        cos_t = _zeros('f', half_fft)
+        sin_t = _zeros('f', half_fft)
+        for k in range(half_fft):
+            ang = 2.0 * math.pi * k / FFT_N
+            cos_t[k] = math.cos(ang)
+            sin_t[k] = -math.sin(ang)
+        self.cos = cos_t
+        self.sin = sin_t
         half_frame = FRAME_N // 2
-        self.hann_half = array(
-            'f',
-            (0.5 - 0.5 * math.cos(2.0 * math.pi * i / (FRAME_N - 1)) for i in range(half_frame)),
-        )
-        rev = array('H', [0]) * FFT_N
+        hann_half = _zeros('f', half_frame)
+        for i in range(half_frame):
+            hann_half[i] = 0.5 - 0.5 * math.cos(2.0 * math.pi * i / (FRAME_N - 1))
+        self.hann_half = hann_half
+        rev = _zeros('H', FFT_N)
         for i in range(FFT_N):
             n = i
             j = 0
@@ -188,8 +212,8 @@ class _StreamingMelFFT:
             rev[i] = j
         self.reverse = rev
         self.bands = _sparse_bands()
-        self.re = array('f', [0.0]) * FFT_N
-        self.im = array('f', [0.0]) * FFT_N
+        self.re = _zeros('f', FFT_N)
+        self.im = _zeros('f', FFT_N)
 
     def extract_frame(self, pcm_frame, mel_out, mel_offset):
         """Extract 24 log-mel values into `mel_out[mel_offset:]`.
@@ -321,15 +345,15 @@ class _V46Backend:
             self.wo = wo
 
         self.fft = _StreamingMelFFT()
-        self.frame_pcm = array('h', [0]) * FRAME_N
-        self.prev_mel = array('f', [0.0]) * (FRAMES_PER_BLOCK * N_BANDS)
-        self.prev_rms = array('f', [0.0]) * FRAMES_PER_BLOCK
-        self.curr_mel = array('f', [0.0]) * (FRAMES_PER_BLOCK * N_BANDS)
-        self.curr_rms = array('f', [0.0]) * FRAMES_PER_BLOCK
-        self.x_norm = array('f', [0.0]) * (N_FRAMES * N_BANDS)
-        self.env_norm = array('f', [0.0]) * 9
-        self.pooled = array('f', [0.0]) * self.pool_size
-        self.hidden = array('f', [0.0]) * self.hidden_n
+        self.frame_pcm = _zeros('h', FRAME_N)
+        self.prev_mel = _zeros('f', FRAMES_PER_BLOCK * N_BANDS)
+        self.prev_rms = _zeros('f', FRAMES_PER_BLOCK)
+        self.curr_mel = _zeros('f', FRAMES_PER_BLOCK * N_BANDS)
+        self.curr_rms = _zeros('f', FRAMES_PER_BLOCK)
+        self.x_norm = _zeros('f', N_FRAMES * N_BANDS)
+        self.env_norm = _zeros('f', 9)
+        self.pooled = _zeros('f', self.pool_size)
+        self.hidden = _zeros('f', self.hidden_n)
         self.has_prev = False
 
     def reset(self):
@@ -532,8 +556,8 @@ class _BurstBackend:
         self.burst_samples = int(model.BURST_SAMPLES)
         self.spectrum = tb.Spectrum(self.burst_samples)
         self.classifier = tb.Classifier(model)
-        self.frames = array('f', [0.0]) * (tb.WINDOW_FRAMES * (tb.BANDS + 1))
-        self.features = array('f', [0.0]) * tb.FEATURES
+        self.frames = _zeros('f', tb.WINDOW_FRAMES * (tb.BANDS + 1))
+        self.features = _zeros('f', tb.FEATURES)
         self.cursor = 0
         self.valid_frames = 0
 
