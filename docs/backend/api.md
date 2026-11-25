@@ -524,12 +524,12 @@ Przy wylogowaniu, razem z `subscription.unsubscribe()` w przeglądarce. `endpoin
  
 Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`.
 
-Inne typy dotyczą czujnika, nie alarmu. Mają `sensor_id`, nie mają `alarm_id`. `url` dla baterii i braku kontaktu to `/sensors/<id>` (mapa z otwartą pinezką czujnika), a dla końca wydania `/releases` (lista wydań):
+Inne typy dotyczą czujnika, nie alarmu. Mają `sensor_id`, nie mają `alarm_id`. `url` dla baterii i braku kontaktu to `/sensors/<id>` (mapa z otwartą pinezką czujnika), a dla końca wydania `/releases/<id>` (panel wydań z tym wydaniem):
 
 ```json
 { "type": "low_battery", "sensor_id": "70B3D57ED0051234", "title": "Słaba bateria: Skład przy drodze 5", "body": "Bateria 15%, wymień ją przy najbliższej wizycie", "url": "/sensors/70B3D57ED0051234" }
 { "type": "silent", "sensor_id": "70B3D57ED0051234", "title": "Brak kontaktu: Skład przy drodze 5", "body": "Czujnik nie odzywa się od 13 h", "url": "/sensors/70B3D57ED0051234" }
-{ "type": "release_ended", "sensor_id": "70B3D57ED0051234", "release_id": 7, "title": "Koniec wydania: Skład przy drodze 5", "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły", "url": "/releases" }
+{ "type": "release_ended", "sensor_id": "70B3D57ED0051234", "release_id": 7, "title": "Koniec wydania: Skład przy drodze 5", "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły", "url": "/releases/7" }
 ```
  
 **Kiedy backend wysyła.** Push o typie `alarm` leci po **utworzeniu nowego alarmu** (z `/ingest`, po odpowiedzi płytce) do wszystkich subskrypcji aktywnych leśniczych **leśnictwa tego czujnika**. Powtórzenia ramki ALARM, które scalają się z istniejącym alarmem, nie wysyłają kolejnego pusha. Alarm z wyciszonego lub wyłączonego czujnika nie powstaje, więc pusha też nie ma. Nadleśniczy i admin pushy nie dostają.
