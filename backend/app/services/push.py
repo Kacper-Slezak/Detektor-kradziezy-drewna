@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from urllib.parse import quote
 
 from pywebpush import WebPushException, webpush
 from sqlalchemy import delete, select
@@ -66,7 +67,11 @@ def alarm_payload(alarm: Alarm, sensor: Sensor) -> dict:
     }
 
 
-# aplikacja nie ma osobnego adresu czujnika, więc pushe o czujniku otwierają mapę
+# adresy aplikacji (frontend/src/lib/route.ts): /sensors/<id> otwiera mapę z pinezką czujnika
+
+
+def sensor_url(sensor: Sensor) -> str:
+    return f"/sensors/{quote(sensor.id, safe='')}"
 
 
 def low_battery_payload(sensor: Sensor) -> dict:
@@ -75,7 +80,7 @@ def low_battery_payload(sensor: Sensor) -> dict:
         "sensor_id": sensor.id,
         "title": f"Słaba bateria: {_label(sensor)}",
         "body": f"Bateria {sensor.battery_pct}%, wymień ją przy najbliższej wizycie",
-        "url": "/",
+        "url": sensor_url(sensor),
     }
 
 
@@ -86,7 +91,7 @@ def silent_payload(sensor: Sensor, now: datetime) -> dict:
         "sensor_id": sensor.id,
         "title": f"Brak kontaktu: {_label(sensor)}",
         "body": f"Czujnik nie odzywa się od {hours} h",
-        "url": "/",
+        "url": sensor_url(sensor),
     }
 
 
@@ -97,7 +102,7 @@ def release_ended_payload(release: Release, sensor: Sensor) -> dict:
         "release_id": release.id,
         "title": f"Koniec wydania: {_label(sensor)}",
         "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły",
-        "url": "/",
+        "url": "/releases",
     }
 
 
