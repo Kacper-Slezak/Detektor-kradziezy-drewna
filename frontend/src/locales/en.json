@@ -176,6 +176,7 @@
     "menu": "Menu",
     "legend": "Legend",
     "noSensors": "No mounted sensors",
+    "sensorNotFound": "Sensor {{id}} is not on the map.",
     "unmounted_one": "{{count}} sensor waiting to be mounted",
     "unmounted_other": "{{count}} sensors waiting to be mounted",
     "unmounted_few": "{{count}} sensors waiting to be mounted",
@@ -337,9 +338,9 @@
     "button": "Install app"
   },
   "push": {
-    "enable": "Turn on alarm notifications",
+    "enable": "Turn on notifications",
     "enabling": "Turning on…",
-    "enabled": "Alarm notifications are on",
+    "enabled": "Notifications are on",
     "denied": "Notifications are blocked. Allow them in the site settings (the lock by the address) and reload the app.",
     "unsupported": "This device does not support notifications.",
     "error": "Could not turn on notifications. Try again."

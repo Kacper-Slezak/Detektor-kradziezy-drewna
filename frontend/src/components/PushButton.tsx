@@ -6,7 +6,7 @@ import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { enablePush, getPushState, type PushState } from '@/lib/push'
 
-// Alarm notifications in the forester's menu (api.md, section 6: pushes are only for foresters)
+// Notifications in the forester's menu (api.md, section 6: pushes are only for foresters)
 export function PushButton() {
   const { t } = useTranslation()
   const [state, setState] = useState<PushState | null>(null)

@@ -21,12 +21,12 @@ describe('PushButton', () => {
     vi.mocked(enablePush).mockResolvedValue('enabled')
     render(<PushButton />)
 
-    const button = await screen.findByRole('button', { name: 'Włącz powiadomienia o alarmach' })
+    const button = await screen.findByRole('button', { name: 'Włącz powiadomienia' })
     // nothing is asked before the click
     expect(enablePush).not.toHaveBeenCalled()
     await userEvent.setup().click(button)
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Powiadomienia o alarmach włączone')
+    expect(await screen.findByRole('status')).toHaveTextContent('Powiadomienia włączone')
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
@@ -35,9 +35,9 @@ describe('PushButton', () => {
     vi.mocked(enablePush).mockResolvedValue('disabled')
     render(<PushButton />)
 
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Włącz powiadomienia o alarmach' }))
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Włącz powiadomienia' }))
 
-    expect(await screen.findByRole('button', { name: 'Włącz powiadomienia o alarmach' })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: 'Włącz powiadomienia' })).toBeEnabled()
   })
 
   it('says where to unblock notifications', async () => {
@@ -60,7 +60,7 @@ describe('PushButton', () => {
     vi.mocked(enablePush).mockResolvedValue('enabled')
     render(<PushButton />)
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Powiadomienia o alarmach włączone')
+    expect(await screen.findByRole('status')).toHaveTextContent('Powiadomienia włączone')
     // another forester may have signed in on this phone: the backend learns the new owner
     expect(enablePush).toHaveBeenCalledOnce()
   })
@@ -73,9 +73,9 @@ describe('PushButton', () => {
     vi.mocked(enablePush).mockRejectedValue(error)
     render(<PushButton />)
 
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Włącz powiadomienia o alarmach' }))
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Włącz powiadomienia' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
-    expect(screen.getByRole('button', { name: 'Włącz powiadomienia o alarmach' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Włącz powiadomienia' })).toBeEnabled()
   })
 })

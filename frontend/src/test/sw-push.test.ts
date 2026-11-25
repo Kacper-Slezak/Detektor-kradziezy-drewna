@@ -60,13 +60,53 @@ describe('push', () => {
     )
   })
 
+  it('marks the alarm as urgent: it buzzes twice', async () => {
+    const { self, fire } = loadWorker()
+    await fire('push', pushOf(ALARM))
+    expect(self.registration.showNotification).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ vibrate: [200, 100, 200] }),
+    )
+  })
+
+  it.each([
+    ['low_battery', 'Słaba bateria: Skład przy drodze 5'],
+    ['silent', 'Brak kontaktu: Skład przy drodze 5'],
+    ['release_ended', 'Koniec wydania: Skład przy drodze 5'],
+  ])('shows %s about a sensor more gently, one per sensor', async (type, title) => {
+    const { self, fire } = loadWorker()
+    await fire('push', pushOf({ type, sensor_id: '70B3D57ED0051234', title, body: '…', url: '/' }))
+
+    expect(self.registration.showNotification).toHaveBeenCalledWith(
+      title,
+      expect.objectContaining({
+        vibrate: [100],
+        tag: `${type}-70B3D57ED0051234`,
+        renotify: false,
+        data: { url: '/' },
+      }),
+    )
+  })
+
+  it('keeps news of different kinds about one sensor apart', async () => {
+    const { self, fire } = loadWorker()
+    await fire('push', pushOf({ type: 'low_battery', sensor_id: '70B3D57ED0051234', title: 'a' }))
+    await fire('push', pushOf({ type: 'silent', sensor_id: '70B3D57ED0051234', title: 'b' }))
+
+    const tags = self.registration.showNotification.mock.calls.map((call) => (call as unknown[])[1])
+    expect(tags).toEqual([
+      expect.objectContaining({ tag: 'low_battery-70B3D57ED0051234' }),
+      expect.objectContaining({ tag: 'silent-70B3D57ED0051234' }),
+    ])
+  })
+
   it('shows plain text too (a test push from DevTools)', async () => {
     const { self, fire } = loadWorker()
     await fire('push', pushOf('Test'))
 
     expect(self.registration.showNotification).toHaveBeenCalledWith(
       'Detektor kradzieży drewna',
-      expect.objectContaining({ body: 'Test', tag: undefined, data: { url: '/' } }),
+      expect.objectContaining({ body: 'Test', tag: undefined, renotify: false, data: { url: '/' } }),
     )
   })
 
