@@ -197,6 +197,7 @@
     "menu": "Menu",
     "legend": "Legenda",
     "noSensors": "Brak zamontowanych czujników",
+    "sensorNotFound": "Czujnika {{id}} nie ma na mapie.",
     "unmounted_one": "{{count}} czujnik czeka na montaż",
     "unmounted_few": "{{count}} czujniki czekają na montaż",
     "unmounted_many": "{{count}} czujników czeka na montaż",
@@ -354,9 +355,9 @@
     "button": "Zainstaluj aplikację"
   },
   "push": {
-    "enable": "Włącz powiadomienia o alarmach",
+    "enable": "Włącz powiadomienia",
     "enabling": "Włączanie…",
-    "enabled": "Powiadomienia o alarmach włączone",
+    "enabled": "Powiadomienia włączone",
     "denied": "Powiadomienia są zablokowane. Włącz je w ustawieniach strony (kłódka przy adresie) i odśwież aplikację.",
     "unsupported": "To urządzenie nie obsługuje powiadomień.",
     "error": "Nie udało się włączyć powiadomień. Spróbuj ponownie."

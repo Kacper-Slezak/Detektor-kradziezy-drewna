@@ -13,6 +13,15 @@ Leśniczy i nadleśniczy po zalogowaniu widzą mapę na cały ekran. Admin jej n
 - **☰** w górnym pasku otwiera menu: zmiana hasła, wylogowanie, motyw, język, instalacja aplikacji
 - obok są przyciski **Mapa / Alarmy / Wydania**, które przełączają na listę alarmów ([alarmy.md](alarmy.md)) i panel wydań ([wydania.md](wydania.md#panel-wydań)). Czerwona liczba przy Alarmach to otwarte alarmy, niebieska przy Wydaniach to trwające wyciszenia. Na wąskim telefonie napis ma tylko otwarty widok, pozostałe same ikony
 
+## Adres czujnika
+
+`/sensors/70B3D57ED0051234` to mapa z otwartym dymkiem tego czujnika. Tak otwiera się push o czujniku ([push.md](push.md#rodzaje-powiadomień)).
+
+- mapa przybliża się do pinezki i od razu otwiera jej dymek, bez stuknięcia
+- dzieje się to raz, po wejściu. Odświeżanie co 20 s nie przenosi mapy z powrotem, więc leśniczy może ją swobodnie przesuwać
+- gdy czujnika nie ma na mapie (zdemontowany, usunięty albo z innego leśnictwa), nad mapą pojawia się „Czujnika … nie ma na mapie.”
+- kod: `src/lib/route.ts` (adres) i `FocusPin` w `src/components/SensorMap.tsx`
+
 ## Dane
 
 `GET /sensors` ([api.md, sekcja 2](../backend/api.md#2-czujniki-mapa), gdzie jest jeszcze pod polską nazwą `/czujniki`). Leśniczy dostaje czujniki swojego leśnictwa, nadleśniczy wszystkie. Ten sam endpoint pobiera tabela w panelu admina.

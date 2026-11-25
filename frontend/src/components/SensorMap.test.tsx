@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -54,6 +55,34 @@ describe('SensorMap', () => {
 
     expect(await screen.findByText('70B3D57ED0055678')).toBeInTheDocument()
     expect(screen.getByText('Bateria: 9%')).toHaveClass('text-red-600')
+  })
+
+  it('opens the popup of the sensor from the address at once, e.g. after a push', async () => {
+    render(<SensorMap sensors={sensors} focusId="70B3D57ED0055678" />)
+
+    // no click: the popup of this pin is already open, the other one is not
+    expect(await screen.findByText('70B3D57ED0055678')).toBeInTheDocument()
+    expect(screen.getByText('Bateria: 9%')).toBeInTheDocument()
+    expect(screen.queryByText('70B3D57ED0051234')).not.toBeInTheDocument()
+  })
+
+  // the app runs in StrictMode, which mounts everything twice in development
+  it('keeps that popup open in StrictMode too', async () => {
+    render(
+      <StrictMode>
+        <SensorMap sensors={sensors} focusId="70B3D57ED0055678" />
+      </StrictMode>,
+    )
+
+    expect(await screen.findByText('70B3D57ED0055678')).toBeInTheDocument()
+  })
+
+  it('opens nothing for a sensor that is not on the map', async () => {
+    render(<SensorMap sensors={sensors} focusId="70B3D57ED0059ABC" />)
+
+    await afterTap()
+    expect(screen.queryByText('70B3D57ED0059ABC')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Bateria/)).not.toBeInTheDocument()
   })
 
   it('lets the page move a sensor from its pin', async () => {

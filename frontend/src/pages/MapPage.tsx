@@ -95,6 +95,10 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
   }, [sensorsKey, t])
 
   const mounted = (sensors ?? []).filter((s) => s.lat !== null)
+  // the sensor from the address (/sensors/<id>, a push about it); not on the map when it was
+  // taken down in the meantime or belongs to another range
+  const focusId = route.view === 'map' ? (route.sensorId ?? null) : null
+  const focusMissing = focusId !== null && sensors !== null && !mounted.some((s) => s.id === focusId)
   const unmountedSensors = (sensors ?? []).filter((s) => s.lat === null)
   // api.md: only a forester mounts (the district manager would get 403)
   const canMount = user.role === 'forester' && unmountedSensors.length > 0
@@ -229,6 +233,7 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
         ) : (
           <SensorMap
             sensors={sensors ?? []}
+            focusId={focusId}
             // api.md: a forester moves and mutes sensors of their range (the district manager would get 403)
             onMove={user.role === 'forester' ? startMove : undefined}
             onRelease={user.role === 'forester' ? startRelease : undefined}
@@ -242,6 +247,11 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
             {passwordChanged && (
               <p role="status" className="rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-foreground/10">
                 {t('home.passwordChanged')}
+              </p>
+            )}
+            {focusMissing && (
+              <p role="status" className="rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-foreground/10">
+                {t('map.sensorNotFound', { id: focusId })}
               </p>
             )}
             {notice && (

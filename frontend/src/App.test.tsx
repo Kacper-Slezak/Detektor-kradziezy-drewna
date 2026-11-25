@@ -303,6 +303,24 @@ describe('sensor map', () => {
     expect(within(list).getByRole('listitem', { current: true })).toHaveTextContent('Skład przy drodze 5')
   })
 
+  it('opens the pin of a sensor from the address, e.g. after a push about its battery', async () => {
+    window.history.replaceState(null, '', '/sensors/70B3D57ED0055678')
+    setToken('mock-3')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Mapa czujników' }, mapTimeout)).toBeInTheDocument()
+    // its popup is open without a tap
+    expect(await screen.findByText('70B3D57ED0055678', {}, mapTimeout)).toBeInTheDocument()
+  })
+
+  it('says so when the sensor from the address is not on the map', async () => {
+    window.history.replaceState(null, '', '/sensors/70B3D57ED0059ABC')
+    setToken('mock-3')
+    render(<App />)
+
+    expect(await screen.findByText('Czujnika 70B3D57ED0059ABC nie ma na mapie.', {}, mapTimeout)).toBeInTheDocument()
+  })
+
   it('goes back to the map with the back button', async () => {
     render(<App />)
     const user = await logIn('blazej', 'tajne123')

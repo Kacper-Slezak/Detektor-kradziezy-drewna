@@ -1,14 +1,14 @@
 # Powiadomienia push
 
-Leśniczy dostaje na telefon powiadomienie o nowym alarmie, także gdy aplikacja jest zamknięta, a telefon zablokowany. Stuknięcie w powiadomienie otwiera ten alarm na liście.
+Leśniczy dostaje na telefon powiadomienia o nowym alarmie, słabej baterii, braku kontaktu z czujnikiem i końcu wydania, także gdy aplikacja jest zamknięta, a telefon zablokowany. Stuknięcie w powiadomienie o alarmie otwiera ten alarm na liście.
 
 Standardowy Web Push z kluczami VAPID, bez Firebase.
 
 ## Jak to wygląda
 
-1. leśniczy otwiera **Menu** (☰). Na górze jest **Włącz powiadomienia o alarmach**
+1. leśniczy otwiera **Menu** (☰). Na górze jest **Włącz powiadomienia**
 2. po stuknięciu przeglądarka pyta o zgodę. Pytanie pojawia się dopiero po kliknięciu, nigdy przy wejściu do aplikacji
-3. po zgodzie w menu jest napis „Powiadomienia o alarmach włączone”
+3. po zgodzie w menu jest napis „Powiadomienia włączone”
 4. przy nowym alarmie telefon wibruje i pokazuje np. „Alarm: Skład przy drodze 5 – Możliwe podbieranie drewna, pewność 87%”
 5. stuknięcie otwiera `/alarms/41`: listę alarmów z wyróżnionym alarmem ([alarmy.md, sekcja Adres](alarmy.md#adres)). Gdy aplikacja jest już otwarta, przechodzi do alarmu w tym samym oknie
 
@@ -20,8 +20,23 @@ Inne napisy w menu:
 | To urządzenie nie obsługuje powiadomień. | `http://` z adresem IP, `npm run dev` (bez service workera), stara przeglądarka albo iPhone (iOS nie jest wspierany, [pwa.md](pwa.md)) |
 
 - powiadomienia ma tylko **leśniczy**. Nadleśniczy i admin nie mają tej opcji w menu (backend zwróciłby im `403`)
-- ten sam alarm przysłany ponownie **podmienia** swoje powiadomienie, zamiast dokładać kolejne, ale telefon znowu wibruje
 - powiadomienie otwiera tylko adresy aplikacji (zaczynające się od `/`). Inny adres w pushu otwiera mapę
+
+## Rodzaje powiadomień
+
+Kiedy backend je wysyła: [api.md, sekcja 6](../backend/api.md#6-powiadomienia-push-web-push-vapid).
+
+| `type` | Przykład | Wibracja | Stuknięcie otwiera |
+|---|---|---|---|
+| `alarm` | „Alarm: Skład przy drodze 5 – Możliwe podbieranie drewna, pewność 87%” | dwa razy | `/alarms/41`: alarm na liście |
+| `low_battery` | „Słaba bateria: Skład przy drodze 5 – Bateria 15%, wymień ją przy najbliższej wizycie” | krótko | `/sensors/<id>`: pinezka z dymkiem ([mapa.md](mapa.md#adres-czujnika)) |
+| `silent` | „Brak kontaktu: Skład przy drodze 5 – Czujnik nie odzywa się od 13 h” | krótko | `/sensors/<id>`: pinezka z dymkiem |
+| `release_ended` | „Koniec wydania: Skład przy drodze 5 – Wyciszenie się skończyło…” | krótko | `/releases`: panel wydań |
+
+- adres bierzemy z pola `url` w pushu. Backend wysyła na razie `/` (mapa) dla trzech ostatnich rodzajów; adresy z tabeli są uzgodnione z backendem, a front już je obsługuje
+- powtórzone powiadomienie **podmienia** poprzednie, zamiast dokładać kolejne. Rozpoznaje je `tag`: `alarm-41` dla alarmu, a dla czujnika rodzaj i ID, np. `low_battery-70B3D57ED0051234`. „Słaba bateria” i „Brak kontaktu” tego samego czujnika to więc dwa osobne powiadomienia
+- ten sam alarm przysłany ponownie znowu wibruje. Podmiana powiadomienia o czujniku jest cicha
+- kod: `public/sw-push.js`
 
 ## Wylogowanie
 
