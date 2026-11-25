@@ -22,7 +22,7 @@ jawna ramka       dopełnienie do 16 B                    szyfr (przykładowy kl
 2. z pierwszego bajtu (wersja i typ) bierze długość jawnej ramki: `frame_length()`, np. BOOT v1 6 B, BOOT v2 8 B (z `boot_id`), ALARM 10 B,
 3. obcina dopełnienie i przekazuje jawną ramkę do dekodera; dalej wszystko jak dla ramki jawnej.
 
-Dopełnienia nie obcinamy „po zerach”: HEARTBEAT sam kończy się bajtami `00 00`. W bazie (`messages.payload_hex`) zapisujemy ramkę jawną.
+Dopełnienia nie obcinamy „po zerach”: HEARTBEAT sam kończy się bajtami `00 00`. Za to bajty dopełnienia (za długością z `frame_length()`) muszą być zerami, inaczej `422`: zły klucz albo losowy pakiet daje tam losowe bajty. Urządzenie musi więc dopełniać **zerami**. W bazie (`messages.payload_hex`) zapisujemy ramkę jawną.
 
 Tryb ECB jest tu wystarczający, bo wiadomość ma dokładnie jeden blok, a licznik w ramce zmienia się przy każdej wiadomości, więc identyczne zdarzenia dają różne szyfry.
 
@@ -41,6 +41,6 @@ Symulator i przykłady `curl` z [testowanie.md](../testowanie.md) wysyłają ram
 
 ## Czego to nie robi
 
-- **Nie uwierzytelnia ramek**: brak podpisu (MIC), więc nagrany zaszyfrowany pakiet można wysłać ponownie. Licznik odrzuca duplikaty, a powtórkę BOOT zamyka `boot_id` ([boot-id.md](boot-id.md)).
+- **Nie uwierzytelnia ramek**: brak podpisu (MIC). Zera w dopełnieniu odrzucają losowe pakiety (szansa na przejście 2⁻³² dla ALARM v3, 2⁻⁴⁸ dla ALARM v1), ale to nie zastępuje podpisu, a nagrany zaszyfrowany pakiet można wysłać ponownie. Licznik odrzuca duplikaty, a powtórkę BOOT zamyka `boot_id` ([boot-id.md](boot-id.md)).
 - **Nie chroni `X-Ingest-Key`**: przy zwykłym HTTP nagłówek idzie jawnie.
 - Uwierzytelnienie ramek (tag, AES-CCM, klucze per czujnik) to osobny krok.

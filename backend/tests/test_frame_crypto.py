@@ -65,6 +65,15 @@ def test_zly_klucz():
         decrypt_payload_hex(encrypt(ALARM, bytes(range(16))), KEY)
 
 
+def test_niezerowe_dopelnienie_odrzucone():
+    # poprawny pierwszy bajt, ale śmieci w dopełnieniu: tak wygląda losowy pakiet bez klucza
+    block = bytes.fromhex(ALARM).ljust(15, b"\x00") + b"\x01"
+    e = Cipher(algorithms.AES(KEY), modes.ECB()).encryptor()
+    forged = (e.update(block) + e.finalize()).hex()
+    with pytest.raises(FrameError, match="odszyfrować"):
+        decrypt_payload_hex(forged, KEY)
+
+
 def test_parse_aes_key():
     assert parse_aes_key("") is None
     assert parse_aes_key(KEY.hex()) == KEY
