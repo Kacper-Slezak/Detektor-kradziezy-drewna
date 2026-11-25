@@ -3,7 +3,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { KeyRound, LogOut, Menu, Radio, Trees, Users, X, type LucideIcon } from 'lucide-react'
+import { KeyRound, LogOut, Menu, Radio, ScrollText, Trees, Users, X, type LucideIcon } from 'lucide-react'
 import { cn } from 'cn'
 
 import type { User } from '@/api/types'
@@ -12,7 +12,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 
-export type AdminSection = 'users' | 'sensors'
+export type AdminSection = 'users' | 'sensors' | 'logs'
 
 interface NavItem {
   id: AdminSection | 'ranges'
@@ -25,18 +25,21 @@ const NAV: NavItem[] = [
   { id: 'users', icon: Users, ready: true },
   { id: 'sensors', icon: Radio, ready: true },
   { id: 'ranges', icon: Trees, ready: false },
+  { id: 'logs', icon: ScrollText, ready: true },
 ]
 
 interface AdminLayoutProps {
   user: User
   section: AdminSection
   onSectionChange: (section: AdminSection) => void
+  // the backend has the log view switched off (ADMIN_LOGS_ENABLED=false): no "Logs" item
+  showLogs: boolean
   onChangePassword: () => void
   onLogout: () => void
   children: ReactNode
 }
 
-export function AdminLayout({ user, section, onSectionChange, onChangePassword, onLogout, children }: AdminLayoutProps) {
+export function AdminLayout({ user, section, onSectionChange, showLogs, onChangePassword, onLogout, children }: AdminLayoutProps) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -86,7 +89,7 @@ export function AdminLayout({ user, section, onSectionChange, onChangePassword, 
         </div>
 
         <nav aria-label={t('admin.menu')} className="flex flex-1 flex-col gap-0.5 p-2">
-          {NAV.map(({ id, icon: Icon, ready }) => {
+          {NAV.filter(({ id }) => showLogs || id !== 'logs').map(({ id, icon: Icon, ready }) => {
             const active = ready && id === section
             return (
               <button

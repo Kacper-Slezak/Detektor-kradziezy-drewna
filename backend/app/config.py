@@ -60,5 +60,10 @@ class Settings(BaseSettings):
     # Pusty = bez szyfrowania, przyjmujemy tylko jawne ramki (np. lokalnie z symulatorem).
     frame_aes_key: str = ""
 
+    # Podgląd logów backendu w panelu admina (GET /api/v1/admin/logs, sekcja „Logi”).
+    # `false` = backend nie zbiera logów w pamięci, endpoint zwraca 404, frontend chowa sekcję.
+    # Domyślnie włączone, bo bez dostępu do serwera nie da się go włączyć w .env.
+    admin_logs_enabled: bool = True
+
 
 settings = Settings()

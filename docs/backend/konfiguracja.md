@@ -25,6 +25,7 @@ Zmienne trzymamy w `backend/.env` (poza repo). Wzór: `backend/.env.example`.
 | `RELEASE_MAX_HOURS` | Najdłuższe dopuszczalne wydanie w godzinach (domyślnie `24`); dłuższe → `422` |
 | `BOOT_ID_REQUIRED` | Dotyczy tylko ramek wersji 1 i 2: `true` przyjmuje tylko BOOT z `boot_id` (ramka wersji 2), inny → `422` ([boot-id.md](boot-id.md)); domyślnie `false` |
 | `LEGACY_FRAMES` | `true` (domyślnie): przyjmuje też ramki wersji 1 i 2 (okres przejściowy). `false`: tylko wersja 3, ramki 1 i 2 → `422`. Ustaw `false`, gdy wszystkie płytki wysyłają wersję 3 ([boot-id.md](boot-id.md)) |
+| `ADMIN_LOGS_ENABLED` | `true` (domyślnie): backend trzyma w pamięci ostatnie 2000 wpisów logu, admin widzi je w panelu (sekcja „Logi”, [api.md](api.md#get-apiv1adminlogstail200)). `false`: logi tylko na stdout kontenera, endpoint → `404`, sekcja schowana. Zmiana działa po restarcie `web` |
 
 ## Konto admina (seed)
 

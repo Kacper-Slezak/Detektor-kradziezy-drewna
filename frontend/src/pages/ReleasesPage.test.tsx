@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setToken } from '@/api/client'
 import type { Sensor } from '@/api/types'
@@ -10,9 +10,17 @@ let ReleasesPage: typeof import('./ReleasesPage').ReleasesPage
 let listSensors: typeof import('@/api/sensors').listSensors
 
 beforeEach(async () => {
+  // midday: mock releases are "now ± a few hours", which near midnight crosses the date
+  // and the page then shows the day too. Only Date is faked, the mock's delays stay real.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 5, 15, 12, 0))
   vi.resetModules()
   ReleasesPage = (await import('./ReleasesPage')).ReleasesPage
   listSensors = (await import('@/api/sensors')).listSensors
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // every mock call waits 400 ms, and a tab or filter change makes one or two

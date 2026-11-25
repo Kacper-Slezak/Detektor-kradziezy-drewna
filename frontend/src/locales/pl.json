@@ -41,7 +41,8 @@
     "nav": {
       "users": "Użytkownicy",
       "sensors": "Czujniki",
-      "ranges": "Leśnictwa"
+      "ranges": "Leśnictwa",
+      "logs": "Logi"
     }
   },
   "users": {
@@ -370,5 +371,21 @@
   },
   "language": {
     "label": "Język"
+  },
+  "logs": {
+    "title": "Logi backendu",
+    "refresh": "Odśwież",
+    "auto": "Odświeżaj co 5 s",
+    "search": "Szukaj w logach",
+    "level": "Poziom",
+    "levels": {
+      "all": "Wszystkie",
+      "WARNING": "Ostrzeżenia i błędy",
+      "ERROR": "Tylko błędy"
+    },
+    "empty": "Brak wpisów",
+    "count": "{{shown}} z {{total}} wpisów",
+    "note": "Ostatnie wpisy z pamięci backendu. Restart albo wdrożenie je czyści.",
+    "disabled": "Podgląd logów jest wyłączony (ADMIN_LOGS_ENABLED=false)"
   }
 }

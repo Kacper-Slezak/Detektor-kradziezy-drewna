@@ -41,7 +41,8 @@
     "nav": {
       "users": "Users",
       "sensors": "Sensors",
-      "ranges": "Forest ranges"
+      "ranges": "Forest ranges",
+      "logs": "Logs"
     }
   },
   "users": {
@@ -374,5 +375,21 @@
   },
   "language": {
     "label": "Language"
+  },
+  "logs": {
+    "title": "Backend logs",
+    "refresh": "Refresh",
+    "auto": "Refresh every 5 s",
+    "search": "Search logs",
+    "level": "Level",
+    "levels": {
+      "all": "All",
+      "WARNING": "Warnings and errors",
+      "ERROR": "Errors only"
+    },
+    "empty": "No entries",
+    "count": "{{shown}} of {{total}} entries",
+    "note": "Latest entries from the backend's memory. A restart or deploy clears them.",
+    "disabled": "Log view is disabled (ADMIN_LOGS_ENABLED=false)"
   }
 }

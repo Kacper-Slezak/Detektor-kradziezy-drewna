@@ -12,6 +12,7 @@ import type {
   Alarm,
   AlarmAnswer,
   AlarmFilters,
+  LogLine,
   LoginResponse,
   ManagedUser,
   NewRelease,
@@ -210,6 +211,36 @@ export async function mockListRanges(token: string | null): Promise<Range[]> {
   await delay()
   adminByToken(token)
   return ranges.map((r) => ({ ...r }))
+}
+
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
+
+const logs: LogLine[] = [
+  { time: minutesAgo(42), level: 'INFO', logger: 'uvicorn.error', message: 'Application startup complete.' },
+  { time: minutesAgo(30), level: 'INFO', logger: 'app.routers.auth', message: 'Login ok: blazej' },
+  { time: minutesAgo(21), level: 'INFO', logger: 'uvicorn.access', message: '10.0.0.7:51022 - "POST /api/v1/ingest HTTP/1.1" 201' },
+  { time: minutesAgo(12), level: 'WARNING', logger: 'app.services.ingest', message: 'Frame from unknown sensor 70B3D57ED00599FF' },
+  {
+    time: minutesAgo(5),
+    level: 'ERROR',
+    logger: 'app.services.push',
+    message:
+      'Push failed for blazej\nTraceback (most recent call last):\n  File "/app/app/services/push.py", line 88, in send\npywebpush.WebPushException: 410 Gone',
+  },
+  { time: minutesAgo(1), level: 'INFO', logger: 'uvicorn.access', message: '10.0.0.7:51040 - "GET /api/v1/users HTTP/1.1" 200' },
+]
+
+// ADMIN_LOGS_ENABLED on the backend; tests switch it off
+let logsEnabled = true
+export function mockSetLogsEnabled(enabled: boolean) {
+  logsEnabled = enabled
+}
+
+export async function mockListLogs(token: string | null, tail: number): Promise<LogLine[]> {
+  await delay()
+  adminByToken(token)
+  if (!logsEnabled) throw new ApiError(404, 'Podgląd logów jest wyłączony')
+  return logs.slice(-tail).map((l) => ({ ...l }))
 }
 
 const HOUR_MS = 60 * 60 * 1000

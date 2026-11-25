@@ -9,12 +9,24 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_session
-from app.routers import admin, alarms, auth, ingest, push, releases, reports, sensors, users
+from app.routers import (
+    admin,
+    alarms,
+    auth,
+    ingest,
+    push,
+    releases,
+    reports,
+    sensors,
+    users,
+)
 from app.services.push import run_periodic_checks
 
 logging.basicConfig(level=logging.INFO, format=admin.LOG_FORMAT)
-admin.install()
+if settings.admin_logs_enabled:
+    admin.install()
 
 
 @asynccontextmanager
