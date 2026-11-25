@@ -31,7 +31,7 @@ Kiedy backend je wysyła: [api.md, sekcja 6](../backend/api.md#6-powiadomienia-p
 | `alarm` | „Alarm: Skład przy drodze 5 – Możliwe podbieranie drewna, pewność 87%” | dwa razy | `/alarms/41`: alarm na liście |
 | `low_battery` | „Słaba bateria: Skład przy drodze 5 – Bateria 15%, wymień ją przy najbliższej wizycie” | krótko | `/sensors/<id>`: pinezka z dymkiem ([mapa.md](mapa.md#adres-czujnika)) |
 | `silent` | „Brak kontaktu: Skład przy drodze 5 – Czujnik nie odzywa się od 13 h” | krótko | `/sensors/<id>`: pinezka z dymkiem |
-| `release_ended` | „Koniec wydania: Skład przy drodze 5 – Wyciszenie się skończyło…” | krótko | `/releases/<id>`: panel wydań z tym wydaniem |
+| `release_ended` | „Koniec wydania: Skład przy drodze 5 – Wyciszenie się skończyło…” | krótko | `/releases/<id>`: historia wydań z podświetlonym wydaniem |
 
 - adres bierzemy z pola `url` w pushu; backend wysyła dokładnie adresy z tabeli
 - powtórzone powiadomienie **podmienia** poprzednie, zamiast dokładać kolejne. Rozpoznaje je `tag`: `alarm-41` dla alarmu, a dla czujnika rodzaj i ID, np. `low_battery-70B3D57ED0051234`. „Słaba bateria” i „Brak kontaktu” tego samego czujnika to więc dwa osobne powiadomienia

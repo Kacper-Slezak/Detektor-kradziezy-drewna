@@ -14,14 +14,28 @@ interface ReleaseCardProps {
   who: string
   // the "End muting" button of an ongoing one
   children?: ReactNode
+  // the release from the address (a push about its end): it can be scrolled to and is marked
+  focused?: boolean
+  // lit up for a moment when it opens, then it fades to look like the others
+  highlighted?: boolean
 }
 
 // One timber release on the release list: the sensor, when, the carrier and the logs, who
-export function ReleaseCard({ release, when, who, children }: ReleaseCardProps) {
+export function ReleaseCard({ release, when, who, children, focused = false, highlighted = false }: ReleaseCardProps) {
   const { t } = useTranslation()
 
   return (
-    <li className="flex flex-col gap-2 rounded-xl bg-card p-4 text-base ring-1 ring-foreground/10">
+    <li
+      id={`release-${release.id}`}
+      aria-current={focused ? 'true' : undefined}
+      data-highlighted={highlighted || undefined}
+      className={cn(
+        'flex scroll-m-3 flex-col gap-2 rounded-xl bg-card p-4 text-base ring-1 ring-foreground/10',
+        // green like a pin that watches again; fades out slowly, at once when animations are off
+        'transition-[background-color,box-shadow] duration-1000 motion-reduce:transition-none',
+        highlighted && 'bg-emerald-50 ring-2 ring-emerald-600 dark:bg-emerald-950',
+      )}
+    >
       <p className="flex items-center gap-2 text-lg leading-snug font-semibold">
         {/* blue like a muted pin on the map, while it lasts */}
         {release.active && <span aria-hidden className={cn('size-3 shrink-0 rounded-full', STATUS_DOT.muted)} />}

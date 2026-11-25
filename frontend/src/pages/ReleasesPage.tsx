@@ -33,13 +33,18 @@ interface ReleasesPageProps {
   canEnd: boolean
   // after ending one: the sensor watches again, so the map (and the badge) should refresh
   onEnded?: () => void
+  // release from the address (/releases/7, opened by the push about its end): the history opens
+  focusId?: number | null
 }
 
 // Timber releases of the forester's range (all ranges for the district manager):
 // which sensors are muted now, until when, and for which carrier
-export function ReleasesPage({ sensors, canEnd, onEnded }: ReleasesPageProps) {
+export function ReleasesPage({ sensors, canEnd, onEnded, focusId = null }: ReleasesPageProps) {
   const { t, i18n } = useTranslation()
-  const [tab, setTab] = useState<Tab>('ongoing')
+  // an ended release is only in the history
+  const [tab, setTab] = useState<Tab>(focusId === null ? 'ongoing' : 'history')
+  // dropped when the forester changes the tab: coming back to the history does not light it again
+  const [focus, setFocus] = useState(focusId)
   const [releases, setReleases] = useState<Release[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   // bumping it loads the list again, e.g. after ending a release
@@ -96,6 +101,7 @@ export function ReleasesPage({ sensors, canEnd, onEnded }: ReleasesPageProps) {
 
   function changeTab(next: Tab) {
     setEnded(null)
+    setFocus(null)
     setTab(next)
   }
 
@@ -133,7 +139,7 @@ export function ReleasesPage({ sensors, canEnd, onEnded }: ReleasesPageProps) {
         </div>
 
         {tab === 'history' ? (
-          <ReleaseHistory sensors={sensors} />
+          <ReleaseHistory sensors={sensors} focusId={focus} />
         ) : (
           <>
             {ended && (

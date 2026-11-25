@@ -18,6 +18,8 @@ export const HISTORY_PAGE = 50
 type Period = 7 | 30 | 365 | 'all'
 const PERIODS: Period[] = [7, 30, 365, 'all']
 const DAY_MS = 24 * 60 * 60 * 1000
+// how long the release from the address stays lit before it fades
+export const HIGHLIGHT_MS = 2000
 
 // what goes to the backend for the chosen filters; "from" is counted when the filter is picked
 function queryFor(sensorId: string, period: Period): ReleaseFilters {
@@ -41,15 +43,19 @@ function timeSpan(release: Release, language: string): string {
 interface ReleaseHistoryProps {
   // the sensors the user may see (the forester's range), for the sensor filter
   sensors: Sensor[]
+  // release from the address (/releases/7, opened by the push about its end): scrolled to and lit up
+  focusId?: number | null
 }
 
 // Finished timber releases, newest first: a record for the reports and for disputes with a carrier
-export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
+export function ReleaseHistory({ sensors, focusId = null }: ReleaseHistoryProps) {
   const { t, i18n } = useTranslation()
   const sensorFieldId = useId()
   const [sensorId, setSensorId] = useState('')
-  const [period, setPeriod] = useState<Period>(30)
-  const [query, setQuery] = useState<ReleaseFilters>(() => queryFor('', 30))
+  // a release from the address may be older than 30 days (an old link): then every period.
+  // The one from a push ended within the hour, so it is the first on the list either way.
+  const [period, setPeriod] = useState<Period>(focusId === null ? 30 : 'all')
+  const [query, setQuery] = useState<ReleaseFilters>(() => queryFor('', focusId === null ? 30 : 'all'))
   // the filters of the list on screen: an older page asked for under other filters must not be
   // added to it when the forester changed the filters while it was loading
   const shownQuery = useRef(query)
@@ -58,6 +64,12 @@ export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // the release from the address belongs to the first list; other filters drop it
+  const [focus, setFocus] = useState(focusId)
+  const [faded, setFaded] = useState(false)
+  const found = focus !== null && releases !== null && releases.some((r) => r.id === focus)
+  // not on the list: a wrong number, a deleted release or one of another range
+  const focusMissing = focus !== null && releases !== null && !found
 
   // the history does not change by itself, so it is loaded once per filter, not every 20 s
   useEffect(() => {
@@ -77,8 +89,18 @@ export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
     }
   }, [query, t])
 
+  // once it shows up: scroll to it and let the light fade after a while. The list does not
+  // reload by itself, so this runs once (twice in StrictMode, which starts the timer again).
+  useEffect(() => {
+    if (!found) return
+    document.getElementById(`release-${focus}`)?.scrollIntoView?.({ block: 'center' })
+    const timer = setTimeout(() => setFaded(true), HIGHLIGHT_MS)
+    return () => clearTimeout(timer)
+  }, [found, focus])
+
   function changeFilters(nextSensorId: string, nextPeriod: Period) {
     const next = queryFor(nextSensorId, nextPeriod)
+    setFocus(null)
     shownQuery.current = next
     setSensorId(nextSensorId)
     setPeriod(nextPeriod)
@@ -148,6 +170,12 @@ export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
         ))}
       </div>
 
+      {focusMissing && (
+        <p role="status" className="text-muted-foreground">
+          {t('releases.notFound', { id: focus })}
+        </p>
+      )}
+
       {error && (
         <p role="alert" className="text-destructive">
           {error}
@@ -170,6 +198,8 @@ export function ReleaseHistory({ sensors }: ReleaseHistoryProps) {
               release={release}
               when={timeSpan(release, i18n.language)}
               who={release.created_by ?? ''}
+              focused={release.id === focus}
+              highlighted={release.id === focus && !faded}
             />
           ))}
         </ul>

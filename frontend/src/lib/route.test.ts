@@ -10,6 +10,8 @@ describe('parseRoute', () => {
     ['/alarms/41', { view: 'alarms', alarmId: 41 }],
     ['/releases', { view: 'releases' }],
     ['/releases/', { view: 'releases' }],
+    ['/releases/7', { view: 'releases', releaseId: 7 }],
+    ['/releases/7/', { view: 'releases', releaseId: 7 }],
     ['/sensors/70B3D57ED0051234', { view: 'map', sensorId: '70B3D57ED0051234' }],
     ['/sensors/70B3D57ED0051234/', { view: 'map', sensorId: '70B3D57ED0051234' }],
   ])('reads %s', (path, route) => {
@@ -17,7 +19,7 @@ describe('parseRoute', () => {
   })
 
   // an old or mistyped link lands on the map instead of an empty screen
-  it.each(['/releases/8', '/alarms/abc', '/nothing-here', '/sensors', '/sensors/%', '/sensors/a/b'])('opens the map for %s', (path) => {
+  it.each(['/releases/abc', '/releases/7/8', '/alarms/abc', '/nothing-here', '/sensors', '/sensors/%', '/sensors/a/b'])('opens the map for %s', (path) => {
     expect(parseRoute(path)).toEqual({ view: 'map' })
   })
 })
@@ -28,6 +30,7 @@ describe('routePath', () => {
     { view: 'alarms', alarmId: null },
     { view: 'alarms', alarmId: 41 },
     { view: 'releases' },
+    { view: 'releases', releaseId: 7 },
     { view: 'map', sensorId: '70B3D57ED0051234' },
   ])('turns %o into an address that reads back the same', (route) => {
     expect(parseRoute(routePath(route))).toEqual(route)

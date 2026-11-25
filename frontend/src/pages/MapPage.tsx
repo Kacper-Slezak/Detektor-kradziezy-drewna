@@ -217,7 +217,14 @@ export function MapPage({ user, passwordChanged, onChangePassword, onLogout }: M
 
       <main className="relative min-h-0 flex-1">
         {view === 'releases' ? (
-          <ReleasesPage sensors={sensors ?? []} canEnd={user.role === 'forester'} onEnded={reloadSensors} />
+          <ReleasesPage
+            // a new release from the address starts the page again
+            key={route.releaseId ?? 'list'}
+            focusId={route.releaseId ?? null}
+            sensors={sensors ?? []}
+            canEnd={user.role === 'forester'}
+            onEnded={reloadSensors}
+          />
         ) : view === 'alarms' ? (
           <AlarmsPage
             // a new alarm from the address starts the list again
