@@ -59,7 +59,7 @@ class RingBufferHandler(logging.Handler):
                     message=message,
                 )
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - logging.Handler contract: never raise from emit
             self.handleError(record)
 
     def tail(self, n: int) -> list[LogLine]:
