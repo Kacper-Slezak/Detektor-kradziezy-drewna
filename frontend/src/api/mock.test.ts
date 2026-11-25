@@ -265,10 +265,10 @@ describe('deleting a sensor', () => {
   })
 
   it('keeps a sensor with alarms or releases (409 with the counts)', async () => {
-    // Skład przy leśniczówce: one alarm and one release
+    // Skład przy leśniczówce: one alarm and three releases (the release history from #77)
     const error = mock.mockDeleteSensor('mock-1', '70B3D57ED005DEF0')
     await expect(error).rejects.toMatchObject({ status: 409 })
-    await expect(error).rejects.toThrow('alarmy: 1, wydania: 1')
+    await expect(error).rejects.toThrow('alarmy: 1, wydania: 3')
     // only releases count too: Skład przy szlabanie
     await expect(mock.mockDeleteSensor('mock-1', '70B3D57ED0055678')).rejects.toMatchObject({ status: 409 })
     expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).toContain('70B3D57ED005DEF0')
