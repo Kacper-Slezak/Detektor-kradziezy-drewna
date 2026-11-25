@@ -10,12 +10,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.routers import alarms, auth, ingest, push, releases, reports, sensors, users
+from app.routers import admin, alarms, auth, ingest, push, releases, reports, sensors, users
 from app.services.push import run_periodic_checks
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format=admin.LOG_FORMAT)
+admin.install()
 
 
 @asynccontextmanager
@@ -37,6 +36,7 @@ app.include_router(alarms.router)
 app.include_router(releases.router)
 app.include_router(reports.router)
 app.include_router(push.router)
+app.include_router(admin.router)
 
 
 log = logging.getLogger(__name__)
