@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.routers import alarms, auth, ingest, push, releases, sensors, users
+from app.routers import alarms, auth, ingest, push, releases, reports, sensors, users
 from app.services.push import run_periodic_checks
 
 logging.basicConfig(
