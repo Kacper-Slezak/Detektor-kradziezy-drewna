@@ -11,7 +11,7 @@ Leśniczy i nadleśniczy po zalogowaniu widzą mapę na cały ekran. Admin jej n
 - **legenda** w lewym dolnym rogu liczy czujniki w każdym stanie i pokazuje, ile czeka na montaż. Leśniczy ma tam przycisk **Zamontuj** ([montaz.md](montaz.md))
 - mapa sama przybliża się tak, żeby były widoczne wszystkie pinezki. Bez czujników pokazuje całą Polskę
 - **☰** w górnym pasku otwiera menu: zmiana hasła, wylogowanie, motyw, język, instalacja aplikacji
-- obok są przyciski **Mapa / Alarmy**, które przełączają na listę alarmów ([alarmy.md](alarmy.md))
+- obok są przyciski **Mapa / Alarmy / Wydania**, które przełączają na listę alarmów ([alarmy.md](alarmy.md)) i panel wydań ([wydania.md](wydania.md#panel-wydań)). Czerwona liczba przy Alarmach to otwarte alarmy, niebieska przy Wydaniach to trwające wyciszenia. Na wąskim telefonie napis ma tylko otwarty widok, pozostałe same ikony
 
 ## Dane
 

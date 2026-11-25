@@ -185,7 +185,11 @@
     "viewAlarms": "Alarmy",
     "viewAlarmsOpen_one": "Alarmy, {{count}} otwarty",
     "viewAlarmsOpen_few": "Alarmy, {{count}} otwarte",
-    "viewAlarmsOpen_many": "Alarmy, {{count}} otwartych"
+    "viewAlarmsOpen_many": "Alarmy, {{count}} otwartych",
+    "viewReleases": "Wydania",
+    "viewReleasesOngoing_one": "Wydania, {{count}} trwa",
+    "viewReleasesOngoing_few": "Wydania, {{count}} trwają",
+    "viewReleasesOngoing_many": "Wydania, {{count}} trwa"
   },
   "alarms": {
     "title": "Alarmy",
@@ -285,6 +289,41 @@
     "ending": "Kończenie…",
     "cancel": "Anuluj",
     "ended": "{{name}} znów czuwa"
+  },
+  "releases": {
+    "title": "Wydania drewna",
+    "ongoing": "Trwające wydania",
+    "noOngoing": "Żaden czujnik nie jest teraz wyciszony.",
+    "until": "do {{time}}",
+    "leftMinutes": "jeszcze {{minutes}} min",
+    "leftHours": "jeszcze {{hours}} h",
+    "leftHoursMinutes": "jeszcze {{hours}} h {{minutes}} min",
+    "logs_one": "{{count}} kłoda",
+    "logs_few": "{{count}} kłody",
+    "logs_many": "{{count}} kłód",
+    "comment": "„{{comment}}”",
+    "since": "od {{time}}",
+    "tabs": "Pokaż wydania",
+    "tab": {
+      "ongoing": "Trwające",
+      "history": "Historia"
+    },
+    "history": "Zakończone wydania",
+    "noHistory": "Brak zakończonych wydań.",
+    "more": "Pokaż starsze",
+    "loadingMore": "Wczytywanie…",
+    "noHistoryFiltered": "Brak zakończonych wydań w tym okresie.",
+    "filters": {
+      "sensor": "Czujnik",
+      "allSensors": "Wszystkie czujniki",
+      "period": "Okres",
+      "periods": {
+        "7": "7 dni",
+        "30": "30 dni",
+        "365": "Rok",
+        "all": "Wszystko"
+      }
+    }
   },
   "errors": {
     "network": "Brak połączenia z serwerem",
