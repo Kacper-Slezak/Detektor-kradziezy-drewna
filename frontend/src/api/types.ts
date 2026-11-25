@@ -209,3 +209,14 @@ export interface PushSubscriptionBody {
   // e.g. "Android – Chrome", so the forester can tell their devices apart
   device_label?: string
 }
+
+// GET /admin/logs: one backend log record (api.md, section 7)
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL'
+
+export interface LogLine {
+  time: string
+  level: LogLevel
+  logger: string
+  // may span several lines (traceback)
+  message: string
+}

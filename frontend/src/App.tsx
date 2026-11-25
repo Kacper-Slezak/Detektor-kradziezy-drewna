@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { me } from '@/api/auth'
 import { ApiError, getToken, setToken } from '@/api/client'
+import { listLogs } from '@/api/logs'
 import type { User } from '@/api/types'
 import { AdminLayout, type AdminSection } from '@/components/AdminLayout'
 import { InstallButton } from '@/components/InstallButton'
@@ -12,6 +13,7 @@ import { disablePush } from '@/lib/push'
 import { resetRoute } from '@/lib/route'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { LogsPage } from '@/pages/LogsPage'
 import { SensorsPage } from '@/pages/SensorsPage'
 import { UsersPage } from '@/pages/UsersPage'
 
@@ -24,6 +26,8 @@ function App() {
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordChanged, setPasswordChanged] = useState(false)
   const [adminSection, setAdminSection] = useState<AdminSection>('users')
+  // the "Logs" section only when the backend serves them (ADMIN_LOGS_ENABLED, api.md section 7)
+  const [logsEnabled, setLogsEnabled] = useState(false)
   // a saved token means we may still be signed in, so check it before showing the login page
   const [restoring, setRestoring] = useState(() => getToken() !== null)
 
@@ -82,6 +86,17 @@ function App() {
   const signedIn = !restoring && user !== null && !user.must_change_password && !changingPassword
   const inAdminPanel = signedIn && user.role === 'admin'
 
+  useEffect(() => {
+    if (!inAdminPanel) return
+    let cancelled = false
+    listLogs(1)
+      .then(() => !cancelled && setLogsEnabled(true))
+      .catch(() => !cancelled && setLogsEnabled(false))
+    return () => {
+      cancelled = true
+    }
+  }, [inAdminPanel])
+
   const loading = (
     <main className="flex min-h-svh items-center justify-center p-4">
       <p role="status" className="text-muted-foreground">
@@ -112,6 +127,7 @@ function App() {
           user={user}
           section={adminSection}
           onSectionChange={setAdminSection}
+          showLogs={logsEnabled}
           onChangePassword={startChangingPassword}
           onLogout={logout}
         >
@@ -122,6 +138,7 @@ function App() {
           )}
           {adminSection === 'users' && <UsersPage currentUserId={user.id} />}
           {adminSection === 'sensors' && <SensorsPage />}
+          {adminSection === 'logs' && logsEnabled && <LogsPage />}
         </AdminLayout>
       )
     }
