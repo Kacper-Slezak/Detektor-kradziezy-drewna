@@ -484,7 +484,7 @@ async def test_slaba_bateria_push_raz_i_znowu_po_wymianie(
         "sensor_id": SENSOR_ID,
         "title": "Słaba bateria: Skład przy drodze 5",
         "body": "Bateria 15%, wymień ją przy najbliższej wizycie",
-        "url": "/",
+        "url": f"/sensors/{SENSOR_ID}",
     }
 
     await post_frame(client, heartbeat(6, 90))  # nowa bateria
@@ -543,7 +543,7 @@ async def test_brak_kontaktu_push_raz_i_znowu_po_nastepnej_ciszy(
             "sensor_id": SENSOR_ID,
             "title": "Brak kontaktu: Skład przy drodze 5",
             "body": "Czujnik nie odzywa się od 13 h",
-            "url": "/",
+            "url": f"/sensors/{SENSOR_ID}",
         }
     ]
 
@@ -604,7 +604,7 @@ async def test_koniec_wydania_push_raz(sent, session_maker, make_user, ranges):
             "release_id": release_id,
             "title": "Koniec wydania: Skład przy drodze 5",
             "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły",
-            "url": "/",
+            "url": "/releases",
         }
     ]
 

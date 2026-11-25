@@ -33,7 +33,7 @@ Kiedy backend je wysyła: [api.md, sekcja 6](../backend/api.md#6-powiadomienia-p
 | `silent` | „Brak kontaktu: Skład przy drodze 5 – Czujnik nie odzywa się od 13 h” | krótko | `/sensors/<id>`: pinezka z dymkiem |
 | `release_ended` | „Koniec wydania: Skład przy drodze 5 – Wyciszenie się skończyło…” | krótko | `/releases`: panel wydań |
 
-- adres bierzemy z pola `url` w pushu. Backend wysyła na razie `/` (mapa) dla trzech ostatnich rodzajów; adresy z tabeli są uzgodnione z backendem, a front już je obsługuje
+- adres bierzemy z pola `url` w pushu; backend wysyła dokładnie adresy z tabeli
 - powtórzone powiadomienie **podmienia** poprzednie, zamiast dokładać kolejne. Rozpoznaje je `tag`: `alarm-41` dla alarmu, a dla czujnika rodzaj i ID, np. `low_battery-70B3D57ED0051234`. „Słaba bateria” i „Brak kontaktu” tego samego czujnika to więc dwa osobne powiadomienia
 - ten sam alarm przysłany ponownie znowu wibruje. Podmiana powiadomienia o czujniku jest cicha
 - kod: `public/sw-push.js`
