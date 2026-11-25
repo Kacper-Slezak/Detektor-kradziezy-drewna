@@ -56,7 +56,7 @@ def test_to_dict_do_bazy():
     "payload, fragment",
     [
         ("11", "za krótka"),
-        ("31002A0101570028B440", "wersja"),  # wersja 3: nieobsługiwana
+        ("41002A0101570028B440", "wersja"),  # wersja 4: nieobsługiwana
         ("14002A", "typ"),  # typ 4 nie istnieje
         ("11002A01015700", "oczekiwano 10"),  # ALARM ucięty
         ("11002A0101570028B44000", "oczekiwano 10"),  # bajt za dużo
@@ -105,7 +105,11 @@ def test_boot_zla_dlugosc_dla_wersji(payload, fragment):
 
 @pytest.mark.parametrize(
     "first_byte, length",
-    [(0x11, 10), (0x12, 6), (0x13, 6), (0x21, 10), (0x22, 6), (0x23, 8)],
+    [
+        (0x11, 10), (0x12, 6), (0x13, 6),
+        (0x21, 10), (0x22, 6), (0x23, 8),
+        (0x31, 12), (0x32, 8), (0x33, 8),  # wersja 3: nagłówek 5 B (z boot_id)
+    ],
 )
 def test_frame_length(first_byte, length):
     from app.protocol.decoder import frame_length
@@ -113,7 +117,7 @@ def test_frame_length(first_byte, length):
     assert frame_length(first_byte) == length
 
 
-@pytest.mark.parametrize("first_byte, fragment", [(0x33, "wersja"), (0x14, "typ")])
+@pytest.mark.parametrize("first_byte, fragment", [(0x43, "wersja"), (0x14, "typ")])
 def test_frame_length_bledny_pierwszy_bajt(first_byte, fragment):
     from app.protocol.decoder import frame_length
 

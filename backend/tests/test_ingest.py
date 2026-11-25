@@ -96,7 +96,7 @@ async def test_nieznany_czujnik_404(client):
 
 
 async def test_bledna_ramka_422(client, session_maker):
-    r = await post(client, "31002A0101570028B440")
+    r = await post(client, "41002A0101570028B440")  # wersja 4 nie istnieje
     assert r.status_code == 422
     assert "wersja" in r.json()["detail"]
     assert await count(session_maker, Message) == 0
