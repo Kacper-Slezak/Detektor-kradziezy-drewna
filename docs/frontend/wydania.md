@@ -53,6 +53,12 @@ Przycisk **🚚 Wydania** w górnym pasku, obok Mapy i Alarmów (adres `/release
 
 Nadleśniczy widzi obie zakładki, ale bez przycisku kończenia, bo backend pozwala wyciszać i kończyć tylko leśniczemu i adminowi.
 
-## Dalej
+## Adres wydania
 
-- push `release_ended`, gdy wyciszenie się skończy (wymaga backendu push)
+Push „Koniec wydania” ([push.md](push.md)) ma adres `/releases/<id>`, np. `/releases/7`. Po stuknięciu:
+
+- panel wydań otwiera się od razu na zakładce **Historia**, z okresem **Wszystko**, żeby wydanie się znalazło także ze starego linku
+- lista przewija się do tego wydania, a jego karta świeci na zielono (jak pinezka, która znów pilnuje) przez ok. 2 s, potem powoli gaśnie. Przy włączonym w telefonie „ograniczaniu animacji” gaśnie bez przejścia
+- gdy wydania nie ma na liście (zły numer, usunięte albo z innego leśnictwa), nad listą pojawia się „Wydania 7 nie ma w historii…”
+- zmiana filtra albo zakładki kończy wyróżnienie: po powrocie do Historii karta już nie świeci
+- kod: `src/lib/route.ts` (adres), `src/components/ReleaseHistory.tsx` (wyróżnienie)

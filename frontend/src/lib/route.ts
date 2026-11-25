@@ -1,15 +1,17 @@
 // The app has no router: the address only says which view of the home screen is open.
 // "/alarms" is the alarm list, "/alarms/41" the list with alarm 41 shown (a push opens it,
-// api.md section 6), "/releases" the timber releases, "/sensors/70B3D57ED0051234" the map
-// with that sensor's pin open (a push about a sensor opens it), anything else is the map.
+// api.md section 6), "/releases" the timber releases, "/releases/7" their history with release 7
+// shown (a push about its end opens it), "/sensors/70B3D57ED0051234" the map with that sensor's
+// pin open (a push about a sensor opens it), anything else is the map.
 
 export type Route =
   | { view: 'map'; sensorId?: string }
   | { view: 'alarms'; alarmId: number | null }
-  | { view: 'releases' }
+  | { view: 'releases'; releaseId?: number }
 
 export function parseRoute(path: string = window.location.pathname): Route {
-  if (/^\/releases\/?$/.test(path)) return { view: 'releases' }
+  const release = /^\/releases(?:\/(\d+))?\/?$/.exec(path)
+  if (release) return release[1] ? { view: 'releases', releaseId: Number(release[1]) } : { view: 'releases' }
   const sensor = /^\/sensors\/([^/]+)\/?$/.exec(path)
   if (sensor) {
     try {
@@ -26,7 +28,7 @@ export function parseRoute(path: string = window.location.pathname): Route {
 
 export function routePath(route: Route): string {
   if (route.view === 'map') return route.sensorId ? `/sensors/${encodeURIComponent(route.sensorId)}` : '/'
-  if (route.view === 'releases') return '/releases'
+  if (route.view === 'releases') return route.releaseId === undefined ? '/releases' : `/releases/${route.releaseId}`
   return route.alarmId === null ? '/alarms' : `/alarms/${route.alarmId}`
 }
 

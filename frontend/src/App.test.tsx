@@ -303,6 +303,15 @@ describe('sensor map', () => {
     expect(within(list).getByRole('listitem', { current: true })).toHaveTextContent('Skład przy drodze 5')
   })
 
+  it('opens the ended release in the history from the address, e.g. after a push about its end', async () => {
+    window.history.replaceState(null, '', '/releases/9')
+    setToken('mock-3')
+    render(<App />)
+
+    const list = await screen.findByRole('list', { name: 'Zakończone wydania' }, mapTimeout)
+    expect(within(list).getByRole('listitem', { current: true })).toHaveTextContent('Skład przy paśniku')
+  })
+
   it('opens the pin of a sensor from the address, e.g. after a push about its battery', async () => {
     window.history.replaceState(null, '', '/sensors/70B3D57ED0055678')
     setToken('mock-3')

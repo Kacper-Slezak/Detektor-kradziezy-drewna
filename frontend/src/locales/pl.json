@@ -335,6 +335,7 @@
     "noHistory": "Brak zakończonych wydań.",
     "more": "Pokaż starsze",
     "loadingMore": "Wczytywanie…",
+    "notFound": "Wydania {{id}} nie ma w historii. Mogło zostać usunięte albo dotyczy innego leśnictwa.",
     "noHistoryFiltered": "Brak zakończonych wydań w tym okresie.",
     "filters": {
       "sensor": "Czujnik",

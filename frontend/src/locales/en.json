@@ -339,6 +339,7 @@
     "noHistory": "No finished releases.",
     "more": "Show older",
     "loadingMore": "Loading…",
+    "notFound": "Release {{id}} is not in the history. It may have been deleted or belong to another range.",
     "noHistoryFiltered": "No finished releases in this period.",
     "filters": {
       "sensor": "Sensor",
