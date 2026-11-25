@@ -600,6 +600,14 @@ Lista leśnictw do formularza. Dostępna tylko dla admina.
 ```json
 [ { "id": 1, "name": "Leśnictwo Dąbrowa" }, { "id": 2, "name": "Leśnictwo Olszyny" } ]
 ```
+
+### `GET /api/v1/admin/logs?tail=200`
+
+Ostatnie linie logu backendu (aplikacja + uvicorn, bez udanych `/health`), od najstarszej, jako `text/plain`. Tylko admin. `tail` 1–2000, domyślnie 200. Bufor jest w pamięci procesu: restart albo wdrożenie go czyści, starsza historia tylko przez `docker compose logs web` na serwerze.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "https://srvNN-PORT.wykr.es/api/v1/admin/logs?tail=500"
+```
  
 ---
  
