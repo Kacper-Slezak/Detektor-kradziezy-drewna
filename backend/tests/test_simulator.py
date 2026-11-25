@@ -7,6 +7,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
+from app.config import settings
 from app.demo import DEMO_SENSORS
 from app.models import Alarm, Message, Sensor
 from tests.conftest import SENSOR_ID
@@ -232,14 +233,77 @@ async def test_stary_plik_stanu_bez_boot_id_dziala(tmp_path):
     assert (sensor.counter, sensor.boot_id) == (7, 0)
 
 
-async def test_odrzucony_boot_podpowiada_reset(
+async def test_skasowany_plik_stanu_symulator_sam_przeskakuje_boot_id(
     client, session_maker, two_sensors, tmp_path, caplog
 ):
-    """Plik stanu starszy niż baza: BOOT jest powtórką, symulator mówi, co zrobić."""
+    """Plik stanu starszy niż baza: BOOT z boot_id 1 to powtórka, symulator przeskakuje o 2^14."""
     await _run(client, tmp_path, "--alarm-chance", "0")
-    (
-        tmp_path / "state.json"
-    ).unlink()  # symulator zaczyna boot_id od nowa, baza pamięta 1
-    with caplog.at_level(logging.WARNING):
+    (tmp_path / "state.json").unlink()  # symulator zaczyna boot_id od nowa, baza pamięta 1
+    with caplog.at_level(logging.WARNING, logger="simulator"):
         await _run(client, tmp_path, "--alarm-chance", "0")
-    assert "reset-boot" in caplog.text
+    assert "próbuję 16385" in caplog.text
+
+    msgs = await _messages(session_maker, SENSOR_ID)
+    assert [(m.msg_type, m.decoded["header"]["boot_id"]) for m in msgs] == [
+        ("BOOT", 1), ("HEARTBEAT", 1), ("BOOT", 16385), ("HEARTBEAT", 16385),
+    ]
+
+
+async def test_dwa_symulatory_naraz_ten_w_tle_sam_wraca(
+    client, session_maker, two_sensors, tmp_path
+):
+    """Scenariusz uruchomiony obok symulatora w tle restartuje czujnik nowszym boot_id.
+    Symulator w tle dostaje wtedy duplicate, wysyła nowy BOOT i ponawia heartbeat."""
+    bg = Simulator(client, [VirtualSensor(id=SENSOR_ID)])
+    other = Simulator(client, [VirtualSensor(id=SENSOR_ID, boot_id=5)])
+    await bg.boot(bg.sensors[0])  # boot_id 1
+    await other.boot(other.sensors[0])  # boot_id 6: nowsza sesja w bazie
+
+    results = await bg.heartbeat(bg.sensors[0])
+    assert [r["status"] for r in results] == ["stored"]
+    assert bg.sensors[0].boot_id > 6
+    msgs = await _messages(session_maker, SENSOR_ID)
+    assert msgs[-1].msg_type == "HEARTBEAT"
+    assert msgs[-1].decoded["header"]["boot_id"] == bg.sensors[0].boot_id
+
+
+KEY = "00112233445566778899aabbccddeeff"
+
+
+async def test_szyfrowane_ramki_przy_kluczu(
+    client, session_maker, two_sensors, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(settings, "frame_aes_key", KEY)
+    await _run(client, tmp_path, "--scenario", "theft", "--target", SECOND, "--aes-key", KEY)
+    assert [m.msg_type for m in await _messages(session_maker, SECOND)] == [
+        "BOOT", "ALARM", "ALARM", "ALARM", "HEARTBEAT",
+    ]
+    async with session_maker() as s:
+        assert (await s.scalar(select(Alarm))).repeats == 3
+
+
+async def test_jawne_ramki_przy_kluczu_w_backendzie_podpowiada(
+    client, session_maker, two_sensors, tmp_path, monkeypatch, caplog
+):
+    monkeypatch.setattr(settings, "frame_aes_key", KEY)
+    with caplog.at_level(logging.ERROR, logger="simulator"):
+        await _run(client, tmp_path, "--alarm-chance", "0", "--aes-key", "")
+    assert "FRAME_AES_KEY" in caplog.text and "--aes-key" in caplog.text
+    assert await _messages(session_maker, SENSOR_ID) == []
+
+
+def test_zly_klucz_aes_to_blad_opcji():
+    with pytest.raises(SystemExit):
+        parse_args(["--aes-key", "abcd"])
+    assert parse_args(["--aes-key", KEY]).aes_key == bytes.fromhex(KEY)
+    assert parse_args(["--aes-key", ""]).aes_key is None
+
+
+async def test_fresh_zaczyna_od_pelnych_baterii(tmp_path):
+    (tmp_path / "state.json").write_text(
+        json.dumps({SENSOR_ID: {"id": SENSOR_ID, "counter": 9, "battery": 0, "boot_id": 4}})
+    )
+    [kept] = load_state(tmp_path / "state.json", [SENSOR_ID])
+    [fresh] = load_state(tmp_path / "state.json", [SENSOR_ID], fresh=True)
+    assert (kept.battery, kept.boot_id) == (0, 4)
+    assert (fresh.battery, fresh.boot_id, fresh.counter) == (95, 0, 0)

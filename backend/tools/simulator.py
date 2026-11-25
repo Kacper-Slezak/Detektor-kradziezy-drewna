@@ -20,11 +20,18 @@ Scenariusze (dotyczą czujnika --target, reszta wysyła zwykłe heartbeaty):
 
 Licznik, boot_id i bateria każdego czujnika są zapisywane w pliku stanu (--state), bo w firmware
 numer uruchomienia przetrwa restart. Na starcie każdy czujnik wysyła BOOT z kolejnym boot_id,
-jak po włączeniu.
+jak po włączeniu. --fresh zaczyna od zera (pełne baterie demo), bez pliku stanu.
+
+Sesja sama się naprawia: gdy backend odrzuci ramkę jako powtórkę, bo pamięta nowszy boot_id
+(drugi symulator uruchomiony obok, skasowany plik stanu), symulator wysyła nowy BOOT
+z większym boot_id i ponawia ramkę.
 
 Domyślnie ramki wersji 3 (boot_id w nagłówku każdej ramki, licznik od 1 w każdej sesji).
 --frame-version 2 wysyła jak dawniej: BOOT wersji 2 z boot_id, reszta wersji 1
 (działa tylko przy LEGACY_FRAMES=true).
+
+Szyfrowanie: przy ustawionym FRAME_AES_KEY (środowisko / .env, albo --aes-key) ramki idą
+zaszyfrowane AES-128 tak jak z płytki. Backend z kluczem jawnych ramek nie przyjmie.
 """
 
 import argparse
@@ -39,6 +46,7 @@ from pathlib import Path
 import httpx
 
 from app.demo import DEMO_SENSORS
+from app.protocol.decoder import AES_BLOCK, parse_aes_key
 from app.protocol.encoder import (
     VERSION_SESSION,
     encode_alarm,
@@ -49,6 +57,11 @@ from app.protocol.encoder import (
 log = logging.getLogger("simulator")
 
 INGEST_PATH = "/api/v1/ingest"
+MOD = 1 << 16
+# przeskok boot_id, gdy backend pamięta nowszy: backend przyjmuje numer, który jest nowszy
+# o 1..32768 (modulo 2^16), więc najwyżej 3 przeskoki po 2^14 zawsze trafiają w nowszą połowę
+BOOT_JUMP = 1 << 14
+BOOT_TRIES = 4
 SCENARIOS = ["normal", "theft", "false-alarm", "battery-drain", "silent", "duplicate"]
 # czujniki demo z lokalizacją i włączone (te, które w terenie by nadawały)
 DEFAULT_SENSORS = [
@@ -71,8 +84,21 @@ class VirtualSensor:
     )
 
     def next_counter(self) -> int:
-        self.counter = (self.counter + 1) % (1 << 16)
+        self.counter = (self.counter + 1) % MOD
         return self.counter
+
+
+def encrypt(frame: bytes, key: bytes) -> bytes:
+    """Jak płytka: dopełnienie zerami do 16 B i AES-128-ECB (docs/backend/szyfrowanie.md)."""
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    encryptor = Cipher(algorithms.AES(key), modes.ECB()).encryptor()
+    return encryptor.update(frame.ljust(AES_BLOCK, b"\x00")) + encryptor.finalize()
+
+
+def _is_duplicate(results: list[dict]) -> bool:
+    """Pierwsza kopia ramki odrzucona jako powtórka (druga przy --scenario duplicate ma prawo)."""
+    return bool(results) and results[0].get("status") == "duplicate"
 
 
 class Simulator:
@@ -85,6 +111,7 @@ class Simulator:
         repeat_gap_s: float = 5.0,
         duplicate: bool = False,
         frame_version: int = VERSION_SESSION,
+        aes_key: bytes | None = None,
     ):
         self.client = client
         self.sensors = sensors
@@ -92,6 +119,7 @@ class Simulator:
         self.repeat_gap_s = repeat_gap_s
         self.duplicate = duplicate
         self.frame_version = frame_version
+        self.aes_key = aes_key
         self.drain: set[str] = set()
 
     def _session(self, sensor: VirtualSensor) -> dict:
@@ -100,11 +128,12 @@ class Simulator:
             return {"version": self.frame_version, "boot_id": sensor.boot_id}
         return {}
 
-    async def send(self, sensor: VirtualSensor, payload: bytes) -> list[dict]:
+    async def _post(self, sensor: VirtualSensor, payload: bytes) -> list[dict]:
         """Wysyła ramkę (przy --scenario duplicate dwa razy). Zwraca odpowiedzi backendu."""
+        wire = payload if self.aes_key is None else encrypt(payload, self.aes_key)
         body = {
             "device": sensor.id,
-            "payload_hex": payload.hex(),
+            "payload_hex": wire.hex(),
             "rssi": self.rng.randint(-120, -95),
         }
         results = []
@@ -135,35 +164,88 @@ class Simulator:
                     sensor.id,
                     r.status_code,
                 )
+            elif r.status_code == 422:
+                log.error("%s: 422 %s%s", sensor.id, r.text, self._hint_422(r.text))
             elif r.status_code >= 400:
                 log.error("%s: %s %s", sensor.id, r.status_code, r.text)
             else:
                 data = r.json()
-                log.info("%s %s → %s", sensor.id, payload.hex().upper(), _summary(data))
+                log.info(
+                    "%s %s%s → %s",
+                    sensor.id,
+                    payload.hex().upper(),
+                    " (AES)" if self.aes_key else "",
+                    _summary(data),
+                )
                 results.append(data)
         return results
 
-    async def boot(self, sensor: VirtualSensor) -> list[dict]:
-        sensor.boot_id = (sensor.boot_id + 1) % (1 << 16)
+    def _hint_422(self, text: str) -> str:
+        if "zaszyfrowanej" in text:
+            return (
+                "\n  → backend ma FRAME_AES_KEY i przyjmuje tylko szyfrowane ramki: ustaw ten "
+                "sam klucz w FRAME_AES_KEY (.env) albo --aes-key"
+            )
+        if "odszyfrować" in text:
+            return "\n  → inny klucz AES niż w backendzie: FRAME_AES_KEY musi być ten sam"
+        if self.aes_key and "jest 16 B" in text:
+            return (
+                "\n  → symulator szyfruje, a backend nie ma FRAME_AES_KEY: usuń klucz "
+                "z symulatora albo ustaw go też w backendzie"
+            )
+        if "LEGACY_FRAMES" in text:
+            return "\n  → backend przyjmuje tylko wersję 3: uruchom bez --frame-version 2"
+        return ""
+
+    async def send(self, sensor: VirtualSensor, build) -> list[dict]:
+        """Buduje ramkę (`build()` bierze kolejny licznik) i wysyła.
+
+        Powtórka = backend pamięta nowszą sesję tego czujnika (drugi symulator obok,
+        skasowany plik stanu). Wtedy nowy BOOT i ta sama ramka jeszcze raz w nowej sesji.
+        """
+        results = await self._post(sensor, build())
+        if not self.duplicate and _is_duplicate(results):
+            log.warning(
+                "%s: ramka odrzucona jako powtórka, bo backend zna nowszą sesję "
+                "(drugi symulator albo skasowany plik stanu). Nowy BOOT.",
+                sensor.id,
+            )
+            if not _is_duplicate(await self.boot(sensor)):
+                results = await self._post(sensor, build())
+        return results
+
+    def _boot_frame(self, sensor: VirtualSensor) -> bytes:
         if self.frame_version >= VERSION_SESSION:
             sensor.counter = 0  # wersja 3: nowa sesja, licznik od 1 (jak w firmware)
-            payload = encode_boot(
+            return encode_boot(
                 sensor.next_counter(), battery_pct=sensor.battery, **self._session(sensor)
             )
-        else:
-            payload = encode_boot(
-                sensor.next_counter(), battery_pct=sensor.battery, boot_id=sensor.boot_id
-            )
-        results = await self.send(sensor, payload)
-        if any(r.get("status") == "duplicate" for r in results):
-            log.warning(
-                "%s: BOOT odrzucony jako powtórka (boot_id %s nie większy niż w bazie). "
-                "Plik stanu jest starszy niż baza: POST /api/v1/sensors/%s/reset-boot "
-                "(admin) albo --state z nowym plikiem po seed --reset",
-                sensor.id,
-                sensor.boot_id,
-                sensor.id,
-            )
+        return encode_boot(
+            sensor.next_counter(), battery_pct=sensor.battery, boot_id=sensor.boot_id
+        )
+
+    async def boot(self, sensor: VirtualSensor) -> list[dict]:
+        """BOOT z kolejnym boot_id. Gdy backend pamięta nowszy, przeskok o 2^14 (max 3 razy)."""
+        sensor.boot_id = (sensor.boot_id + 1) % MOD
+        for attempt in range(BOOT_TRIES):
+            results = await self._post(sensor, self._boot_frame(sensor))
+            if not _is_duplicate(results):
+                return results
+            if attempt < BOOT_TRIES - 1:
+                old = sensor.boot_id
+                sensor.boot_id = (sensor.boot_id + BOOT_JUMP) % MOD
+                log.warning(
+                    "%s: backend pamięta nowszy boot_id niż %s, próbuję %s",
+                    sensor.id,
+                    old,
+                    sensor.boot_id,
+                )
+        log.error(
+            "%s: backend odrzuca każdy BOOT. Wyzeruj czujnik: "
+            "POST /api/v1/sensors/%s/reset-boot (admin) albo seed --demo --reset",
+            sensor.id,
+            sensor.id,
+        )
         return results
 
     async def heartbeat(self, sensor: VirtualSensor) -> list[dict]:
@@ -171,14 +253,17 @@ class Simulator:
             return []
         if sensor.id in self.drain:
             sensor.battery = max(0, sensor.battery - 5)
-        payload = encode_heartbeat(
-            sensor.next_counter(),
-            battery_pct=sensor.battery,
-            rejected_events=self.rng.randint(0, 3),
-            low_battery=sensor.battery < 20,
-            **self._session(sensor),
+        rejected = self.rng.randint(0, 3)
+        return await self.send(
+            sensor,
+            lambda: encode_heartbeat(
+                sensor.next_counter(),
+                battery_pct=sensor.battery,
+                rejected_events=rejected,
+                low_battery=sensor.battery < 20,
+                **self._session(sensor),
+            ),
         )
-        return await self.send(sensor, payload)
 
     async def alarm(
         self, sensor: VirtualSensor, *, false_alarm: bool = False
@@ -202,13 +287,15 @@ class Simulator:
         for i in range(3):
             if i:
                 await asyncio.sleep(self.repeat_gap_s)
-            payload = encode_alarm(
-                sensor.next_counter(),
-                battery_pct=sensor.battery,
-                **params,
-                **self._session(sensor),
+            results += await self.send(
+                sensor,
+                lambda: encode_alarm(
+                    sensor.next_counter(),
+                    battery_pct=sensor.battery,
+                    **params,
+                    **self._session(sensor),
+                ),
             )
-            results += await self.send(sensor, payload)
         return results
 
     async def tick(self, alarm_chance: float = 0.0) -> None:
@@ -235,9 +322,10 @@ def _summary(data: dict) -> str:
     return "zapisano"
 
 
-def load_state(path: Path, ids: list[str]) -> list[VirtualSensor]:
+def load_state(path: Path, ids: list[str], fresh: bool = False) -> list[VirtualSensor]:
+    """Czujniki z pliku stanu; nowe (albo wszystkie przy `fresh`) z baterią jak po seedzie."""
     saved = {}
-    if path.exists():
+    if path.exists() and not fresh:
         try:
             saved = json.loads(path.read_text())
         except (json.JSONDecodeError, OSError):
@@ -281,7 +369,7 @@ async def run(args: argparse.Namespace, client: httpx.AsyncClient) -> None:
     state_path = Path(args.state)
     if not await wait_for_api(client, timeout_s=args.wait):
         return
-    sensors = load_state(state_path, args.sensors)
+    sensors = load_state(state_path, args.sensors, fresh=args.fresh)
     for s in sensors:
         s.silent = False  # cisza dotyczy tylko jednego uruchomienia
     target = next((s for s in sensors if s.id == args.target), sensors[0])
@@ -292,9 +380,15 @@ async def run(args: argparse.Namespace, client: httpx.AsyncClient) -> None:
         repeat_gap_s=args.repeat_gap,
         duplicate=args.scenario == "duplicate",
         frame_version=args.frame_version,
+        aes_key=args.aes_key,
     )
     log.info(
-        "Czujniki: %s, scenariusz: %s (cel: %s)", len(sensors), args.scenario, target.id
+        "Czujniki: %s, scenariusz: %s (cel: %s), ramki v%s%s",
+        len(sensors),
+        args.scenario,
+        target.id,
+        args.frame_version,
+        ", szyfrowane AES" if args.aes_key else "",
     )
 
     try:
@@ -319,6 +413,13 @@ async def run(args: argparse.Namespace, client: httpx.AsyncClient) -> None:
             await asyncio.sleep(args.interval)
     finally:
         save_state(state_path, sensors)
+
+
+def _aes_key(value: str) -> bytes | None:
+    try:
+        return parse_aes_key(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e)) from None
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -359,6 +460,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=[2, VERSION_SESSION],
         default=VERSION_SESSION,
         help="wersja ramek: 3 (domyślnie) albo 2 (jak dawniej, wymaga LEGACY_FRAMES=true)",
+    )
+    p.add_argument(
+        "--aes-key",
+        type=_aes_key,
+        default=os.environ.get("FRAME_AES_KEY", ""),
+        help="klucz AES (32 znaki hex) do szyfrowania ramek; domyślnie FRAME_AES_KEY "
+        "ze środowiska / .env; pusty = ramki jawne",
+    )
+    p.add_argument(
+        "--fresh",
+        action="store_true",
+        help="zacznij od zera: bez pliku stanu, baterie jak po seed --demo",
     )
     p.add_argument("--once", action="store_true", help="jeden obrót i koniec")
     p.add_argument(
