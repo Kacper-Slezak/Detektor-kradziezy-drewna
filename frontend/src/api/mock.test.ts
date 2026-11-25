@@ -229,6 +229,15 @@ describe('sensor management', () => {
     expect(listed?.range_id).toBe(2)
   })
 
+  it('switches a sensor off and back on to the state it had', async () => {
+    // Skład przy drodze 5 has an open alarm
+    const off = await mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { active: false })
+    expect(off).toMatchObject({ active: false, state: 'inactive' })
+
+    const on = await mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { active: true })
+    expect(on).toMatchObject({ active: true, state: 'alarm' })
+  })
+
   it('rejects editing by a non-admin (403), an unknown sensor (404) and an unknown range (400)', async () => {
     await expect(mock.mockUpdateSensor('mock-3', '70B3D57ED0051234', { range_id: 2 })).rejects.toMatchObject({
       status: 403,
@@ -239,6 +248,36 @@ describe('sensor management', () => {
     await expect(mock.mockUpdateSensor('mock-1', '70B3D57ED0051234', { range_id: 99 })).rejects.toMatchObject({
       status: 400,
     })
+  })
+})
+
+describe('deleting a sensor', () => {
+  // a fresh sensor, so the unmounted ones stay for the mounting tests below
+  const TYPO = '70B3D57ED0060002'
+
+  it('deletes a sensor with no history, also given like on the sticker', async () => {
+    await mock.mockCreateSensor('mock-1', { id: TYPO, range_id: 1, name: null })
+
+    await expect(mock.mockDeleteSensor('mock-1', '70:b3:d5:7e:d0:06:00:02')).resolves.toBeUndefined()
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).not.toContain(TYPO)
+    // gone, so a second time it is not found
+    await expect(mock.mockDeleteSensor('mock-1', TYPO)).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('keeps a sensor with alarms or releases (409 with the counts)', async () => {
+    // Skład przy leśniczówce: one alarm and three releases (the release history from #77)
+    const error = mock.mockDeleteSensor('mock-1', '70B3D57ED005DEF0')
+    await expect(error).rejects.toMatchObject({ status: 409 })
+    await expect(error).rejects.toThrow('alarmy: 1, wydania: 3')
+    // only releases count too: Skład przy szlabanie
+    await expect(mock.mockDeleteSensor('mock-1', '70B3D57ED0055678')).rejects.toMatchObject({ status: 409 })
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).toContain('70B3D57ED005DEF0')
+  })
+
+  it('is only for the admin (403 for others)', async () => {
+    await expect(mock.mockDeleteSensor('mock-3', '70B3D57ED005A1B2')).rejects.toMatchObject({ status: 403 })
+    await expect(mock.mockDeleteSensor('mock-4', '70B3D57ED005A1B2')).rejects.toMatchObject({ status: 403 })
+    expect((await mock.mockListSensors('mock-1')).map((s) => s.id)).toContain('70B3D57ED005A1B2')
   })
 })
 
@@ -349,22 +388,38 @@ describe('timber releases', () => {
 
   it('a forester sees the releases of their range, newest first', async () => {
     const list = await mock.mockListReleases('mock-3')
-    expect(list.map((r) => [r.id, r.sensor_name, r.active])).toEqual([
-      [8, 'Skład przy szlabanie', true],
-      [7, 'Skład przy drodze 5', false],
-    ])
+    // 11 and 14 are in Olszyny
+    expect(list.map((r) => r.id)).toEqual([8, 9, 10, 12, 13, 7, 15, 16, 17])
+    expect(list[0]).toMatchObject({ sensor_name: 'Skład przy szlabanie', active: true })
+    expect(list.slice(1).every((r) => !r.active)).toBe(true)
     // the ongoing release is the one muting the sensor on the map
     expect(list[0].ends_at).toBe((await sensor(SZLABAN)).muted_until)
   })
 
   it('a district manager sees all ranges and can filter', async () => {
-    expect((await mock.mockListReleases('mock-4')).map((r) => r.id)).toEqual([8, 7, 6])
-    expect((await mock.mockListReleases('mock-4', { active: true })).map((r) => r.id)).toEqual([8])
-    expect((await mock.mockListReleases('mock-4', { active: false })).map((r) => r.id)).toEqual([7, 6])
-    expect((await mock.mockListReleases('mock-4', { sensor_id: DROGA })).map((r) => r.id)).toEqual([7])
-    // releases that lasted at least partly on 14 October
-    const day = { from: '2026-10-14T00:00:00Z', to: '2026-10-14T23:59:59Z' }
-    expect((await mock.mockListReleases('mock-4', day)).map((r) => r.id)).toEqual([7])
+    const ids = async (filters: Parameters<typeof mock.mockListReleases>[1]) =>
+      (await mock.mockListReleases('mock-4', filters)).map((r) => r.id)
+
+    expect(await ids({})).toEqual([8, 9, 10, 11, 12, 13, 14, 7, 6, 15, 16, 17])
+    expect(await ids({ active: true })).toEqual([8])
+    expect(await ids({ active: false })).toEqual([9, 10, 11, 12, 13, 14, 7, 6, 15, 16, 17])
+    expect(await ids({ sensor_id: DROGA })).toEqual([10, 7, 16])
+    // releases that lasted at least partly during release 7
+    const seven = (await mock.mockListReleases('mock-4')).find((r) => r.id === 7)!
+    expect(await ids({ from: seven.starts_at, to: seven.starts_at })).toEqual([7])
+  })
+
+  it('gives the history of the last days, a page at a time', async () => {
+    const daysAgo = (days: number) => new Date(Date.now() - days * 24 * HOUR).toISOString()
+    const ids = async (filters: Parameters<typeof mock.mockListReleases>[1]) =>
+      (await mock.mockListReleases('mock-4', filters)).map((r) => r.id)
+
+    expect(await ids({ active: false, from: daysAgo(7) })).toEqual([9, 10, 11])
+    expect(await ids({ active: false, from: daysAgo(30) })).toEqual([9, 10, 11, 12, 13, 14])
+    // "show older": the next page starts where the first one ended
+    expect(await ids({ active: false, limit: 4 })).toEqual([9, 10, 11, 12])
+    expect(await ids({ active: false, limit: 4, offset: 4 })).toEqual([13, 14, 7, 6])
+    expect(await ids({ active: false, limit: 4, offset: 12 })).toEqual([])
   })
 
   it('mutes a sensor for 4 h by default', async () => {
@@ -372,7 +427,7 @@ describe('timber releases', () => {
     const release = await mock.mockCreateRelease('mock-3', PASNIK, { carrier: 'Trans-Las', log_count: 12 })
 
     expect(release).toMatchObject({
-      id: 9,
+      id: 18,
       sensor_id: PASNIK,
       sensor_name: 'Skład przy paśniku',
       active: true,

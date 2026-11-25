@@ -416,9 +416,13 @@ Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponow
 ---
  
 ## 5. Raporty (nadleśniczy)
- 
+
+Dostęp: `district_manager` i `admin` (wszystkie leśnictwa). Leśniczy dostaje `403`, bez tokena `401`.
+
+Oba endpointy biorą ten sam okres: `from` i `to` są **wymagane**, w formacie `RRRR-MM-DD`. To dni kalendarzowe w **UTC**, od `from` 00:00 do końca dnia `to` **włącznie**. `to` przed `from`, zła data albo okres dłuższy niż **366 dni** → `422`. Alarm należy do okresu według czasu wykrycia (`detected_at`), wydanie według czasu rozpoczęcia (`starts_at`).
+
 ### `GET /api/v1/reports/summary?from=2026-07-01&to=2026-09-30`
- 
+
 ```json
 {
   "period": { "from": "2026-07-01", "to": "2026-09-30" },
@@ -435,15 +439,36 @@ Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponow
   ]
 }
 ```
- 
-`per_week` służy do wykresu.
- 
+
+- `alarms.unanswered`: alarmy w statusie `new` (bez odpowiedzi leśniczego); `theft` i `false_alarm` to odpowiedzi leśniczego
+- `sensors` to **stan z chwili zapytania**, nie z okresu: `total` to czujniki zamontowane (z lokalizacją), `silent` to te w stanie `silent` ([stan czujnika](#stan-czujnika-state)), `low_battery` to bateria poniżej 20%
+- `per_sensor`: zamontowane czujniki oraz te, które miały alarm lub wydanie w okresie; od najwięcej alarmów, potem po nazwie; czujniki bez danych mają zera
+- `per_week` służy do wykresu: **każdy** tydzień ISO od `from` do `to` po kolei (`RRRR-Wnn`), także bez alarmów; tydzień ISO bywa z innego roku niż data (np. 1 stycznia 2027 to `2026-W53`)
+
 ### `GET /api/v1/reports/export.csv?from=2026-07-01&to=2026-09-30`
- 
-Plik CSV z alarmami i wydaniami (do Excela). `Content-Type: text/csv`, a frontend robi z tego zwykły link do pobrania.
- 
+
+Plik CSV z alarmami **i** wydaniami z okresu w jednej tabeli, od najstarszego (do Excela). Odpowiedź `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="raport-2026-07-01_2026-09-30.csv"`, więc frontend robi z tego zwykły link do pobrania (z tokenem w nagłówku trzeba pobrać plik zapytaniem i zapisać go jako plik).
+
+- kodowanie UTF-8 **z BOM**, separator `;`, końce wierszy CRLF: Excel w polskich ustawieniach otwiera plik bez importu i poprawnie pokazuje polskie znaki
+- czas w UTC, `RRRR-MM-DD GG:MM:SS`
+- pierwszy wiersz to nagłówek; kolumny:
+
+| kolumna | alarm | wydanie |
+|---|---|---|
+| `typ` | `alarm` | `wydanie` |
+| `id`, `czujnik_id`, `czujnik`, `leśnictwo` | tak | tak |
+| `start (UTC)`, `koniec (UTC)` | wykrycie, ostatnia ramka | początek, koniec wydania |
+| `status` | `nowy` / `kradzież` / `fałszywy alarm` | `trwa` / `zakończone` |
+| `pewność %`, `źródła`, `powtórzenia` | tak (źródła: `dźwięk, wibracje`) | puste |
+| `odpowiedź: kto`, `odpowiedź: kiedy (UTC)` | tak (puste bez odpowiedzi) | puste |
+| `komentarz` | komentarz leśniczego | komentarz do wydania |
+| `przewoźnik`, `liczba kłód`, `utworzył` | puste | tak |
+
+- tekst zaczynający się od `=`, `+`, `-` albo `@` dostaje na początku apostrof (`'=…`), żeby Excel nie wykonał go jak formuły; komentarze i nazwy wpisują użytkownicy
+- okres bez danych daje plik z samym nagłówkiem
+
 ---
- 
+
 ## 6. Powiadomienia push (Web Push, VAPID)
  
 Standardowy Web Push przeglądarki z kluczami VAPID, bez Firebase. Pushe dostaje tylko leśniczy (`forester`). Nadleśniczy korzysta z raportów.
@@ -452,7 +477,7 @@ Działa tylko po HTTPS albo na `localhost`. Android (Chrome, Edge, Firefox): w p
  
 ### `GET /api/v1/push/vapid-public-key`
  
-Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno.
+Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno. Wymaga logowania. Gdy serwer nie ma ustawionego `VAPID_PUBLIC_KEY`: `503` (powiadomienia są wyłączone, reszta aplikacji działa).
  
 ```json
 // 200
@@ -475,7 +500,8 @@ Po zgodzie użytkownika (prośba po kliknięciu przycisku, nie przy wejściu) ap
 }
 ```
  
-- odpowiedź `201`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma,
+- odpowiedź `201` z `{ "id": 5 }`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma, więc można go bezpiecznie wysyłać przy każdym logowaniu,
+- `endpoint` musi zaczynać się od `https://`, `keys.p256dh` i `keys.auth` są wymagane (inaczej `422`),
 - `expirationTime` backend ignoruje,
 - konto inne niż leśniczy → `403`.
  
@@ -496,9 +522,31 @@ Przy wylogowaniu, razem z `subscription.unsubscribe()` w przeglądarce. `endpoin
 }
 ```
  
-Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`. Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszenie się skończyło); `url` prowadzi wtedy do czujnika.
+Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`.
+
+Inne typy dotyczą czujnika, nie alarmu. Mają `sensor_id`, nie mają `alarm_id`, a `url` to mapa (`/`), bo aplikacja nie ma osobnego adresu czujnika:
+
+```json
+{ "type": "low_battery", "sensor_id": "70B3D57ED0051234", "title": "Słaba bateria: Skład przy drodze 5", "body": "Bateria 15%, wymień ją przy najbliższej wizycie", "url": "/" }
+{ "type": "silent", "sensor_id": "70B3D57ED0051234", "title": "Brak kontaktu: Skład przy drodze 5", "body": "Czujnik nie odzywa się od 13 h", "url": "/" }
+{ "type": "release_ended", "sensor_id": "70B3D57ED0051234", "release_id": 7, "title": "Koniec wydania: Skład przy drodze 5", "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły", "url": "/" }
+```
  
-Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję.
+**Kiedy backend wysyła.** Push o typie `alarm` leci po **utworzeniu nowego alarmu** (z `/ingest`, po odpowiedzi płytce) do wszystkich subskrypcji aktywnych leśniczych **leśnictwa tego czujnika**. Powtórzenia ramki ALARM, które scalają się z istniejącym alarmem, nie wysyłają kolejnego pusha. Alarm z wyciszonego lub wyłączonego czujnika nie powstaje, więc pusha też nie ma. Nadleśniczy i admin pushy nie dostają.
+
+Pozostałe typy idą do tych samych odbiorców, **raz na zdarzenie**:
+
+| Typ | Kiedy | Kiedy znowu |
+|---|---|---|
+| `low_battery` | ramka z baterią poniżej `BATTERY_LOW_PCT` (20%) albo heartbeat z flagą słabej baterii (z `/ingest`, po odpowiedzi płytce); nie dla wyłączonego czujnika | gdy bateria wróci do co najmniej progu + 5 pp (wymiana) i znowu spadnie |
+| `silent` | czujnik ma stan `silent`: brak ramki dłużej niż `SENSOR_SILENT_AFTER_H`. Nie dla czujnika, który nigdy się nie odezwał (świeżo zamontowany), wyłączonego, z otwartym alarmem ani w trakcie wydania (przyjdzie, gdy ten stan minie) | po kolejnej ramce i kolejnej ciszy |
+| `release_ended` | minął `ends_at` wydania. Nie, gdy leśniczy zakończył je sam (`POST /releases/{id}/end`), gdy zaraz zaczęło się następne wydanie, gdy czujnik jest wyłączony, ani gdy skończyło się ponad 1 h temu (np. backend nie działał) | nie |
+
+`silent` i `release_ended` sprawdza pętla w backendzie co `NOTIFY_CHECK_INTERVAL_S` (5 min), więc przychodzą z opóźnieniem do 5 min. Pętla zakłada jeden worker uvicorna (tak jest teraz: `Dockerfile` nie ustawia `--workers`); przy kilku każdy wysyłałby swoje.
+
+Wiadomość ma ważność 1 h (`TTL`): jeśli telefon jest dłużej poza zasięgiem, usługa push ją porzuca.
+
+Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję. Inne błędy (sieć, `429`, `5xx`) subskrypcji nie usuwają.
  
 ---
  

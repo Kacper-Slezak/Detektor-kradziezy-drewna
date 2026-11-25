@@ -48,6 +48,24 @@ describe('EndReleaseConfirm', () => {
     expect(endRelease).toHaveBeenCalledWith(8)
   })
 
+  it('ends the given release without looking it up (the release list knows it)', async () => {
+    const onEnded = vi.fn()
+    render(
+      <EndReleaseConfirm
+        sensor={{ id: sensor.id, name: sensor.name }}
+        releaseId={8}
+        onEnded={onEnded}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Zakończ' }))
+
+    await vi.waitFor(() => expect(onEnded).toHaveBeenCalledOnce())
+    expect(endRelease).toHaveBeenCalledWith(8)
+    expect(listReleases).not.toHaveBeenCalled()
+  })
+
   it('sends nothing when the forester cancels', async () => {
     const { user, onEnded, onCancel } = renderConfirm()
 

@@ -309,6 +309,28 @@ Czujnik z tym ID rejestruje się w panelu admina (Czujniki → Dodaj czujnik). N
 
 Po montażu czujnik ma pinezkę na mapie (stan `silent` do pierwszej ramki).
 
+## 6a. Powiadomienia push
+
+Wymagają HTTPS (tunel albo serwer) i kluczy VAPID w `backend/.env`:
+
+```bash
+cd backend
+docker compose run --rm web python -m tools.generate_vapid_keys    # wynik wkleić do .env (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT)
+docker compose up -d                                                 # backend wczyta nowe zmienne
+```
+
+1. W aplikacji (telefon, HTTPS) zalogować się jako leśniczy, np. `blazej`, i włączyć powiadomienia (przycisk w menu).
+2. Wysłać alarm na czujnik z jego leśnictwa (sekcja 3 albo 4), np. symulatorem:
+   ```bash
+   docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once
+   ```
+3. Telefon dostaje powiadomienie „Alarm: …” (leśniczy z innego leśnictwa i nadleśniczy nie dostają). Kolejne ramki tego samego alarmu pusha nie powtarzają.
+4. Słaba bateria: symulator `--scenario battery-drain --target 70B3D57ED00D0009` (bateria −5 pkt na heartbeat). Gdy spadnie poniżej 20%, przychodzi „Słaba bateria: …” raz; następne ramki już nie.
+5. Koniec wydania: założyć w aplikacji wydanie, poczekać na jego koniec; w ciągu 5 min przychodzi „Koniec wydania: …”. Zakończenie przyciskiem w aplikacji pusha nie daje.
+6. Brak kontaktu: najszybciej z `SENSOR_SILENT_AFTER_H=1` w `.env` i czujnikiem, który przestał nadawać; po godzinie (+ do 5 min) przychodzi „Brak kontaktu: …”.
+
+Subskrypcje w bazie: `SELECT user_id, left(endpoint, 40), device_label FROM push_subscriptions;`. W logu backendu po każdej wysyłce: `Push alarm (czujnik …): wysłano X/Y, usunięto wygasłych Z` (zamiast `alarm` odpowiednio `low_battery`, `silent`, `release_ended`).
+
 ## 7. Telefon
 
 Dostęp do aplikacji z telefonu (tunel Cloudflare, localtunnel albo USB): [docs/frontend/pwa.md](frontend/pwa.md). Tunel obejmuje tylko port frontendu, zapytania `/api` przechodzą przez proxy Vite. Do płytki służy osobny tunel na port backendu ([sekcja 6](#6-płytka-lopy-przez-wi-fi)).

@@ -134,6 +134,30 @@ describe('admin panel', () => {
     expect(await screen.findByText('Skład przy drodze 5')).toBeInTheDocument()
   })
 
+  it('deletes a test sensor and switches off one with history instead', async () => {
+    render(<App />)
+    const user = await logIn('admin', 'admin123')
+    await user.click(within(await screen.findByRole('navigation', { name: 'Menu panelu' })).getByRole('button', { name: 'Czujniki' }))
+    await screen.findByText('Skład przy drodze 5')
+
+    // not mounted, no alarms or releases: it can go
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED005A1B2' }))
+    let form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+    expect(await screen.findByText('Usunięto czujnik 70B3D57ED005A1B2.')).toBeInTheDocument()
+    expect(screen.queryByText('70B3D57ED005A1B2')).not.toBeInTheDocument()
+
+    // an alarm and a release: it stays, switched off
+    await user.click(screen.getByRole('button', { name: 'Edytuj czujnik 70B3D57ED005DEF0' }))
+    form = await screen.findByRole('dialog', { name: 'Edycja czujnika' })
+    await user.click(within(form).getByRole('button', { name: 'Usuń czujnik' }))
+    await user.click(within(form).getByRole('button', { name: 'Usuń' }))
+    await user.click(await within(form).findByRole('button', { name: 'Wyłącz czujnik' }))
+    expect(await screen.findByText('Wyłączono czujnik 70B3D57ED005DEF0.')).toBeInTheDocument()
+    expect(within(screen.getByRole('row', { name: /70B3D57ED005DEF0/ })).getByText('Wyłączony')).toBeInTheDocument()
+  })
+
   it('a new forester can sign in with the temporary password', async () => {
     render(<App />)
     const user = await logIn('admin', 'admin123')
@@ -235,6 +259,38 @@ describe('sensor map', () => {
     expect(screen.getByRole('heading', { name: 'Mapa czujników' })).toBeInTheDocument()
     expect(within(views).getByRole('button', { name: 'Mapa' })).toHaveAttribute('aria-current', 'page')
     expect(window.location.pathname).toBe('/')
+  })
+
+  it('opens the releases, ends one there, and the map follows', async () => {
+    render(<App />)
+    const user = await logIn('blazej', 'tajne123')
+    await screen.findByTitle('Skład przy szlabanie: Wyciszony', {}, mapTimeout)
+    const views = screen.getByRole('navigation', { name: 'Widok' })
+
+    // the number of ongoing releases is in the name of the button
+    await user.click(within(views).getByRole('button', { name: 'Wydania, 1 trwa' }))
+    expect(screen.getByRole('heading', { name: 'Wydania drewna' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/releases')
+
+    const list = await screen.findByRole('list', { name: 'Trwające wydania' }, mapTimeout)
+    await user.click(within(list).getByRole('button', { name: 'Zakończ wyciszenie' }))
+    const panel = await screen.findByRole('dialog', { name: 'Zakończyć wyciszenie?' })
+    await user.click(within(panel).getByRole('button', { name: 'Zakończ' }))
+    expect(await screen.findByText('Skład przy szlabanie znów czuwa')).toBeInTheDocument()
+
+    // no ongoing release left, so the badge is gone
+    expect(await within(views).findByRole('button', { name: 'Wydania' }, mapTimeout)).toBeInTheDocument()
+    await user.click(within(views).getByRole('button', { name: 'Mapa' }))
+    expect(await screen.findByTitle('Skład przy szlabanie: Działa', {}, mapTimeout)).toBeInTheDocument()
+  })
+
+  it('opens the releases from the address', async () => {
+    window.history.replaceState(null, '', '/releases')
+    setToken('mock-3')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Wydania drewna' }, mapTimeout)).toBeInTheDocument()
+    expect(await screen.findByRole('list', { name: 'Trwające wydania' }, mapTimeout)).toHaveTextContent('Skład przy szlabanie')
   })
 
   it('opens the alarm from the address, e.g. after tapping a push', async () => {

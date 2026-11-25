@@ -1,10 +1,11 @@
 // The app has no router: the address only says which view of the home screen is open.
 // "/alarms" is the alarm list, "/alarms/41" the list with alarm 41 shown (a push opens it,
-// api.md section 6), anything else is the map.
+// api.md section 6), "/releases" the timber releases, anything else is the map.
 
-export type Route = { view: 'map' } | { view: 'alarms'; alarmId: number | null }
+export type Route = { view: 'map' } | { view: 'alarms'; alarmId: number | null } | { view: 'releases' }
 
 export function parseRoute(path: string = window.location.pathname): Route {
+  if (/^\/releases\/?$/.test(path)) return { view: 'releases' }
   const match = /^\/alarms(?:\/(\d+))?\/?$/.exec(path)
   if (!match) return { view: 'map' }
   return { view: 'alarms', alarmId: match[1] ? Number(match[1]) : null }
@@ -12,6 +13,7 @@ export function parseRoute(path: string = window.location.pathname): Route {
 
 export function routePath(route: Route): string {
   if (route.view === 'map') return '/'
+  if (route.view === 'releases') return '/releases'
   return route.alarmId === null ? '/alarms' : `/alarms/${route.alarmId}`
 }
 

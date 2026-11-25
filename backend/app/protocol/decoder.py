@@ -235,11 +235,15 @@ def decrypt_payload_hex(payload_hex: str, key: bytes | None) -> str:
 
     # Długość jawnej ramki z pierwszego bajtu (wersja i typ), np. BOOT v1 = 6 B, BOOT v2 = 8 B
     # (z boot_id), ALARM = 10 B. Nie z BODY[typ].size: obcięłoby boot_id z BOOT-a wersji 2.
-    # Zły klucz daje losowe bajty: wersja lub typ się nie zgadzają -> FrameError.
+    # Zły klucz albo losowy pakiet daje losowe bajty. Sam pierwszy bajt (wersja, typ) to za mało:
+    # losowy pakiet bez klucza przechodził wtedy jako ramka w ok. 0,7% prób. Dlatego dopełnienie
+    # musi być zerami: jedyny test integralności bez podpisu (MIC), szansa 2^-32 .. 2^-80.
     try:
         length = frame_length(block[0])
     except FrameError:
+        length = None
+    if length is None or any(block[length:]):
         raise FrameError(
             "nie da się odszyfrować ramki (zły klucz albo uszkodzony pakiet)"
-        ) from None
+        )
     return block[:length].hex()

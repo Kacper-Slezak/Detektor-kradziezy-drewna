@@ -122,6 +122,24 @@
     "added": "Sensor {{id}} added. The forester will mount it in the app.",
     "addedDone": "OK",
     "saved": "Changes to sensor {{id}} saved.",
+    "deleted": "Sensor {{id}} deleted.",
+    "switchedOff": "Sensor {{id}} switched off.",
+    "delete": {
+      "section": "Deleting the sensor",
+      "open": "Delete sensor",
+      "hint": "Only a sensor with no alarms or releases.",
+      "question": "Delete sensor {{id}} for good?",
+      "cannotUndo": "This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…",
+      "hasHistory": "This sensor cannot be deleted, because it has alarms or releases.",
+      "switchOffHint": "You can switch it off: it stops raising alarms, and the history stays.",
+      "alreadyOff": "It stays in the system switched off, with its history.",
+      "switchOff": "Switch the sensor off",
+      "switchingOff": "Switching off…",
+      "ok": "OK"
+    },
     "form": {
       "title": "New sensor",
       "description": "The sensor will show up on the forester’s list to mount. The phone saves its location when mounting.",
@@ -144,7 +162,10 @@
       "title": "Edit sensor",
       "description": "After changing the forest range, the sensor is shown to the forester of the new range.",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "active": "Sensor switched on",
+      "activeHint": "A switched-off sensor raises no alarms and its pin is grey. The alarm and release history stays.",
+      "activeUnmounted": "The sensor switches on by itself when a forester mounts it."
     },
     "stats": {
       "all": "All sensors",
@@ -187,7 +208,12 @@
     "viewAlarmsOpen_one": "Alarms, {{count}} open",
     "viewAlarmsOpen_other": "Alarms, {{count}} open",
     "viewAlarmsOpen_few": "Alarms, {{count}} open",
-    "viewAlarmsOpen_many": "Alarms, {{count}} open"
+    "viewAlarmsOpen_many": "Alarms, {{count}} open",
+    "viewReleases": "Releases",
+    "viewReleasesOngoing_one": "Releases, {{count}} ongoing",
+    "viewReleasesOngoing_other": "Releases, {{count}} ongoing",
+    "viewReleasesOngoing_few": "Releases, {{count}} ongoing",
+    "viewReleasesOngoing_many": "Releases, {{count}} ongoing"
   },
   "alarms": {
     "title": "Alarms",
@@ -287,6 +313,42 @@
     "ending": "Ending…",
     "cancel": "Cancel",
     "ended": "{{name}} is watching again"
+  },
+  "releases": {
+    "title": "Timber releases",
+    "ongoing": "Ongoing releases",
+    "noOngoing": "No sensor is muted right now.",
+    "until": "until {{time}}",
+    "leftMinutes": "{{minutes}} min left",
+    "leftHours": "{{hours}} h left",
+    "leftHoursMinutes": "{{hours}} h {{minutes}} min left",
+    "logs_one": "{{count}} log",
+    "logs_other": "{{count}} logs",
+    "logs_few": "{{count}} logs",
+    "logs_many": "{{count}} logs",
+    "comment": "“{{comment}}”",
+    "since": "from {{time}}",
+    "tabs": "Show releases",
+    "tab": {
+      "ongoing": "Ongoing",
+      "history": "History"
+    },
+    "history": "Finished releases",
+    "noHistory": "No finished releases.",
+    "more": "Show older",
+    "loadingMore": "Loading…",
+    "noHistoryFiltered": "No finished releases in this period.",
+    "filters": {
+      "sensor": "Sensor",
+      "allSensors": "All sensors",
+      "period": "Period",
+      "periods": {
+        "7": "7 days",
+        "30": "30 days",
+        "365": "Year",
+        "all": "All"
+      }
+    }
   },
   "errors": {
     "network": "Cannot connect to the server",

@@ -1,7 +1,7 @@
 """sensors.last_boot_id: ochrona przed powtórką BOOT
 
 Revision ID: 7d41b8c52e90
-Revises: a3c9e1f20b47
+Revises: b81f4c2d9e63
 Create Date: 2026-11-23 18:00:00.000000
 
 Ramka BOOT wersji 2 niesie boot_id (numer uruchomienia płytki). Backend zapamiętuje
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "7d41b8c52e90"
-down_revision: Union[str, Sequence[str], None] = "a3c9e1f20b47"
+down_revision: Union[str, Sequence[str], None] = "b81f4c2d9e63"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

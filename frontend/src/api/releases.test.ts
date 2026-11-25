@@ -63,6 +63,7 @@ describe('releases API', () => {
       from: '2026-10-01T00:00:00Z',
       to: '2026-10-31T23:59:59Z',
       limit: 20,
+      offset: 40,
     })
 
     const params = new URL(request().url, 'http://x').searchParams
@@ -72,6 +73,7 @@ describe('releases API', () => {
       from: '2026-10-01T00:00:00Z',
       to: '2026-10-31T23:59:59Z',
       limit: '20',
+      offset: '40',
     })
   })
 })

@@ -14,6 +14,7 @@ from app.protocol.decoder import (
     AlarmFrame,
     BootFrame,
     FrameError,
+    HeartbeatFrame,
     MsgType,
     decode_hex,
     to_dict,
@@ -22,6 +23,8 @@ from app.protocol.decoder import (
 log = logging.getLogger(__name__)
 
 COUNTER_MOD = 1 << 16  # licznik ma 2 B i się przekręca
+# bateria musi wrócić wyraźnie powyżej progu, zanim push o słabej baterii pójdzie znowu
+BATTERY_HYSTERESIS_PCT = 5
 
 
 class UnknownSensorError(Exception):
@@ -35,6 +38,7 @@ class IngestResult:
     alarm_id: int | None = None
     alarm_created: bool = False
     muted: bool = False
+    low_battery_push: bool = False  # bateria właśnie stała się słaba (nie trafia do odpowiedzi)
 
 
 def _older_or_equal(last: int, value: int) -> bool:
@@ -101,6 +105,21 @@ def check_boot(sensor: Sensor, frame: BootFrame) -> bool:
             raise FrameError("BOOT bez boot_id od czujnika, który wysyła boot_id")
         return False
     return is_boot_replay(sensor.last_boot_id, frame.boot_id)
+def _track_battery(sensor: Sensor, frame) -> bool:
+    """True, gdy bateria właśnie stała się słaba: push raz, a nie przy każdej ramce.
+
+    Słaba = poniżej `battery_low_pct` albo flaga z heartbeatu (firmware ma własny próg).
+    Znowu dobra dopiero od progu + `BATTERY_HYSTERESIS_PCT`, żeby 19/20/19 % nie budziło co chwilę.
+    """
+    flagged = isinstance(frame, HeartbeatFrame) and frame.low_battery
+    if frame.battery_pct < settings.battery_low_pct or flagged:
+        if sensor.low_battery_notified:
+            return False
+        sensor.low_battery_notified = True
+        return True
+    if frame.battery_pct >= settings.battery_low_pct + BATTERY_HYSTERESIS_PCT:
+        sensor.low_battery_notified = False
+    return False
 
 
 async def _is_muted(session: AsyncSession, sensor: Sensor, at: datetime) -> bool:
@@ -232,8 +251,10 @@ async def ingest(
     elif isinstance(frame, BootFrame) and frame.boot_id is not None:  # wersja 2: tylko BOOT
         sensor.last_boot_id = frame.boot_id
     sensor.battery_pct = frame.battery_pct  # każdy typ ramki niesie baterię
+    sensor.silent_notified = False  # jest kontakt, więc następna cisza znów da push
 
     result = IngestResult(status="stored")
+    result.low_battery_push = _track_battery(sensor, frame)
 
     if isinstance(frame, AlarmFrame):
         if await _is_muted(session, sensor, received_at):
