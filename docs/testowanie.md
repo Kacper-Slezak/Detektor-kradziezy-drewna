@@ -88,33 +88,78 @@ Praca bez backendu: `VITE_USE_MOCK=true`, opis w [frontend/README.md](../fronten
 
 ## 3. Symulator czujników
 
-Symulator wysyła ramki w formacie firmware: BOOT przy starcie, heartbeaty co `--interval` sekund, w scenariuszach alarmy (3 ramki, jak z urządzenia).
+Symulator udaje płytki: wysyła na `POST /api/v1/ingest` te same ramki co firmware (wersja 3, przy ustawionym `FRAME_AES_KEY` zaszyfrowane). Na starcie każdy czujnik wysyła BOOT, potem heartbeat co `--interval` sekund, a w scenariuszach alarm (3 ramki, jak z płytki).
+
+### Szybki start
+
+Backend musi działać i mieć dane demo ([sekcja 1](#1-backend)):
 
 ```bash
 cd backend
-docker compose --profile sim up simulator      # czujniki demo, heartbeat co 30 s, losowe kradzieże; Ctrl+C kończy
-docker compose run --rm simulator --help       # wszystkie opcje
+docker compose --profile sim up simulator
 ```
 
-Scenariusze:
+Sześć czujników demo nadaje heartbeat co 30 s, czasem któryś zgłasza kradzież. Na mapie (`blazej` lub `ola`) zmienia się „ostatni kontakt” i bateria. Ctrl+C kończy.
 
-| Komenda | Konto do sprawdzenia | Oczekiwany efekt |
-|---|---|---|
-| `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once` | `ola` | „Skład na Kopcu” zmienia kolor na czerwony; w logu symulatora `NOWY ALARM #…` i dwa razy `powtórzenie alarmu` |
-| `docker compose run --rm simulator --scenario false-alarm --target 70B3D57ED00D0008 --once` | `ola` | alarm z samych wibracji, w `GET /api/v1/alarms` pole `possible_tampering: true` |
-| `docker compose run --rm simulator --scenario battery-drain --target 70B3D57ED00D0008 --interval 5` | `ola` | bateria w dymku pinezki spada o 5 pkt co 5 s, poniżej 20% wyświetlana na czerwono |
-| `docker compose run --rm simulator --scenario duplicate --once` | – | w logu `duplicate`: backend odrzuca drugą kopię ramki |
-| `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0003 --once` | `blazej` | czujnik z trwającym wydaniem zostaje niebieski; w logu `alarm pominięty (wyciszony/wyłączony)`, ramka zapisana bez alarmu |
+Klucze bierze sam z `backend/.env`: `INGEST_API_KEY` (nagłówek `X-Ingest-Key`) i `FRAME_AES_KEY` (szyfrowanie). Nic nie trzeba przepisywać.
 
-Wydanie drewna na dowolnym czujniku (Swagger, konto leśniczego):
+### Scenariusze
 
-1. `POST /api/v1/sensors/70B3D57ED00D0009/releases` z body `{}` (jako `ola`): wydanie na 4 h, pinezka zmienia kolor na niebieski.
-2. `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once`: w logu `alarm pominięty (wyciszony/wyłączony)`.
+Jednorazowy scenariusz uruchamiasz obok (w drugim terminalu), także wtedy, gdy `up simulator` dalej działa:
+
+| Co sprawdzić | Komenda | Konto | Efekt |
+|---|---|---|---|
+| kradzież | `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once` | `ola` | „Skład na Kopcu” czerwony; w logu `NOWY ALARM #…` i 2× `powtórzenie alarmu`; push, jeśli włączony |
+| manipulacja | `docker compose run --rm simulator --scenario false-alarm --target 70B3D57ED00D0008 --once` | `ola` | alarm z samych drgań, „Możliwa manipulacja przy czujniku” |
+| słaba bateria | `docker compose run --rm simulator --scenario battery-drain --target 70B3D57ED00D0008 --interval 5` | `ola` | bateria spada o 5 pkt co 5 s; poniżej 20% na czerwono i push „Słaba bateria” |
+| alarm w czasie wydania | `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0003 --once` | `blazej` | czujnik z wydaniem zostaje niebieski; w logu `alarm pominięty (wyciszony/wyłączony)` |
+| brak kontaktu | `docker compose run --rm simulator --scenario silent --target 70B3D57ED00D0001` | `blazej` | czujnik przestaje nadawać; stan `silent` (i push) po `SENSOR_SILENT_AFTER_H` godzinach |
+| duplikaty | `docker compose run --rm simulator --scenario duplicate --once` | – | każda ramka wysłana 2×; w logu druga kopia `duplicate` |
+
+Czujniki demo: `…0001`–`…0005` to Leśnictwo Dąbrowa (`blazej`), `…0008` i `…0009` to Olszyny (`ola`). `…0003` ma trwające wydanie, a `…0005` słabą baterię z seeda.
+
+Własne wydanie na dowolnym czujniku (Swagger, jako `ola`):
+
+1. `POST /api/v1/sensors/70B3D57ED00D0009/releases` z body `{}`: wydanie na 4 h, pinezka niebieska.
+2. Scenariusz `theft` na `70B3D57ED00D0009`: w logu `alarm pominięty (wyciszony/wyłączony)`.
 3. `POST /api/v1/releases/{id}/end`: koniec wydania; kolejny `theft` tworzy alarm.
 
-Liczniki i `boot_id` czujników są zapisywane w `backend/.simulator-state.json` (plik poza repozytorium). Po `seed --demo --reset` plik nie przeszkadza, bo symulator zawsze zaczyna od ramki BOOT. Odwrotnie nie: jeśli skasujesz sam plik stanu, a baza zostanie, numer `boot_id` zaczyna od 1, backend uznaje ramki za powtórkę (w logu symulatora: „BOOT odrzucony jako powtórka”, potem same `duplicate`). Wtedy `POST /api/v1/sensors/{id}/reset-boot` (admin) albo `seed --demo --reset`.
+### Najważniejsze opcje
 
-Symulator domyślnie wysyła ramki wersji 3. `--frame-version 2` wysyła jak dawniej (BOOT wersji 2, reszta wersji 1); działa tylko przy `LEGACY_FRAMES=true`.
+| Opcja | Domyślnie | Po co |
+|---|---|---|
+| `--scenario` | `normal` | `normal`, `theft`, `false-alarm`, `battery-drain`, `silent`, `duplicate` |
+| `--target` | pierwszy czujnik | czujnik, którego dotyczy scenariusz; reszta wysyła zwykłe heartbeaty |
+| `--sensors` | 6 czujników demo | własna lista ID po przecinku |
+| `--once` | – | jeden obrót (BOOT, scenariusz, heartbeat) i koniec |
+| `--interval` | `30` | sekundy między heartbeatami |
+| `--alarm-chance` | `0.02` | szansa losowej kradzieży na obrót (tylko `normal`); `0` = bez kradzieży |
+| `--fresh` | – | zacznij od zera: baterie jak po `seed --demo`, bez pliku stanu |
+| `--aes-key` | `FRAME_AES_KEY` | klucz AES (32 znaki hex); pusty = ramki jawne |
+| `--ingest-key` | `INGEST_API_KEY` | klucz `X-Ingest-Key` |
+| `--frame-version 2` | `3` | stare ramki; tylko przy `LEGACY_FRAMES=true` |
+
+Wszystkie: `docker compose run --rm simulator --help`.
+
+### Stan wirtualnych czujników
+
+Licznik, `boot_id` i bateria są w `backend/.simulator-state.json` (poza repozytorium), tak jak płytka trzyma `boot_id` w pamięci nieulotnej. Dzięki temu bateria po `battery-drain` zostaje niska także w następnym uruchomieniu. `--fresh` przywraca baterie.
+
+Symulator sam naprawia sesję. Gdy backend odrzuci ramkę jako powtórkę, bo pamięta nowszy `boot_id` (scenariusz uruchomiony obok, skasowany plik stanu, baza z innego komputera), symulator wysyła nowy BOOT z większym `boot_id` i ponawia ramkę. W logu widać wtedy ostrzeżenie `backend zna nowszą sesję` albo `próbuję <numer>`, a dalej zwykłe `zapisano`.
+
+### Typowe problemy
+
+| Objaw w logu symulatora | Przyczyna | Co zrobić |
+|---|---|---|
+| `Czekam na backend...`, potem `Backend nie odpowiada` | `web` nie działa | `docker compose up -d`, `docker compose ps` |
+| `backend nie zna czujnika` (404) | brak danych demo | `docker compose run --rm web python -m app.seed --demo` |
+| `błąd serwera 500` | baza bez tabel | `docker compose run --rm web alembic upgrade head` |
+| `backend odrzucił klucz` (401) | inny `INGEST_API_KEY` | ten sam klucz w `.env` backendu i symulatora; po zmianie `.env`: `docker compose up -d` |
+| `422 …` i `→ backend ma FRAME_AES_KEY …` | backend wymaga szyfrowania, symulator nie ma klucza | `FRAME_AES_KEY` w `backend/.env` (ten sam plik czyta symulator) albo `--aes-key` |
+| `422 …` i `→ inny klucz AES …` | różne klucze | jeden `FRAME_AES_KEY` dla backendu i symulatora |
+| `422 …` i `→ backend przyjmuje tylko wersję 3` | `--frame-version 2` przy `LEGACY_FRAMES=false` | uruchomić bez `--frame-version` |
+| `backend odrzuca każdy BOOT` | bardzo rzadkie, sesja nie dała się naprawić | `POST /api/v1/sensors/{id}/reset-boot` (admin) albo `seed --demo --reset` |
+| bateria wciąż 0% | stan po `battery-drain` | `--fresh` |
 
 ## 4. Ręczne wysyłanie ramek
 
@@ -129,7 +174,7 @@ curl -X POST localhost:8000/api/v1/ingest \
 
 W Swaggerze klucz wpisuje się w **Authorize** → `APIKeyHeader (X-Ingest-Key)`. Symulator bierze klucz z `INGEST_API_KEY` w `.env` (serwis `simulator` czyta ten plik) albo z opcji `--ingest-key`.
 
-Przykłady poniżej to ramki **jawne**: działają przy pustym `FRAME_AES_KEY`. Gdy klucz jest ustawiony, backend przyjmuje tylko ramki zaszyfrowane AES, a jawne (także z symulatora) odrzuca z `422` ([szyfrowanie.md](backend/szyfrowanie.md)).
+Przykłady poniżej to ramki **jawne**: działają przy pustym `FRAME_AES_KEY`. Gdy klucz jest ustawiony, backend przyjmuje tylko ramki zaszyfrowane AES, a jawne odrzuca z `422` ([szyfrowanie.md](backend/szyfrowanie.md)). Symulator szyfruje sam, gdy zna `FRAME_AES_KEY` ([sekcja 3](#3-symulator-czujników)).
 
 `payload_hex` to ramka z protokołu zapisana szesnastkowo. Płytki wysyłają **wersję 3** (`boot_id` w nagłówku, [boot-id.md](backend/boot-id.md)). Przykłady:
 

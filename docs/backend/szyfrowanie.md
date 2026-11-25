@@ -46,7 +46,7 @@ Jawne ramki są odrzucane przy ustawionym kluczu, bo inaczej fałszywą ramkę (
 
 Generowanie klucza: `python -c "import secrets; print(secrets.token_hex(16))"`. Ten sam klucz w `backend/.env` i na płytce, nigdy w repo. Zły format klucza (nie hex albo nie 16 B) zatrzymuje backend przy starcie.
 
-Symulator i przykłady `curl` z [testowanie.md](../testowanie.md) wysyłają ramki jawne, więc działają tylko przy pustym `FRAME_AES_KEY`.
+Symulator czujników szyfruje ramki sam, gdy zna klucz (`FRAME_AES_KEY` z `backend/.env` albo `--aes-key`). Przykłady `curl` z [testowanie.md](../testowanie.md) to ramki jawne, więc działają tylko przy pustym `FRAME_AES_KEY`.
 
 ## Czego to nie robi
 
