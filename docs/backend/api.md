@@ -128,6 +128,7 @@ Kto co może:
 |---|---|---|---|
 | lista i szczegóły | swoje leśnictwo (cudzy czujnik → `403`) | wszystkie | wszystkie |
 | rejestracja (`POST`) | – | – | tak |
+| usunięcie (`DELETE`, tylko bez historii) | – | – | tak |
 | nazwa, włączenie (`PATCH`) | swoje leśnictwo | – | tak |
 | leśnictwo (`PATCH range_id`) | – | – | tak |
 | montaż (`PUT .../mount`) | swoje leśnictwo | – | tak (poprawki) |
@@ -236,6 +237,15 @@ Odpowiedź `200`: czujnik jak w `GET /api/v1/sensors/{id}` (bez ostatnich alarm�
 - świeżo zamontowany czujnik, który jeszcze nic nie wysłał, ma stan `silent`; po pierwszej ramce `ok`
 - czujnik z innego leśnictwa albo zapytanie od nadleśniczego → `403`, brak czujnika → `404`, złe dane → `422`
  
+### `DELETE /api/v1/sensors/{id}`
+
+Tylko admin. Trwale usuwa czujnik, który **nie ma historii**: literówka w DevEUI przy rejestracji, czujnik testowy. Odpowiedź `204`.
+
+- czujnik z alarmami albo wydaniami → `409` z liczbami (`"Czujnik ma historię (alarmy: 4, wydania: 2), więc nie można go usunąć. Wyłącz go zamiast tego (PATCH active=false)."`): alarmy i wydania to ewidencja (raporty nadleśniczego, spory z przewoźnikiem), więc ich nie kasujemy
+- **wyłączenie** (`PATCH active=false`) niczego nie usuwa: historia zostaje, a czujnik dalej jest na liście i w raportach; wyłączyć można każdy czujnik
+- razem z czujnikiem znikają jego surowe ramki (`messages`), które i tak wygasają po 90 dniach
+- brak czujnika → `404`, inna rola niż admin → `403`; ID można podać tak jak przy rejestracji (z `:`, małymi literami)
+
 ### `PATCH /api/v1/sensors/{id}`
  
 Zmiana nazwy, leśnictwa albo włączenie/wyłączenie. Pola, których nie podasz, zostają bez zmian. `"name": null` usuwa nazwę.
@@ -442,7 +452,7 @@ Działa tylko po HTTPS albo na `localhost`. Android (Chrome, Edge, Firefox): w p
  
 ### `GET /api/v1/push/vapid-public-key`
  
-Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno.
+Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno. Wymaga logowania. Gdy serwer nie ma ustawionego `VAPID_PUBLIC_KEY`: `503` (powiadomienia są wyłączone, reszta aplikacji działa).
  
 ```json
 // 200
@@ -465,7 +475,8 @@ Po zgodzie użytkownika (prośba po kliknięciu przycisku, nie przy wejściu) ap
 }
 ```
  
-- odpowiedź `201`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma,
+- odpowiedź `201` z `{ "id": 5 }`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma, więc można go bezpiecznie wysyłać przy każdym logowaniu,
+- `endpoint` musi zaczynać się od `https://`, `keys.p256dh` i `keys.auth` są wymagane (inaczej `422`),
 - `expirationTime` backend ignoruje,
 - konto inne niż leśniczy → `403`.
  
@@ -486,9 +497,31 @@ Przy wylogowaniu, razem z `subscription.unsubscribe()` w przeglądarce. `endpoin
 }
 ```
  
-Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`. Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszenie się skończyło); `url` prowadzi wtedy do czujnika.
+Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`.
+
+Inne typy dotyczą czujnika, nie alarmu. Mają `sensor_id`, nie mają `alarm_id`, a `url` to mapa (`/`), bo aplikacja nie ma osobnego adresu czujnika:
+
+```json
+{ "type": "low_battery", "sensor_id": "70B3D57ED0051234", "title": "Słaba bateria: Skład przy drodze 5", "body": "Bateria 15%, wymień ją przy najbliższej wizycie", "url": "/" }
+{ "type": "silent", "sensor_id": "70B3D57ED0051234", "title": "Brak kontaktu: Skład przy drodze 5", "body": "Czujnik nie odzywa się od 13 h", "url": "/" }
+{ "type": "release_ended", "sensor_id": "70B3D57ED0051234", "release_id": 7, "title": "Koniec wydania: Skład przy drodze 5", "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły", "url": "/" }
+```
  
-Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję.
+**Kiedy backend wysyła.** Push o typie `alarm` leci po **utworzeniu nowego alarmu** (z `/ingest`, po odpowiedzi płytce) do wszystkich subskrypcji aktywnych leśniczych **leśnictwa tego czujnika**. Powtórzenia ramki ALARM, które scalają się z istniejącym alarmem, nie wysyłają kolejnego pusha. Alarm z wyciszonego lub wyłączonego czujnika nie powstaje, więc pusha też nie ma. Nadleśniczy i admin pushy nie dostają.
+
+Pozostałe typy idą do tych samych odbiorców, **raz na zdarzenie**:
+
+| Typ | Kiedy | Kiedy znowu |
+|---|---|---|
+| `low_battery` | ramka z baterią poniżej `BATTERY_LOW_PCT` (20%) albo heartbeat z flagą słabej baterii (z `/ingest`, po odpowiedzi płytce); nie dla wyłączonego czujnika | gdy bateria wróci do co najmniej progu + 5 pp (wymiana) i znowu spadnie |
+| `silent` | czujnik ma stan `silent`: brak ramki dłużej niż `SENSOR_SILENT_AFTER_H`. Nie dla czujnika, który nigdy się nie odezwał (świeżo zamontowany), wyłączonego, z otwartym alarmem ani w trakcie wydania (przyjdzie, gdy ten stan minie) | po kolejnej ramce i kolejnej ciszy |
+| `release_ended` | minął `ends_at` wydania. Nie, gdy leśniczy zakończył je sam (`POST /releases/{id}/end`), gdy zaraz zaczęło się następne wydanie, gdy czujnik jest wyłączony, ani gdy skończyło się ponad 1 h temu (np. backend nie działał) | nie |
+
+`silent` i `release_ended` sprawdza pętla w backendzie co `NOTIFY_CHECK_INTERVAL_S` (5 min), więc przychodzą z opóźnieniem do 5 min. Pętla zakłada jeden worker uvicorna (tak jest teraz: `Dockerfile` nie ustawia `--workers`); przy kilku każdy wysyłałby swoje.
+
+Wiadomość ma ważność 1 h (`TTL`): jeśli telefon jest dłużej poza zasięgiem, usługa push ją porzuca.
+
+Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję. Inne błędy (sieć, `429`, `5xx`) subskrypcji nie usuwają.
  
 ---
  

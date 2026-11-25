@@ -62,6 +62,7 @@ chmod 600 .env
 
 - `PUBLIC_PORT`: port z panelu Mikrusa.
 - `POSTGRES_PASSWORD` jako hex, bo trafia do adresu bazy (`DATABASE_URL`), gdzie znaki typu `@` czy `/` by go zepsuły.
+- `VAPID_*` (powiadomienia push): klucze wygeneruj na serwerze `docker compose -f compose.prod.yml run --rm web python -m tools.generate_vapid_keys` i wklej do `.env`, a `VAPID_SUBJECT` ustaw na adres kontaktowy (`mailto:…`).
 - Pozostałe zmienne: [backend/konfiguracja.md](backend/konfiguracja.md).
 
 Start, tabele i konto admina:

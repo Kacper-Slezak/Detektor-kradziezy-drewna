@@ -130,6 +130,11 @@
   html {
     @apply font-sans;
     }
+  /* the open list of a native <select>: Chrome and Edge on Windows draw it white even in the
+     dark theme, while the options take the light text of the page, so they could not be read */
+  option {
+    @apply bg-popover text-popover-foreground;
+    }
 }
 /* Sensor pins on the map (SensorMap.tsx); the alarm pin pulses */
 .sensor-pin--alarm::after {

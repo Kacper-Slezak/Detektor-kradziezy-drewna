@@ -9,10 +9,10 @@
 | `ranges` | `id`, `name` | Leśnictwo. Leśniczy i czujniki są przypisane do jednego. |
 | `users` | `id`, `login` (unikalny), `password_hash`, `full_name`, `role`, `range_id`, `active`, `must_change_password` | Konto. `role`: `forester` / `district_manager` / `admin`. `range_id` jest pusty dla kont bez leśnictwa. |
 | `push_subscriptions` | `id`, `endpoint` (unikalny), `p256dh`, `auth`, `user_id`, `device_label` | Subskrypcja Web Push (VAPID) przeglądarki użytkownika, pola jak w `PushSubscription.toJSON()`. Jeden użytkownik może mieć kilka urządzeń. |
-| `sensors` | `id` (DevEUI), `name`, `range_id`, `lat`, `lon`, `active`, `battery_pct`, `last_seen`, `last_counter`, `last_boot_id` | Czujnik = jedno miejsce składowania drewna. |
+| `sensors` | `id` (DevEUI), `name`, `range_id`, `lat`, `lon`, `active`, `battery_pct`, `last_seen`, `last_counter`, `low_battery_notified`, `silent_notified` | Czujnik = jedno miejsce składowania drewna. Flagi `*_notified`: push o słabej baterii / braku kontaktu już poszedł (kasowane, gdy bateria wróci / przyjdzie ramka). |
 | `messages` | `id`, `received_at`, `sensor_id`, `msg_type`, `counter`, `payload_hex`, `decoded`, `rssi` | Każda odebrana ramka. **Hypertable TimescaleDB** po `received_at`. |
 | `alarms` | `id`, `sensor_id`, `started_at`, `last_frame_at`, `event_type`, `sources`, `confidence`, `duration_s`, `energy`, `repeats`, `status`, `response_by`, `response_at`, `response_comment`, `response_lat`, `response_lon` | Alarm. Powtórzenia ramek ALARM w oknie 10 min są scalane w jeden (`repeats`). `status`: `new` / `theft` / `false_alarm`. Pola `response_*` wypełnia odpowiedź leśniczego; `response_lat`/`response_lon` to pozycja z jego telefonu (dowód obecności, nie jest sprawdzana). |
-| `releases` | `id`, `sensor_id`, `starts_at`, `ends_at`, `carrier`, `log_count`, `comment`, `created_by` | Wydanie drewna. W tym oknie czujnik nie generuje alarmów. `created_by` to login leśniczego, który je potwierdził. |
+| `releases` | `id`, `sensor_id`, `starts_at`, `ends_at`, `carrier`, `log_count`, `comment`, `created_by`, `end_notified` | Wydanie drewna. W tym oknie czujnik nie generuje alarmów. `created_by` to login leśniczego, który je potwierdził. `end_notified`: push o końcu wydania obsłużony (wysłany albo zbędny). |
 
 Relacje:
 

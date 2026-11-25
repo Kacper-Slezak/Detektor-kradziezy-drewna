@@ -2,7 +2,15 @@ import logging
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Security, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Response,
+    Security,
+    status,
+)
 from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +19,7 @@ from app.db import get_session
 from app.protocol.decoder import FrameError
 from app.schemas import IngestIn, IngestOut
 from app.services.ingest import UnknownSensorError, ingest
+from app.services.push import notify_alarm, notify_low_battery
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["ingest"])
@@ -55,6 +64,7 @@ async def require_ingest_key(
 async def ingest_frame(
     body: IngestIn,
     response: Response,
+    background: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],
     _: Annotated[None, Depends(require_ingest_key)],
 ) -> IngestOut:
@@ -71,6 +81,12 @@ async def ingest_frame(
             status.HTTP_404_NOT_FOUND, f"Nieznany czujnik: {body.device}"
         ) from None
 
+    if result.alarm_created and result.alarm_id is not None:
+        # po odpowiedzi: płytka nie czeka na usługi push przeglądarek
+        background.add_task(notify_alarm, result.alarm_id)
+    if result.low_battery_push:
+        background.add_task(notify_low_battery, body.device)
+
     if result.status == "duplicate":
         response.status_code = status.HTTP_200_OK
-    return IngestOut(**result.__dict__)
+    return IngestOut(**result.__dict__)  # low_battery_push pydantic pomija
