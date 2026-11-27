@@ -461,6 +461,7 @@ def idz_spac_na_sztywno(czas_ms):
             machine.pin_sleep_wakeup([], machine.WAKEUP_ANY_HIGH, False)
         except Exception:
             pass
+    print("Sleep: timer ms", czas_ms)
     time.sleep(0.05)
     machine.deepsleep(czas_ms)
 
@@ -471,6 +472,7 @@ def idz_spac_na_czujniki():
             break
         time.sleep(0.1)
     if (pin_mic and pin_mic.value() == 1) or (pin_vib and pin_vib.value() == 1):
+        print("Sensor stuck HIGH")
         idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
         return
     bez = ("P13", "P14", "P15", "P16", "P17", "P18")
@@ -481,6 +483,7 @@ def idz_spac_na_czujniki():
         print("Wake cfg err:", e)
         idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
         return
+    print("Sleep: GPIO P19/P20")
     time.sleep(0.05)
     machine.deepsleep()
 
@@ -489,6 +492,7 @@ def main():
     wi = machine.wake_reason()
     pw = wi[0] if wi else -1
     if pw == machine.RTC_WAKE:
+        print("Wake: RTC")
         gc.collect()
         try:
             polacz_wifi()
@@ -497,6 +501,7 @@ def main():
             print("HB err:", e)
         idz_spac_na_czujniki()
     elif pw == machine.PIN_WAKE:
+        print("Wake: GPIO", wi)
         pl = wi[1] if len(wi) > 1 and wi[1] else ()
         ids = [(p.id() if hasattr(p, "id") else str(p)) for p in pl]
         mic = (pin_mic is not None and pin_mic.value() == 1) or (PIN_MIKROFON_ID in ids)
@@ -505,7 +510,9 @@ def main():
         event_type = 0
         confidence = 0
         try:
+            print("Detection start: mic/vib", mic, vib)
             czy_alarm, event_type, confidence = analizuj_sygnaly(mic, vib)
+            print("Detection result: alarm/type/conf", czy_alarm, event_type, confidence)
         except Exception as e:
             print("Det err:", e)
         gc.collect()
@@ -518,6 +525,7 @@ def main():
                 print("Alarm err:", e)
         idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
     else:
+        print("Boot: wake reason", pw)
         ramka = przygotuj_ramke_boot(_nvs_inc("boot_id", True), FIRMWARE_VER, 1, 100)
         gc.collect()
         try:
