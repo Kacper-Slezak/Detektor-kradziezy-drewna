@@ -7,7 +7,7 @@
 #   st = V2State()                 # allocate once per wake (about 9 KB)
 #   for blk in nagraj_audio():     # 8000-byte LE blocks of 12-bit ADC codes
 #       st.add_block(blk)
-#   vec = st.session_vector()      # list of 44 floats, same order as features.NAMES
+#   vec = st.session_vector()      # list of 49 floats, same order as features.NAMES
 #   p = score(vec, MODEL)          # probability of "machine at the pile"
 
 import math
@@ -24,6 +24,9 @@ V2_HI1 = 244
 V2_LAG0 = 36
 V2_LAG1 = 171
 V2_MAXB = 12
+V2_LINE = 0.8
+V2_MID0 = 20
+V2_MID1 = 128
 
 
 def _zeros(tc, n):
@@ -69,6 +72,10 @@ class V2State:
         self.L = _zeros('f', V2_HALF + 1)          # log power scratch
         self.W = _zeros('f', V2_HALF + 1)          # whitened log spectrum, current block
         self.Wp = _zeros('f', V2_HALF + 1)         # previous block
+        self.Wpp = _zeros('f', V2_LO1)             # block before previous (LO only)
+        self.per = _zeros('B', V2_LO1 - V2_LO0)    # bin above V2_LINE in every block so far
+        self.tb2 = 0.0
+        self.tbm = 0.0
         self.wf = _zeros('f', 4 * (V2_LO1 - V2_LO0))  # whitened LO of 4 frames
         self.Wsum = _zeros('f', V2_LO1 - V2_LO0)   # sum over blocks of W[LO]
         self.B = _zeros('f', 15 * V2_MAXB)         # band shape per block
@@ -309,6 +316,17 @@ class V2State:
                 na += x * x
                 nb2 += y * y
             self.cosb += num / (math.sqrt(na) * math.sqrt(nb2) + 1e-9)
+        if b > 0:
+            self.tbm += self._corr(W, V2_MID0, self.Wp, V2_MID0, V2_MID1 - V2_MID0)
+        if b > 1:
+            self.tb2 += self._corr(W, V2_LO0, self.Wpp, V2_LO0, nlo)
+        per = self.per
+        for k in range(V2_LO0, V2_LO1):
+            if b == 0:
+                per[k - V2_LO0] = 1 if W[k] > V2_LINE else 0
+            elif W[k] <= V2_LINE:
+                per[k - V2_LO0] = 0
+            self.Wpp[k] = self.Wp[k]
         for k in range(V2_HALF + 1):
             self.Wp[k] = W[k]
         self.nb = b + 1
@@ -363,6 +381,20 @@ class V2State:
             s += d * d
         v.append(math.sqrt(s / nlo) / (self.wsd / nb + 1e-9))
         v.append(self.cosb / (nb - 1))
+        n_l = 0
+        prom = 0.0
+        n_p = 0
+        for i in range(nlo):
+            wm = self.Wsum[i] / nb
+            if wm > V2_LINE:
+                n_l += 1
+                prom += wm - V2_LINE
+            n_p += self.per[i]
+        v.append(float(n_l))
+        v.append(prom)
+        v.append(float(n_p))
+        v.append(self.tb2 / (nb - 2) if nb > 2 else 0.0)
+        v.append(self.tbm / (nb - 1))
         return v
 
 

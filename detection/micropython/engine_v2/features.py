@@ -23,6 +23,9 @@ Session (blocks b = 0..nb-1):
              (the strongest single feature: AUC 0.85-0.91 engine vs forest sounds)
   stab_lo    std of session-mean W over 31-500 Hz / mean per-block std (lines survive averaging)
   cos_bands  mean cosine similarity of consecutive band-shape vectors
+  lines_*    session-mean W over 31-500 Hz: number of bins above LINE, summed excess
+             above LINE, bins above LINE in *every* block
+  tb2_lo     like tb_lo, blocks two seconds apart;  tb_mid: like tb_lo over 156-1000 Hz
   + mean and std over blocks of bands, harm, flat, env, lowhi, tf_lo.
 """
 
@@ -43,7 +46,10 @@ WAC = _w_acf / _w_acf[0]
 NAMES = (['band_mu%d' % i for i in range(15)] + ['band_sd%d' % i for i in range(15)]
          + ['harm_mu', 'harm_sd', 'flat_mu', 'flat_sd', 'env_mu', 'env_sd',
             'lowhi_mu', 'lowhi_sd', 'tf_lo_mu', 'tf_lo_sd',
-            'tb_lo', 'tb_hi', 'stab_lo', 'cos_bands'])
+            'tb_lo', 'tb_hi', 'stab_lo', 'cos_bands',
+            'lines_n', 'lines_prom', 'lines_persist', 'tb2_lo', 'tb_mid'])
+LINE = 0.8                                       # whitened log level of a 'strong line'
+MID = slice(20, 128)                             # 156-1000 Hz
 
 
 def whiten(P):
@@ -118,4 +124,9 @@ def session_features(codes):
     for k in ('harm', 'flat', 'env', 'lowhi', 'tf_lo'):
         v += [sc[k].mean(), sc[k].std()]
     v += [tb_lo, tb_hi, stab_lo, cosb]
+    wm = W[:, LO].mean(0)
+    v += [float((wm > LINE).sum()), float(np.clip(wm - LINE, 0, None).sum()),
+          float((W[:, LO] > LINE).all(0).sum()),
+          np.mean([corr(W[i, LO], W[i + 2, LO]) for i in range(nb - 2)]) if nb > 2 else 0.0,
+          np.mean([corr(W[i, MID], W[i + 1, MID]) for i in range(nb - 1)])]
     return np.array(v)

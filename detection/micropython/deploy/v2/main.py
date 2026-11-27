@@ -181,6 +181,9 @@ V2_HI1 = 244
 V2_LAG0 = 36
 V2_LAG1 = 171
 V2_MAXB = 12
+V2_LINE = 0.8
+V2_MID0 = 20
+V2_MID1 = 128
 def _zeros(tc, n):
     a = array(tc, range(n))
     z = 0.0 if tc == 'f' else 0
@@ -221,6 +224,10 @@ class V2State:
         self.L = _zeros('f', V2_HALF + 1)          # log power scratch
         self.W = _zeros('f', V2_HALF + 1)          # whitened log spectrum, current block
         self.Wp = _zeros('f', V2_HALF + 1)         # previous block
+        self.Wpp = _zeros('f', V2_LO1)             # block before previous (LO only)
+        self.per = _zeros('B', V2_LO1 - V2_LO0)    # bin above V2_LINE in every block so far
+        self.tb2 = 0.0
+        self.tbm = 0.0
         self.wf = _zeros('f', 4 * (V2_LO1 - V2_LO0))  # whitened LO of 4 frames
         self.Wsum = _zeros('f', V2_LO1 - V2_LO0)   # sum over blocks of W[LO]
         self.B = _zeros('f', 15 * V2_MAXB)         # band shape per block
@@ -445,6 +452,17 @@ class V2State:
                 na += x * x
                 nb2 += y * y
             self.cosb += num / (math.sqrt(na) * math.sqrt(nb2) + 1e-9)
+        if b > 0:
+            self.tbm += self._corr(W, V2_MID0, self.Wp, V2_MID0, V2_MID1 - V2_MID0)
+        if b > 1:
+            self.tb2 += self._corr(W, V2_LO0, self.Wpp, V2_LO0, nlo)
+        per = self.per
+        for k in range(V2_LO0, V2_LO1):
+            if b == 0:
+                per[k - V2_LO0] = 1 if W[k] > V2_LINE else 0
+            elif W[k] <= V2_LINE:
+                per[k - V2_LO0] = 0
+            self.Wpp[k] = self.Wp[k]
         for k in range(V2_HALF + 1):
             self.Wp[k] = W[k]
         self.nb = b + 1
@@ -496,6 +514,20 @@ class V2State:
             s += d * d
         v.append(math.sqrt(s / nlo) / (self.wsd / nb + 1e-9))
         v.append(self.cosb / (nb - 1))
+        n_l = 0
+        prom = 0.0
+        n_p = 0
+        for i in range(nlo):
+            wm = self.Wsum[i] / nb
+            if wm > V2_LINE:
+                n_l += 1
+                prom += wm - V2_LINE
+            n_p += self.per[i]
+        v.append(float(n_l))
+        v.append(prom)
+        v.append(float(n_p))
+        v.append(self.tb2 / (nb - 2) if nb > 2 else 0.0)
+        v.append(self.tbm / (nb - 1))
         return v
 def score(vec, model):
     mu = model['MU']
@@ -524,12 +556,12 @@ def score(vec, model):
     return out * model['S2'] + model['B2']
 
 
-V2_T_HIGH = 6.4072
-V2_T_SUSP = 2.9465
+V2_T_HIGH = 6.2015
+V2_T_SUSP = 2.0369
 V2_CONFIRM_SLEEP_MS = 120000   # 2nd look after 2 min: a machine loading timber is still there
 V2_NVS_KEY = "v2_conf"
 V2_MODELS = (
-    dict(MU=(0.0880461, 0.42087, 0.496324, 0.460552, 0.316046, 0.214543, 0.155262, 0.10269, 0.0447391, -0.112629, -0.231345, -0.335315, -0.456507, -0.536507, -0.626769, 0.595431, 0.591408, 0.532305, 0.498216, 0.489508, 0.446723, 0.436337, 0.424858, 0.433852, 0.434667, 0.434906, 0.443751, 0.455662, 0.469543, 0.474842, 0.35041, 0.058815, 0.502088, 0.10449, -0.141429, 0.358866, -0.94354, 0.624218, 0.175775, 0.0932506, 0.332428, 0.118162, 0.650766, 0.685244,), SD=(1.55133, 1.49032, 1.28752, 1.12503, 0.967007, 0.861415, 0.850706, 0.81138, 0.819967, 0.850554, 0.891001, 0.962994, 1.00675, 1.09804, 1.17973, 0.406161, 0.388492, 0.361346, 0.337627, 0.344757, 0.329632, 0.337774, 0.336348, 0.3722, 0.374558, 0.369321, 0.377127, 0.385256, 0.406625, 0.412123, 0.0728226, 0.0305651, 0.205783, 0.0840003, 0.652755, 0.311246, 1.68658, 0.543441, 0.162225, 0.0439007, 0.260918, 0.149346, 0.145432, 0.304779,), W1=b'\xddE\xc6\xf0\xc85\xff4\xf8\xd2\xd4\x08\x036\x16\x08\xdd\x0b\xf5\xd4\n\xfb\x1f\xee\x01\xf3\x06\'\xd2\xfd$\xfe1\x1d-\xe8\x1b;\xf2\x150\xfa\xdc\x1c\xdb\xf5\x11\xda\xda\xdf#\x02\xe3\x18\xb9D\x05)I\x18\xed\x0c\xd1\xe3\xb8\xf1\xf1 \x1f\xba\xfd\xf3\xd6\t\xe0\xfc\xb3%88\xb1\xff\t6\xc4\xd1\xfe\xf2\r\xd3\x0e\x03\x1e\x05\x19Z\xce\xd9O4\xa9\xe8\xe11\xa4L&\x1e\xf9<\x0b\x00 \xf6\xef\xf4\x01\xff\xe3\xf7\xff\xd9%\xe2\x19\xdd\x01\xda\xca\xec?\xf5\xdb\xcd\x18(\xf3\n,\x1b\x16\xf2\xe5\x02\x02\r\x01\xf6\xfb"\x114\x14"\x03\xf4\x14\xf2\xff\xe38(\xe2\x10\xf0\xd1[\xf8\xe6\xf9\xe8\xf9|\x06\xb6#%\x19\xf5\xf3\xeb\xe3\xe9\x1b\xe5\xf3I\xef\r\xd1\x02\xf6\x08\xfe\xe5\x1f\x1b\x03\xd7\xf2\x1a\x01\x1b\xe2\x04\xd2"\x04;7\xfa\x13$\xef\xf5\xe5\xe3\x0b62\xed\x1a\xec\x1a\x1d\xed\xfb\x04\xeb\x01\xc7*\n\xeb\r\x08\x14\x13\xc6\x0c\xf3\x06\x01\xfd\xf7\xfb\xf6\x10\x1c\x08\x03\x11\xfd\xd8\xf4:\x12\xd9\r&-\xf1\x1f\xec\x1c\x1d\x04\x03\xca\xc5\x17\xd0#\x1e\xca\xda\x0f\x08\x1b\x10\x05\x1a\xf1\xfd\xb2\x0e\x0c\xdb\t\xd0\xcb\xe3\xe5\x15\x08\x00\x0f\xf8\xfc,\xdc\x18>&\xc2\x00\xf5\x1b\xa59\xbb\x0c\xd4\x10\x15\xf0)5\xf3\xc99\x0f8\xdb"\x0f\xe5\x13!\t\x0c\xc7\xfd\xe6\x12\x05.#B\x11\x81\xf2C\x1a,\x15\xbc\n\xcb\x06Q&', S1=0.0100811, B1=(0.257389, -0.0942158, 0.0835717, 1.53038, -0.12933, -0.618427, 0.26929, 1.52833,), W2=b'_\x8d\x8efTF]\x81', S2=0.0237762, B2=-2.52199),
+    dict(MU=(0.0880461, 0.42087, 0.496324, 0.460552, 0.316046, 0.214543, 0.155262, 0.10269, 0.0447391, -0.112629, -0.231345, -0.335315, -0.456507, -0.536507, -0.626769, 0.595431, 0.591408, 0.532305, 0.498216, 0.489508, 0.446723, 0.436337, 0.424858, 0.433852, 0.434667, 0.434906, 0.443751, 0.455662, 0.469543, 0.474842, 0.35041, 0.058815, 0.502088, 0.10449, -0.141429, 0.358866, -0.94354, 0.624218, 0.175775, 0.0932506, 0.332428, 0.118162, 0.650766, 0.685244, 4.86251, 2.94253, 1.24394, 0.298016, 0.202597,), SD=(1.55133, 1.49032, 1.28752, 1.12503, 0.967007, 0.861415, 0.850706, 0.81138, 0.819967, 0.850554, 0.891001, 0.962994, 1.00675, 1.09804, 1.17973, 0.406161, 0.388492, 0.361346, 0.337627, 0.344757, 0.329632, 0.337774, 0.336348, 0.3722, 0.374558, 0.369321, 0.377127, 0.385256, 0.406625, 0.412123, 0.0728226, 0.0305651, 0.205783, 0.0840003, 0.652755, 0.311246, 1.68658, 0.543441, 0.162225, 0.0439007, 0.260918, 0.149346, 0.145432, 0.304779, 4.24448, 4.50133, 2.22867, 0.263927, 0.199794,), W1=b'\t\x17\xe5\xee\xec\x0b\x01\x01\n\xda\r\x07\x05\xfb\x13\r\xfc\n\x04\xed\x18\x10\x0c\xdf\xff\xfd\xff\x03\xee\xe4\x0c\xf4\x14\x05\xf2\xf4\x12\x00\xf6\x1c\xf8\x02\xc9\x04\xfd\xe7\xe7\xf6,\xfd\x10\xe1\xf5\xea\xec\xff\x02\x02\x00\xeb&\x15\xff\x1b\xfa\x0e%\xff\xef\xea\x01\xfb\x08\x03\xf8\x1f\xf2\x0c\xf5\xda\x1b\xd5\x0e\x17%\xbc\xd3\xec1\xce\x04\x0e\x14\xdaG\x05\xfb\xfa\xec\xe7\x11\x18\xf6\x04\x0f\x0b\xf1\xf7\xf2/\xfa\x11\xee\xf7\xe9\x13\xec\xe3\xf8\x0f\x17\xe5\x07\x0c\x0f\x02\x0b\x05\xe8\x1f\t\x13\x02\xfc\x13\xfc\xfa\x123\x02\x9c\x0c\xe5\x1f\x1d6\xfb\xdf\xcf\x13\x1e\x12,\x05\xf6\xf3\xefJ\x0b\xf3\xf2\xf8\x1f\xce\n\xf0\x04!\x12"\xdd(\xf1\xfd\xdb\xfc\x04\x10\xf8\xd1\t\xdd\xfe\xf5\xfb\xe4\xee\xe8\x08\n\xe7\x10\xff\x1a\xc2\r\xe3\t\t\xff\xfa\x12\x07\xfb\x01\xec\x0e\xed\xfc\x16\x0c\x08\x01\xf9\xf5\x17\x13\x06\xfd\x11\x15\x02\x04\xd7\x12\x00\xf6\xff\x0f\x02\xf8\t\x1a\xf5\x10\xfbB\x11\x81\n\xee\xef\xd4^\r\x19\xe3\xf3\x0b\x08\xf1\xd5\x19\xfc\x05\xef\x14!\x08\xf2\x16\xfe\xfc\xf6\x1c\x0b\xfd\x08\xea\xeb\xf6\x12\t\x01\xf3\xfb\xf8\xf2\xf9\xfb\x1e\x01\xd2\xff\x0f\x12\xf2\xe7\x17"\n\xfd\x14\x05\x15\x0b\xff\x10\xea\xe6\xfa\xe1\x012\x16\xec\xe5\xfe\xf9\xf8\x11\x07\x00\x0b\xbf\x0f\xe7\xf9\x01\x05\x0b\xef\xe5\xf9\x07\x01$\x15\xf9\x00\xfc\x0e<\xf3\xf0\x0b,\t\xde\xec\x08\xec\xfe\r\x1d\xf6\xe3\xf7\xe4\xf9\x10\x15\xce\xf9\x06\x0e\xef"\xfd\xe9\x0e\xfe\xef\xfb\xfe\x06\xef\x04\xec\xdd\xf0\xf5\x11\x10\x05")\xfb(\x0b\xf7\x1c\x07\xd5\xf2$$\x0f\xe5\xfb\xf5\x10', S1=0.0146675, B1=(0.814921, 0.810964, 0.257711, 1.18883, 0.0119676, -0.533902, -0.802457, -0.575123,), W2=b'Q\x8en\x91\x7fQb_', S2=0.0233146, B2=-3.06417),
 )
 V2_OSTATNI = [0.0, False]       # last session: mean logit, suspicious
 
