@@ -1,0 +1,121 @@
+"""Reference (numpy) features for the v2 engine detector, computed per 10 s device session.
+
+Intuition (review "Przegląd detekcji issue-31", section 5, plus measurements in this dir):
+  * an engine is a set of *stable tonal lines* (firing frequency f_z = rpm/60*cyl/2 and its
+    harmonics) that persist second after second; wind/rain/insects/birds do not have stable
+    low-frequency lines; all features are ratios or correlations, so they do not depend on
+    the microphone gain.
+
+Per 1 s block (4000 raw ADC codes) the device takes 4 Hann frames of 512 samples at offsets
+0/1000/2000/3000 (as burst) and averages their power spectra (Welch 1967). From the block
+spectrum P[0..256] (bin = 7.8125 Hz):
+  bands[15]  log band power minus its mean over bands (spectral shape, as burst)
+  W          whitened log spectrum: log P[k] minus its local mean over k +- 12 bins
+             (removes the spectral envelope, keeps narrow lines)
+  harm       peak of the normalised ACF of max(W, 0) over bins 4..128, lags 36..171
+             (111..23 Hz), Hann-ACF corrected (Tolonen & Karjalainen 2000; Boersma 1993)
+  flat       spectral flatness 31..1000 Hz (Johnston 1988)
+  env        log coefficient of variation of 32-sample sub-frame energies
+  lowhi      log(P 31-350 Hz / P 350-1900 Hz)
+  tf_lo      mean correlation of W (31-500 Hz) between the 4 frames of the block
+Session (blocks b = 0..nb-1):
+  tb_lo/hi   mean correlation of W between consecutive blocks, 31-500 / 500-1900 Hz
+             (the strongest single feature: AUC 0.85-0.91 engine vs forest sounds)
+  stab_lo    std of session-mean W over 31-500 Hz / mean per-block std (lines survive averaging)
+  cos_bands  mean cosine similarity of consecutive band-shape vectors
+  + mean and std over blocks of bands, harm, flat, env, lowhi, tf_lo.
+"""
+
+import numpy as np
+
+N = 512
+FS = 4000
+OFFS = (0, 1000, 2000, 3000)
+BINS = (4, 9, 13, 19, 26, 34, 45, 57, 71, 88, 106, 127, 152, 178, 209, 244)  # as burst
+HANN = 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(N) / (N - 1))
+WH = 12                                          # whitening half-width [bins]
+LO = slice(4, 64)                                # 31-500 Hz
+HI = slice(64, 244)                              # 500-1906 Hz
+LAG_LO, LAG_HI = 36, 171
+_w_acf = np.correlate(HANN, HANN, 'full')[N - 1:]
+WAC = _w_acf / _w_acf[0]
+
+NAMES = (['band_mu%d' % i for i in range(15)] + ['band_sd%d' % i for i in range(15)]
+         + ['harm_mu', 'harm_sd', 'flat_mu', 'flat_sd', 'env_mu', 'env_sd',
+            'lowhi_mu', 'lowhi_sd', 'tf_lo_mu', 'tf_lo_sd',
+            'tb_lo', 'tb_hi', 'stab_lo', 'cos_bands'])
+
+
+def whiten(P):
+    """log power minus local mean over +-WH bins (edges use the available bins)."""
+    L = np.log(P + 1e-3)
+    cs = np.concatenate([[0.0], np.cumsum(L)])
+    k = np.arange(len(L))
+    a = np.maximum(1, k - WH)
+    b = np.minimum(len(L) - 1, k + WH) + 1
+    return L - (cs[b] - cs[a]) / (b - a)
+
+
+def corr(a, b):
+    a = a - a.mean()
+    b = b - b.mean()
+    return float((a * b).sum() / (np.sqrt((a * a).sum() * (b * b).sum()) + 1e-9))
+
+
+def block_features(block):
+    """block: (4000,) ADC codes -> (dict of scalars, bands (15,), W (257,))."""
+    x = block.astype(np.float64)
+    assert x.shape == (4000,)
+    P = np.zeros(N // 2 + 1)                                   # (257,)
+    Wf = []
+    for o in OFFS:
+        f = x[o:o + N]
+        f = (f - f.mean()) * HANN
+        X = np.fft.rfft(f)
+        p = X.real ** 2 + X.imag ** 2
+        Wf.append(whiten(p)[LO])
+        P += p
+    P /= len(OFFS)
+    bp = np.array([P[BINS[b]:BINS[b + 1]].mean() for b in range(15)]) + 1e-6
+    lb = np.log(bp)
+    bands = np.clip(lb - lb.mean(), -10, 10)
+    W = whiten(P)
+    hw = np.zeros(N // 2 + 1)
+    hw[4:129] = np.maximum(W[4:129], 0.0)
+    acf = np.fft.irfft(hw, n=N)
+    r = acf[LAG_LO:LAG_HI + 1] / (acf[0] * WAC[LAG_LO:LAG_HI + 1] + 1e-12)
+    harm = float(r.max())
+    seg = P[4:129] + 1e-9
+    flat = float(np.exp(np.mean(np.log(seg))) / np.mean(seg))
+    xs = x - x.mean()
+    e = (xs[:3968].reshape(-1, 32) ** 2).mean(axis=1) + 1e-9     # (124,)
+    env = float(np.log(e.std() / e.mean() + 1e-3))
+    lowhi = float(np.log((P[4:45].sum() + 1e-9) / (P[45:244].sum() + 1e-9)))
+    tf_lo = float(np.mean([corr(Wf[j], Wf[j + 1]) for j in range(len(Wf) - 1)]))
+    return dict(harm=harm, flat=flat, env=env, lowhi=lowhi, tf_lo=tf_lo), bands, W
+
+
+def session_features(codes):
+    """codes: (nb*4000,) ADC codes -> (len(NAMES),) session vector."""
+    nb = len(codes) // 4000
+    assert nb >= 2
+    D, B, W = [], [], []
+    for i in range(nb):
+        d, b, w = block_features(codes[i * 4000:(i + 1) * 4000])
+        D.append(d)
+        B.append(b)
+        W.append(w)
+    B = np.array(B)                                            # (nb, 15)
+    W = np.array(W)                                            # (nb, 257)
+    sc = {k: np.array([d[k] for d in D]) for k in D[0]}
+    tb_lo = np.mean([corr(W[i, LO], W[i + 1, LO]) for i in range(nb - 1)])
+    tb_hi = np.mean([corr(W[i, HI], W[i + 1, HI]) for i in range(nb - 1)])
+    stab_lo = W[:, LO].mean(0).std() / (np.mean(W[:, LO].std(1)) + 1e-9)
+    num = (B[1:] * B[:-1]).sum(1)
+    den = np.linalg.norm(B[1:], axis=1) * np.linalg.norm(B[:-1], axis=1) + 1e-9
+    cosb = float(np.mean(num / den))
+    v = list(B.mean(0)) + list(B.std(0))
+    for k in ('harm', 'flat', 'env', 'lowhi', 'tf_lo'):
+        v += [sc[k].mean(), sc[k].std()]
+    v += [tb_lo, tb_hi, stab_lo, cosb]
+    return np.array(v)
