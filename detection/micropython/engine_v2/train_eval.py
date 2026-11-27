@@ -71,7 +71,7 @@ class Logistic:
 class MLP:
     """d -> H ReLU -> 1, Adam, weighted log-loss; small enough for the LoPy."""
 
-    def __init__(self, H=16, l2=1e-3, iters=4000, lr=0.01, seed=0):
+    def __init__(self, H=16, l2=1e-3, iters=1500, lr=0.01, seed=0):
         self.H, self.l2, self.iters, self.lr, self.seed = H, l2, iters, lr, seed
 
     def fit(self, X, y, w=None):
@@ -109,15 +109,107 @@ class MLP:
         return h @ self.P[2] + self.P[3][0]
 
 
+class GBTrees:
+    """Gradient-boosted depth-2 trees on log-loss (Friedman 2001, Ann. Stat. 29(5)).
+    Thresholds come from 32 per-feature quantiles; a fitted model is a few small arrays
+    (feature, threshold, leaf values), cheap to evaluate on the LoPy."""
+
+    def __init__(self, n_trees=200, lr=0.1, n_bins=32, min_leaf=20.0, l2=1.0):
+        self.n_trees, self.lr, self.n_bins, self.min_leaf, self.l2 = n_trees, lr, n_bins, min_leaf, l2
+
+    def _best_split(self, Xb, g, h, idx):
+        best = (0.0, None)
+        G, H = g[idx].sum(), h[idx].sum()
+        base = G * G / (H + self.l2)
+        for j in range(Xb.shape[1]):
+            gs = np.bincount(Xb[idx, j], g[idx], self.n_bins)
+            hs = np.bincount(Xb[idx, j], h[idx], self.n_bins)
+            gl, hl = np.cumsum(gs)[:-1], np.cumsum(hs)[:-1]
+            gr, hr = G - gl, H - hl
+            ok = (hl >= self.min_leaf * h[idx].mean()) & (hr >= self.min_leaf * h[idx].mean())
+            gain = np.where(ok, gl * gl / (hl + self.l2) + gr * gr / (hr + self.l2) - base, -1)
+            b = int(np.argmax(gain))
+            if gain[b] > best[0]:
+                best = (gain[b], (j, b))
+        return best[1]
+
+    def fit(self, X, y, w=None):
+        n, d = X.shape
+        w = np.ones(n) if w is None else w / np.mean(w)
+        qs = np.linspace(0, 1, self.n_bins + 1)[1:-1]
+        self.edges = np.array([np.unique(np.quantile(X[:, j], qs)) for j in range(d)], dtype=object)
+        Xb = np.zeros((n, d), dtype=np.int64)
+        for j in range(d):
+            Xb[:, j] = np.searchsorted(self.edges[j], X[:, j], side='right')
+        p0 = np.clip(np.average(y, weights=w), 1e-3, 1 - 1e-3)
+        self.base = float(np.log(p0 / (1 - p0)))
+        F = np.full(n, self.base)
+        self.trees = []
+        allidx = np.arange(n)
+        for t in range(self.n_trees):
+            p = 1 / (1 + np.exp(-F))
+            g = w * (p - y)
+            h = w * p * (1 - p) + 1e-9
+            s0 = self._best_split(Xb, g, h, allidx)
+            if s0 is None:
+                break
+            j0, b0 = s0
+            L = allidx[Xb[:, j0] <= b0]
+            R = allidx[Xb[:, j0] > b0]
+            node = [j0, self._thr(j0, b0)]
+            leaves = []
+            for part in (L, R):
+                s1 = self._best_split(Xb, g, h, part)
+                if s1 is None:
+                    v = -g[part].sum() / (h[part].sum() + self.l2) * self.lr
+                    node += [-1, 0.0]
+                    leaves += [v, v]
+                    F[part] += v
+                    continue
+                j1, b1 = s1
+                node += [j1, self._thr(j1, b1)]
+                for sub in (part[Xb[part, j1] <= b1], part[Xb[part, j1] > b1]):
+                    v = -g[sub].sum() / (h[sub].sum() + self.l2) * self.lr
+                    leaves.append(v)
+                    F[sub] += v
+            self.trees.append((node, leaves))
+        return self
+
+    def _thr(self, j, b):
+        e = self.edges[j]
+        return float(e[min(b, len(e) - 1)])
+
+    def decision(self, X):
+        F = np.full(len(X), self.base)
+        for node, leaves in self.trees:
+            j0, t0, jl, tl, jr, tr = node
+            left = X[:, j0] <= t0
+            for side, (jj, tt, off) in ((left, (jl, tl, 0)), (~left, (jr, tr, 2))):
+                if jj < 0:
+                    F[side] += leaves[off]
+                else:
+                    sub = X[:, jj] <= tt
+                    F[side & sub] += leaves[off]
+                    F[side & ~sub] += leaves[off + 1]
+        return F
+
+
 def class_weights(M, idx):
-    """Balance positives vs negatives; inside negatives, balance kinds."""
+    """Positives: equal total weight per source (esc50, soc2, ice) and per clean/mix.
+    Negatives: equal total weight per kind (forest, mech, other, ambig)."""
     y = M['label'][idx] == '1'
     k = M['kind'][idx]
-    w = np.ones(len(idx))
-    w[y] = 1.0 / y.sum()
-    for kk in set(k[~y]):
+    s = M['src'][idx]
+    w = np.zeros(len(idx))
+    pg = [(a, b) for a in set(s[y]) for b in set(k[y])]
+    for a, b in pg:
+        m = y & (s == a) & (k == b)
+        if m.any():
+            w[m] = 0.5 / (m.sum() * len(pg))
+    ng = sorted(set(k[~y]))
+    for kk in ng:
         m = (~y) & (k == kk)
-        w[m] = 1.0 / (m.sum() * len(set(k[~y])))
+        w[m] = 0.5 / (m.sum() * len(ng))
     return w / w.mean()
 
 
@@ -144,7 +236,9 @@ def cross_val(X, M, make_model, verbose=True):
 
 def threshold_at_fp(dec, M, fp_target=0.01):
     """Pick threshold on out-of-fold ESC negatives (forest+other+mech) at a target FP rate."""
-    neg = ((M['src'] == 'esc50') | (M['src'] == 'soc2')) & (M['label'] == '0') & (M['kind'] != 'ambig')
+    # forest-relevant negatives only: nature/weather/people + passing machines (no domestic)
+    neg = (((M['src'] == 'esc50') | (M['src'] == 'soc2')) & (M['label'] == '0')
+           & ((M['kind'] == 'forest') | (M['kind'] == 'mech')))
     return float(np.quantile(dec[neg], 1 - fp_target))
 
 
@@ -160,8 +254,11 @@ if __name__ == '__main__':
     tag = sys.argv[1] if len(sys.argv) > 1 else 'v2'
     S, M = cache.load(tag)
     X = feat_cache.load(tag)
-    for name, mk in [('logistic', lambda: Logistic()), ('mlp16', lambda: MLP())]:
+    models = {'logistic': lambda: Logistic(), 'mlp16': lambda: MLP(), 'gbt': lambda: GBTrees()}
+    pick = sys.argv[2].split(',') if len(sys.argv) > 2 else list(models)
+    for name, mk in [(k, models[k]) for k in pick]:
         dec, _ = cross_val(X, M, mk)
-        thr = threshold_at_fp(dec, M, 0.01)
-        summary(dec, M, thr, name + ' @1% CV-negative FP')
+        for fp in (0.01, 0.03):
+            thr = threshold_at_fp(dec, M, fp)
+            summary(dec, M, thr, name + ' @%g forest+mech FP' % fp)
         sys.stdout.flush()

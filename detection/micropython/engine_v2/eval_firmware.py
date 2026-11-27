@@ -25,9 +25,10 @@ def _init(path):
 def _one(codes):
     try:
         a, et, conf = firmware_runner.run_session(_MOD, codes)
-        return int(bool(a)), int(conf)
+        lg = float(_MOD.V2_OSTATNI[0]) if hasattr(_MOD, 'V2_OSTATNI') else float('nan')
+        return int(bool(a)), int(conf), lg
     except Exception:
-        return -1, -1
+        return -1, -1, float('nan')
 
 
 def evaluate(path, tag='v1', procs=None):
