@@ -19,6 +19,7 @@ import devsim
 LEVELS = (40.0, 120.0, 360.0)        # ADC-count RMS: quiet / nominal / loud (~ -34/-25/-15 dBFS)
 WEATHER = {'rain', 'wind', 'thunderstorm', 'insects', 'crickets', 'chirping_birds',
            'sea_waves', 'crackling_fire', 'water_drops', 'crow', 'frog'}
+STORMY = {'rain', 'wind', 'thunderstorm'}
 
 
 def synth_noise(n, rng, kind):
@@ -44,12 +45,19 @@ def all_items(tag):
     if tag == 'v1':
         return items
     items += devsim.soc2_items()
+    if tag == 'v4':
+        items += devsim.fsd_items()             # held-out corpus, appended after soc2
     rng = np.random.default_rng(2026)
     esc = devsim.esc50_items()
     bg_by_fold = {f: [e for e in esc if e['cls'] in WEATHER and e['fold'] == f] for f in range(1, 6)}
+    fsd_bg = [e for e in items if e['src'] == 'fsd' and e['label'] == 0 and e['kind'] == 'forest'
+              and e['cls'] in ('fsd_Rain', 'fsd_Raindrop', 'fsd_Wind', 'fsd_Thunderstorm',
+                               'fsd_Thunder', 'fsd_Stream', 'fsd_Insect', 'fsd_Cricket', 'fsd_Bird')]
+    fsd_storm = [e for e in fsd_bg if e['cls'] in ('fsd_Rain', 'fsd_Raindrop', 'fsd_Wind',
+                                                   'fsd_Thunderstorm', 'fsd_Thunder')]
     mixes = []
     for i, it in enumerate(items):
-        if it['label'] != 1 or it['src'] not in ('esc50', 'soc2', 'ice'):
+        if it['label'] != 1 or it['src'] not in ('esc50', 'soc2', 'ice', 'fsd'):
             continue
         snr = (0.0, 6.0)[i % 2]
         m = dict(it)
@@ -57,10 +65,29 @@ def all_items(tag):
         m['snr'] = snr
         if it['src'] == 'ice':
             m['bg'] = ('synth', ('wind', 'rain')[(i // 2) % 2])
+        elif it['src'] == 'fsd':
+            b = fsd_bg[rng.integers(len(fsd_bg))]
+            m['bg'] = (str(b['path']), b['cls'])
         else:
             b = bg_by_fold[it['fold']][rng.integers(len(bg_by_fold[it['fold']]))]
             m['bg'] = (str(b['path']), b['cls'])
         mixes.append(m)
+        if tag not in ('v3', 'v4'):
+            continue
+        # v3: a second, harder mixture with storm / rain / wind only (theft during bad weather)
+        m2 = dict(it)
+        m2['kind'] = 'engine_mix'
+        m2['snr'] = (-3.0, 3.0)[(i // 2) % 2]
+        if it['src'] == 'ice':
+            m2['bg'] = ('synth', ('wind', 'rain')[i % 2])
+        elif it['src'] == 'fsd':
+            b = fsd_storm[rng.integers(len(fsd_storm))]
+            m2['bg'] = (str(b['path']), b['cls'])
+        else:
+            pool = [b for b in bg_by_fold[it['fold']] if b['cls'] in STORMY]
+            b = pool[rng.integers(len(pool))]
+            m2['bg'] = (str(b['path']), b['cls'])
+        mixes.append(m2)
     return items + mixes
 
 

@@ -210,6 +210,9 @@ def class_weights(M, idx):
     for kk in ng:
         m = (~y) & (k == kk)
         w[m] = 0.5 / (m.sum() * len(ng))
+    # weather that sounds like rumble (priority 2): count rain / wind / storm three times
+    wx = (~y) & np.isin(M['cls'][idx], ('rain', 'wind', 'thunderstorm'))
+    w[wx] *= 3.0
     return w / w.mean()
 
 
@@ -222,12 +225,15 @@ def cross_val(X, M, make_model, verbose=True):
     esc = (src == 'esc50') | (src == 'soc2')          # source-disjoint CV folds
     ice = src == 'ice'
     ext = ~(esc | ice)
+    # storm/rain/wind mixtures at -3/+3 dB are evaluation-only: training on them hurt every
+    # group in the ablation (AUC 0.953 -> 0.938), probably because the engine is masked
+    trainable = ~((M['kind'] == 'engine_mix') & np.isin(M['snr'], ('-3.0', '3.0')))
     for k in range(1, 6):
-        tr = np.where((esc & (fold != k)) | ice)[0]
+        tr = np.where(((esc & (fold != k)) | ice) & trainable)[0]
         te = np.where(esc & (fold == k))[0]
         m = make_model().fit(X[tr], y[tr], class_weights(M, tr))
         dec[te] = m.decision(X[te])
-    tr = np.where(esc | ice)[0]
+    tr = np.where((esc | ice) & trainable)[0]
     m = make_model().fit(X[tr], y[tr], class_weights(M, tr))
     dec[ext] = m.decision(X[ext])
     dec[ice] = m.decision(X[ice])                      # in-sample, for reference only

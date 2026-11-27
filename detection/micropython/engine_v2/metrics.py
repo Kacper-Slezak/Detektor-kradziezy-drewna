@@ -37,12 +37,18 @@ def report(alarm, meta, title, sets=None):
             ('engine soc2 machines (CV)', (kind == 'engine') & (src == 'soc2')),
             ('engine+weather SNR 0dB (CV)', (kind == 'engine_mix') & (src != 'ice') & (meta['snr'] == '0.0')),
             ('engine+weather SNR 6dB (CV)', (kind == 'engine_mix') & (src != 'ice') & (meta['snr'] == '6.0')),
+            ('engine+storm/rain/wind -3dB (CV)', (kind == 'engine_mix') & (src != 'ice') & (meta['snr'] == '-3.0')),
+            ('engine+storm/rain/wind +3dB (CV)', (kind == 'engine_mix') & (src != 'ice') & (meta['snr'] == '3.0')),
             ('engine external soc+truck', (kind == 'engine') & ((src == 'soc') | (src == 'sample'))),
             ('engine ICE (train src)', (kind == 'engine') & (src == 'ice')),
             ('FP forest rec soc2 (CV)', (kind == 'forest') & (src == 'soc2')),
             ('FP forest/nature ESC', (kind == 'forest') & (src == 'esc50')),
             ('FP forest ambience rec', (kind == 'forest') & (src == 'sample')),
-            ('FP passing mech (heli/plane/train)', kind == 'mech'),
+            ('FP passing mech (heli/plane/train)', (kind == 'mech') & (src == 'esc50')),
+            ('HELD-OUT FSD50K engine', (kind == 'engine') & (src == 'fsd')),
+            ('HELD-OUT FSD50K engine+weather', (kind == 'engine_mix') & (src == 'fsd')),
+            ('HELD-OUT FSD50K FP nature/weather', (kind == 'forest') & (src == 'fsd')),
+            ('HELD-OUT FSD50K FP passing mech', (kind == 'mech') & (src == 'fsd')),
             ('FP other ESC (domestic etc.)', kind == 'other'),
             ('alarm on chainsaw/hand_saw', kind == 'ambig'),
         ]
@@ -50,6 +56,8 @@ def report(alarm, meta, title, sets=None):
     levels = sorted(set(lev), key=float)
     print('%-36s' % '' + ''.join('%-28s' % ('rms=' + l) for l in levels))
     for name, m in sets:
+        if not m.any():
+            continue
         row = '%-36s' % name
         for l in levels:
             row += '%-28s' % fmt(*rate(alarm, m & (lev == l)))

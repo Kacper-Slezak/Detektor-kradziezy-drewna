@@ -89,6 +89,9 @@ class FirmwareTest(unittest.TestCase):
             self.run_fw(self.mod, c)
             self.assertAlmostEqual(self.mod.V2_OSTATNI[0], self.numpy_logit(c), delta=1e-2)
 
+    def test_bench_runs(self):
+        self.mod.v2_bench(3)
+
     def test_engine_scores_above_noise(self):
         self.run_fw(self.mod, _session(6, 'engine'))
         e = self.mod.V2_OSTATNI[0]

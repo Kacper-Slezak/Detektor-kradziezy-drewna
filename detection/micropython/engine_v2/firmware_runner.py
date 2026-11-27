@@ -46,6 +46,10 @@ def _stub_modules():
     pycom.nvs_set = lambda k, v: None
     import binascii
     import socket
+    import time
+    if not hasattr(time, 'ticks_ms'):
+        time.ticks_ms = lambda: int(time.monotonic() * 1000)
+        time.ticks_diff = lambda a, b: a - b
     sys.modules.update(machine=machine, network=network, pycom=pycom,
                        usocket=socket, ubinascii=binascii)
 

@@ -61,6 +61,34 @@ def analizuj_sygnaly(mic_aktywny, vib_aktywny, prog=None):
     conf = max(0, min(100, conf))
     return czy, (1 if czy else 0), conf
 
+
+def v2_bench(n_blokow=10):
+    """REPL: import main; main.v2_bench()  -> ms per 1 s block and free heap, no Wi-Fi."""
+    gc.collect()
+    print("V2_HEAP_START", gc.mem_free() if hasattr(gc, "mem_free") else -1)
+    st = V2State()
+    blk = bytearray(8000)
+    x = 12345
+    for i in range(4000):
+        x = (1103515245 * x + 12345) & 0x7FFFFFFF
+        v = 2048 + int(300.0 * math.sin(2.0 * math.pi * 45.0 * i / 4000.0)) + (x % 61) - 30
+        blk[2 * i] = v & 0xFF
+        blk[2 * i + 1] = (v >> 8) & 0xFF
+    gc.collect()
+    print("V2_HEAP_STATE", gc.mem_free() if hasattr(gc, "mem_free") else -1)
+    for b in range(n_blokow):
+        t0 = time.ticks_ms()
+        st.add_block(blk)
+        print("V2_BLOCK_MS", b, time.ticks_diff(time.ticks_ms(), t0))
+    t0 = time.ticks_ms()
+    vec = st.session_vector()
+    lg = 0.0
+    for m in V2_MODELS:
+        lg += score(vec, m)
+    print("V2_SCORE_MS", time.ticks_diff(time.ticks_ms(), t0), "logit", lg / len(V2_MODELS))
+    gc.collect()
+    print("V2_HEAP_END", gc.mem_free() if hasattr(gc, "mem_free") else -1)
+
 '''
 
 MAIN = '''def _v2_nvs_get(k):

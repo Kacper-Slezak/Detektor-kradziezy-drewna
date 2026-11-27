@@ -7,7 +7,7 @@
 #   st = V2State()                 # allocate once per wake (about 9 KB)
 #   for blk in nagraj_audio():     # 8000-byte LE blocks of 12-bit ADC codes
 #       st.add_block(blk)
-#   vec = st.session_vector()      # list of 49 floats, same order as features.NAMES
+#   vec = st.session_vector()      # list of 53 floats, same order as features.NAMES
 #   p = score(vec, MODEL)          # probability of "machine at the pile"
 
 import math
@@ -80,7 +80,11 @@ class V2State:
         self.Wsum = _zeros('f', V2_LO1 - V2_LO0)   # sum over blocks of W[LO]
         self.B = _zeros('f', 15 * V2_MAXB)         # band shape per block
         self.sc = _zeros('f', 5 * V2_MAXB)         # harm, flat, env, lowhi, tf_lo per block
+        self.lv = _zeros('f', V2_MAXB)             # log block RMS
+        self.imp = 0.0
+        self.frr = 0.0
         self.e = _zeros('f', 124)
+        self.es = _zeros('f', 124)                 # sorted copy for the median
         self.nb = 0
         self.tb_lo = 0.0
         self.tb_hi = 0.0
@@ -272,6 +276,28 @@ class V2State:
             d = e[j] - em
             ev += d * d
         env = math.log(math.sqrt(ev / 124.0) / em + 1e-3)
+        es = self.es
+        for j in range(124):
+            es[j] = e[j]
+        es = sorted(es)
+        med = 0.5 * (es[61] + es[62])
+        ni = 0
+        for j in range(124):
+            if e[j] > 4.0 * med:
+                ni += 1
+        self.imp += ni / 124.0
+        self.lv[b] = 0.5 * math.log(em)
+        qmx = 0.0
+        qmn = 1e30
+        for qq in range(4):
+            s = 0.0
+            for j in range(qq * 31, qq * 31 + 31):
+                s += e[j]
+            if s > qmx:
+                qmx = s
+            if s < qmn:
+                qmn = s
+        self.frr += math.log(qmx / qmn)
         lo = 0.0
         for k in range(4, 45):
             lo += P[k]
@@ -395,6 +421,22 @@ class V2State:
         v.append(float(n_p))
         v.append(self.tb2 / (nb - 2) if nb > 2 else 0.0)
         v.append(self.tbm / (nb - 1))
+        v.append(self.imp / nb)
+        s = 0.0
+        for b in range(nb):
+            s += self.lv[b]
+        m = s / nb
+        s = 0.0
+        da = 0.0
+        for b in range(nb):
+            d = self.lv[b] - m
+            s += d * d
+            if b > 0:
+                d = self.lv[b] - self.lv[b - 1]
+                da += d if d > 0.0 else -d
+        v.append(math.sqrt(s / nb))
+        v.append(da / (nb - 1))
+        v.append(self.frr / nb)
         return v
 
 

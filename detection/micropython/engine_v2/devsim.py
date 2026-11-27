@@ -216,3 +216,36 @@ def soc2_items(max_sessions=12):
                             label=int(lab == 'pos'), kind='engine' if lab == 'pos' else 'forest',
                             cls=slug[:40], group='soc2_' + slug, fold=fold, src='soc2'))
     return out
+
+
+FSD_KEY = ('Thunderstorm', 'Thunder', 'Rain', 'Raindrop', 'Wind', 'Stream', 'Waves_and_surf',
+           'Ocean', 'Fire', 'Crackle', 'Cricket', 'Insect', 'Bird', 'Frog', 'Crow',
+           'Rustling_leaves', 'Walk_and_footsteps', 'Chop', 'Knock', 'Wood', 'Water',
+           'Helicopter', 'Fixed-wing_aircraft_and_airplane', 'Aircraft', 'Train',
+           'Rail_transport', 'Car_passing_by', 'Idling', 'Heavy_engine_(low_frequency)',
+           'Truck', 'Bus', 'Tractor', 'Motorcycle', 'Engine_starting',
+           'Accelerating_and_revving_and_vroom', 'Medium_engine_(mid_frequency)',
+           'Light_engine_(high_frequency)', 'Engine')
+
+
+def fsd_items():
+    """FSD50K eval clips selected by fsd50k_extract.py: an independent test corpus.
+    Never used for training or threshold selection (src='fsd', fold=0, not ICE)."""
+    out = []
+    sel = DATA / 'fsd50k' / 'selected.csv'
+    if not sel.exists():
+        return out
+    with open(sel) as f:
+        for r in csv.DictReader(f):
+            p = DATA / 'fsd50k' / 'audio' / (r['fname'] + '.wav')
+            with wave.open(str(p)) as w:
+                total = w.getnframes() / w.getframerate()
+            if total < 3.0:
+                continue
+            labs = r['labels'].split(',')
+            cls = next((k for k in FSD_KEY if k in labs), labs[0])
+            for t in (0.0, 10.0)[:1 + int(total >= 20.0)]:
+                out.append(dict(path=p, start=t, dur=min(10.0, total - t),
+                                label=int(r['kind'] == 'engine'), kind=r['kind'],
+                                cls='fsd_' + cls, group='fsd' + r['fname'], fold=0, src='fsd'))
+    return out

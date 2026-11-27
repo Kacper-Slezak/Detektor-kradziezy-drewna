@@ -26,6 +26,9 @@ Session (blocks b = 0..nb-1):
   lines_*    session-mean W over 31-500 Hz: number of bins above LINE, summed excess
              above LINE, bins above LINE in *every* block
   tb2_lo     like tb_lo, blocks two seconds apart;  tb_mid: like tb_lo over 156-1000 Hz
+  imp_rate   mean fraction of 8 ms sub-frames with energy > 4x the block median (rain clicks)
+  lvl_sd     std over blocks of log block RMS; lvl_dabs: mean |change| between blocks (gusts)
+  frame_range  mean log(max/min) of the energy of the four 248 ms quarters of a block
   + mean and std over blocks of bands, harm, flat, env, lowhi, tf_lo.
 """
 
@@ -47,7 +50,8 @@ NAMES = (['band_mu%d' % i for i in range(15)] + ['band_sd%d' % i for i in range(
          + ['harm_mu', 'harm_sd', 'flat_mu', 'flat_sd', 'env_mu', 'env_sd',
             'lowhi_mu', 'lowhi_sd', 'tf_lo_mu', 'tf_lo_sd',
             'tb_lo', 'tb_hi', 'stab_lo', 'cos_bands',
-            'lines_n', 'lines_prom', 'lines_persist', 'tb2_lo', 'tb_mid'])
+            'lines_n', 'lines_prom', 'lines_persist', 'tb2_lo', 'tb_mid',
+            'imp_rate', 'lvl_sd', 'lvl_dabs', 'frame_range'])
 LINE = 0.8                                       # whitened log level of a 'strong line'
 MID = slice(20, 128)                             # 156-1000 Hz
 
@@ -96,9 +100,14 @@ def block_features(block):
     xs = x - x.mean()
     e = (xs[:3968].reshape(-1, 32) ** 2).mean(axis=1) + 1e-9     # (124,)
     env = float(np.log(e.std() / e.mean() + 1e-3))
+    imp = float((e > 4 * np.median(e)).mean())
+    lvl = float(0.5 * np.log(e.mean()))
+    q = e.reshape(4, 31).mean(axis=1)
+    frr = float(np.log(q.max() / q.min()))
     lowhi = float(np.log((P[4:45].sum() + 1e-9) / (P[45:244].sum() + 1e-9)))
     tf_lo = float(np.mean([corr(Wf[j], Wf[j + 1]) for j in range(len(Wf) - 1)]))
-    return dict(harm=harm, flat=flat, env=env, lowhi=lowhi, tf_lo=tf_lo), bands, W
+    return dict(harm=harm, flat=flat, env=env, lowhi=lowhi, tf_lo=tf_lo, imp=imp, lvl=lvl,
+                frr=frr), bands, W
 
 
 def session_features(codes):
@@ -129,4 +138,6 @@ def session_features(codes):
           float((W[:, LO] > LINE).all(0).sum()),
           np.mean([corr(W[i, LO], W[i + 2, LO]) for i in range(nb - 2)]) if nb > 2 else 0.0,
           np.mean([corr(W[i, MID], W[i + 1, MID]) for i in range(nb - 1)])]
+    v += [sc['imp'].mean(), sc['lvl'].std(), float(np.mean(np.abs(np.diff(sc['lvl'])))),
+          sc['frr'].mean()]
     return np.array(v)

@@ -232,7 +232,11 @@ class V2State:
         self.Wsum = _zeros('f', V2_LO1 - V2_LO0)   # sum over blocks of W[LO]
         self.B = _zeros('f', 15 * V2_MAXB)         # band shape per block
         self.sc = _zeros('f', 5 * V2_MAXB)         # harm, flat, env, lowhi, tf_lo per block
+        self.lv = _zeros('f', V2_MAXB)             # log block RMS
+        self.imp = 0.0
+        self.frr = 0.0
         self.e = _zeros('f', 124)
+        self.es = _zeros('f', 124)                 # sorted copy for the median
         self.nb = 0
         self.tb_lo = 0.0
         self.tb_hi = 0.0
@@ -409,6 +413,28 @@ class V2State:
             d = e[j] - em
             ev += d * d
         env = math.log(math.sqrt(ev / 124.0) / em + 1e-3)
+        es = self.es
+        for j in range(124):
+            es[j] = e[j]
+        es = sorted(es)
+        med = 0.5 * (es[61] + es[62])
+        ni = 0
+        for j in range(124):
+            if e[j] > 4.0 * med:
+                ni += 1
+        self.imp += ni / 124.0
+        self.lv[b] = 0.5 * math.log(em)
+        qmx = 0.0
+        qmn = 1e30
+        for qq in range(4):
+            s = 0.0
+            for j in range(qq * 31, qq * 31 + 31):
+                s += e[j]
+            if s > qmx:
+                qmx = s
+            if s < qmn:
+                qmn = s
+        self.frr += math.log(qmx / qmn)
         lo = 0.0
         for k in range(4, 45):
             lo += P[k]
@@ -528,6 +554,22 @@ class V2State:
         v.append(float(n_p))
         v.append(self.tb2 / (nb - 2) if nb > 2 else 0.0)
         v.append(self.tbm / (nb - 1))
+        v.append(self.imp / nb)
+        s = 0.0
+        for b in range(nb):
+            s += self.lv[b]
+        m = s / nb
+        s = 0.0
+        da = 0.0
+        for b in range(nb):
+            d = self.lv[b] - m
+            s += d * d
+            if b > 0:
+                d = self.lv[b] - self.lv[b - 1]
+                da += d if d > 0.0 else -d
+        v.append(math.sqrt(s / nb))
+        v.append(da / (nb - 1))
+        v.append(self.frr / nb)
         return v
 def score(vec, model):
     mu = model['MU']
@@ -556,12 +598,12 @@ def score(vec, model):
     return out * model['S2'] + model['B2']
 
 
-V2_T_HIGH = 6.2015
-V2_T_SUSP = 2.0369
+V2_T_HIGH = 6.9603
+V2_T_SUSP = 3.0273
 V2_CONFIRM_SLEEP_MS = 120000   # 2nd look after 2 min: a machine loading timber is still there
 V2_NVS_KEY = "v2_conf"
 V2_MODELS = (
-    dict(MU=(0.0880461, 0.42087, 0.496324, 0.460552, 0.316046, 0.214543, 0.155262, 0.10269, 0.0447391, -0.112629, -0.231345, -0.335315, -0.456507, -0.536507, -0.626769, 0.595431, 0.591408, 0.532305, 0.498216, 0.489508, 0.446723, 0.436337, 0.424858, 0.433852, 0.434667, 0.434906, 0.443751, 0.455662, 0.469543, 0.474842, 0.35041, 0.058815, 0.502088, 0.10449, -0.141429, 0.358866, -0.94354, 0.624218, 0.175775, 0.0932506, 0.332428, 0.118162, 0.650766, 0.685244, 4.86251, 2.94253, 1.24394, 0.298016, 0.202597,), SD=(1.55133, 1.49032, 1.28752, 1.12503, 0.967007, 0.861415, 0.850706, 0.81138, 0.819967, 0.850554, 0.891001, 0.962994, 1.00675, 1.09804, 1.17973, 0.406161, 0.388492, 0.361346, 0.337627, 0.344757, 0.329632, 0.337774, 0.336348, 0.3722, 0.374558, 0.369321, 0.377127, 0.385256, 0.406625, 0.412123, 0.0728226, 0.0305651, 0.205783, 0.0840003, 0.652755, 0.311246, 1.68658, 0.543441, 0.162225, 0.0439007, 0.260918, 0.149346, 0.145432, 0.304779, 4.24448, 4.50133, 2.22867, 0.263927, 0.199794,), W1=b'\t\x17\xe5\xee\xec\x0b\x01\x01\n\xda\r\x07\x05\xfb\x13\r\xfc\n\x04\xed\x18\x10\x0c\xdf\xff\xfd\xff\x03\xee\xe4\x0c\xf4\x14\x05\xf2\xf4\x12\x00\xf6\x1c\xf8\x02\xc9\x04\xfd\xe7\xe7\xf6,\xfd\x10\xe1\xf5\xea\xec\xff\x02\x02\x00\xeb&\x15\xff\x1b\xfa\x0e%\xff\xef\xea\x01\xfb\x08\x03\xf8\x1f\xf2\x0c\xf5\xda\x1b\xd5\x0e\x17%\xbc\xd3\xec1\xce\x04\x0e\x14\xdaG\x05\xfb\xfa\xec\xe7\x11\x18\xf6\x04\x0f\x0b\xf1\xf7\xf2/\xfa\x11\xee\xf7\xe9\x13\xec\xe3\xf8\x0f\x17\xe5\x07\x0c\x0f\x02\x0b\x05\xe8\x1f\t\x13\x02\xfc\x13\xfc\xfa\x123\x02\x9c\x0c\xe5\x1f\x1d6\xfb\xdf\xcf\x13\x1e\x12,\x05\xf6\xf3\xefJ\x0b\xf3\xf2\xf8\x1f\xce\n\xf0\x04!\x12"\xdd(\xf1\xfd\xdb\xfc\x04\x10\xf8\xd1\t\xdd\xfe\xf5\xfb\xe4\xee\xe8\x08\n\xe7\x10\xff\x1a\xc2\r\xe3\t\t\xff\xfa\x12\x07\xfb\x01\xec\x0e\xed\xfc\x16\x0c\x08\x01\xf9\xf5\x17\x13\x06\xfd\x11\x15\x02\x04\xd7\x12\x00\xf6\xff\x0f\x02\xf8\t\x1a\xf5\x10\xfbB\x11\x81\n\xee\xef\xd4^\r\x19\xe3\xf3\x0b\x08\xf1\xd5\x19\xfc\x05\xef\x14!\x08\xf2\x16\xfe\xfc\xf6\x1c\x0b\xfd\x08\xea\xeb\xf6\x12\t\x01\xf3\xfb\xf8\xf2\xf9\xfb\x1e\x01\xd2\xff\x0f\x12\xf2\xe7\x17"\n\xfd\x14\x05\x15\x0b\xff\x10\xea\xe6\xfa\xe1\x012\x16\xec\xe5\xfe\xf9\xf8\x11\x07\x00\x0b\xbf\x0f\xe7\xf9\x01\x05\x0b\xef\xe5\xf9\x07\x01$\x15\xf9\x00\xfc\x0e<\xf3\xf0\x0b,\t\xde\xec\x08\xec\xfe\r\x1d\xf6\xe3\xf7\xe4\xf9\x10\x15\xce\xf9\x06\x0e\xef"\xfd\xe9\x0e\xfe\xef\xfb\xfe\x06\xef\x04\xec\xdd\xf0\xf5\x11\x10\x05")\xfb(\x0b\xf7\x1c\x07\xd5\xf2$$\x0f\xe5\xfb\xf5\x10', S1=0.0146675, B1=(0.814921, 0.810964, 0.257711, 1.18883, 0.0119676, -0.533902, -0.802457, -0.575123,), W2=b'Q\x8en\x91\x7fQb_', S2=0.0233146, B2=-3.06417),
+    dict(MU=(0.258472, 0.557089, 0.588283, 0.51667, 0.347622, 0.235492, 0.14792, 0.0790456, 0.000709949, -0.173655, -0.308646, -0.414961, -0.529299, -0.608721, -0.696021, 0.569868, 0.565967, 0.508128, 0.47304, 0.462768, 0.419405, 0.410459, 0.399594, 0.405264, 0.405261, 0.404386, 0.412927, 0.426381, 0.439225, 0.443456, 0.350336, 0.0584339, 0.509803, 0.0997469, -0.171541, 0.34121, -0.794627, 0.583304, 0.171512, 0.0926502, 0.332797, 0.117074, 0.65084, 0.715599, 4.62802, 2.72939, 1.17117, 0.298559, 0.199974, 0.0785646, 0.495923, 0.441745, 1.45975,), SD=(1.54371, 1.45027, 1.23938, 1.08333, 0.925293, 0.829411, 0.813458, 0.777383, 0.781141, 0.81257, 0.859553, 0.925929, 0.963388, 1.0511, 1.12755, 0.389679, 0.373025, 0.34476, 0.322929, 0.328849, 0.313, 0.32037, 0.321186, 0.353587, 0.354864, 0.351091, 0.357905, 0.367154, 0.387072, 0.391937, 0.0702498, 0.0296368, 0.199651, 0.07962, 0.62049, 0.294239, 1.61956, 0.5147, 0.155819, 0.042718, 0.252075, 0.143324, 0.141341, 0.292689, 4.07246, 4.22857, 2.11785, 0.255126, 0.192487, 0.0893753, 0.638699, 0.53818, 1.56615,), W1=b'\xf0\xe6\x0f\xfa\x07\x01\xea\x00\xfa\n\xe8\r\xd7+5\n\xf7\x19\xfb\x0b\xf5\xfc\x10\xdd\x08\x11\x1d\xe6\xfd\xf5\xc8\t\xfa\xf7\xe6\x1b\xf7\x11\xe9\xfa\n\xfa(!\xe8\x18\x05\xde\xc94*8\xd0\xfd\xef\x05\x02\n\xff\xf7\xe0\xf6\x12\x03\xfb\t\r\x11\x01\xde2\xeb\x10\xf8\x18\xe1\xdb\x18\xe8\x14\x07\x16\xfc\xdf\x03\x13\x08\xea\x14\r\xf5\x13\x11)\x17\xcd5\xe4\n\xec\x12\xf7\x08-\xfd\x0f\xf9\xd4\x13\x01\x1a\x1f\xf8+\xf1\xeb#\xfa\xe9\x01\xfb\x01\xd2\x0f\x0c\xf9\x0c\x0c\r\x02\x03\xdc\x03\xfc\xc0\xcf\xfb\xfc\xfe\xe3\xd5\xdb\x14\x07\n\xe6\xf6\xdf\x04\xf3\xf2\xf0-\xe1\x1c\r\x18\x05W\xbd\x1d\xf1\x08\x02#\xec\x01\x012\x19\xf8\x1e\x01\xe6\x07\xe6\xff\x10\x18\x0c)\x13\xd9\x0c\xf0\xf8(\xe4\x0f+\x1b\xd7\x08\xe4\xf1\xfe\xee\xdb\r\x1b:7\x07\x1b\xfc\xfa\xdb\xd4\x1d\xf2&:\xdc\r\n\xf6\xe1E\x03\x12\x00\xea\xf1\xfc\n\x06\t\xf1\x05\xf4\x1a\xe5\t\x16(\x00\xff\xf6\xea\x04\xf3\x00\n\x1c\x02\x10\x17\xf3\x00\xfb\xfd\xfaA\x17\x81\x0e\x01\xff\xe8N\xf4\x06\x19\xef\xdb\xf4\xfc\x0b\'\x02\xf0\xf0\xff\x13\x10\xe1\x0f\x04\xf6\xf5\x10\xfb\xed\xf4"\xe5\x13\xfa\xf0\x0e\xfd\x13\xe6\xe5\x03\x00\x1e\xf5\xf5\x1c\xfd\xe8\xf4\x17\x1e(\xfe\xf0\xe2\xd7\n\x128\xfd\xe5\'\x01\xf3\xea\x0c\xe9\xfa\xdd\xf1\x07\xe1\x10\x1e\xe51&\x0c\x08\xe7\x03\xea\x00\xf0\xf8\xed\xe2\t\x16\xca\x02\xef\x18\x01\x04\r\xb0\x1f\x10\x04\xdd\x02\xe0$\xcd\xf4\xe7\xfd\xd1\x1b)\x04@\xe6\x05\t \x1f\x00\xee\xf4\xd6\xd5\xfa5\x10\xf7\xfd\x01\xfe\xfa\x1c\xee\xe8\xfa\x01\x05\xe4\xd5\xf0\xfd\xf7\xee\xfe\xf1\xd8\xf4&\xf2+3\xe7\xf48/\x10\xf8\xc4\xee+ \xff\xef)\xc7&\xf4\x0c\x1f\x03', S1=0.0128561, B1=(0.0708698, 1.14421, -0.148202, 0.638457, 0.40756, -0.223078, 0.0764731, -0.165704,), W2=b'\x8db\x8d\x82\x7f]\x86{', S2=0.0215386, B2=-2.25876),
 )
 V2_OSTATNI = [0.0, False]       # last session: mean logit, suspicious
 
@@ -601,6 +643,34 @@ def analizuj_sygnaly(mic_aktywny, vib_aktywny, prog=None):
         conf += 10
     conf = max(0, min(100, conf))
     return czy, (1 if czy else 0), conf
+
+
+def v2_bench(n_blokow=10):
+    """REPL: import main; main.v2_bench()  -> ms per 1 s block and free heap, no Wi-Fi."""
+    gc.collect()
+    print("V2_HEAP_START", gc.mem_free() if hasattr(gc, "mem_free") else -1)
+    st = V2State()
+    blk = bytearray(8000)
+    x = 12345
+    for i in range(4000):
+        x = (1103515245 * x + 12345) & 0x7FFFFFFF
+        v = 2048 + int(300.0 * math.sin(2.0 * math.pi * 45.0 * i / 4000.0)) + (x % 61) - 30
+        blk[2 * i] = v & 0xFF
+        blk[2 * i + 1] = (v >> 8) & 0xFF
+    gc.collect()
+    print("V2_HEAP_STATE", gc.mem_free() if hasattr(gc, "mem_free") else -1)
+    for b in range(n_blokow):
+        t0 = time.ticks_ms()
+        st.add_block(blk)
+        print("V2_BLOCK_MS", b, time.ticks_diff(time.ticks_ms(), t0))
+    t0 = time.ticks_ms()
+    vec = st.session_vector()
+    lg = 0.0
+    for m in V2_MODELS:
+        lg += score(vec, m)
+    print("V2_SCORE_MS", time.ticks_diff(time.ticks_ms(), t0), "logit", lg / len(V2_MODELS))
+    gc.collect()
+    print("V2_HEAP_END", gc.mem_free() if hasattr(gc, "mem_free") else -1)
 
 
 def _nvs_inc(k, skip_zero=False):
