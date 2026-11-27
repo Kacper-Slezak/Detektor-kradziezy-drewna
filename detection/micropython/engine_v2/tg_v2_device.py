@@ -7,7 +7,7 @@
 #   st = V2State()                 # allocate once per wake (about 9 KB)
 #   for blk in nagraj_audio():     # 8000-byte LE blocks of 12-bit ADC codes
 #       st.add_block(blk)
-#   vec = st.session_vector()      # list of 53 floats, same order as features.NAMES
+#   vec = st.session_vector()      # list of 57 floats, same order as features.NAMES
 #   p = score(vec, MODEL)          # probability of "machine at the pile"
 
 import math
@@ -77,7 +77,7 @@ class V2State:
         self.tb2 = 0.0
         self.tbm = 0.0
         self.wf = _zeros('f', 4 * (V2_LO1 - V2_LO0))  # whitened LO of 4 frames
-        self.Wsum = _zeros('f', V2_LO1 - V2_LO0)   # sum over blocks of W[LO]
+        self.Wsum = _zeros('f', V2_HI1 - V2_LO0)   # sum over blocks of W[4..243]
         self.B = _zeros('f', 15 * V2_MAXB)         # band shape per block
         self.sc = _zeros('f', 5 * V2_MAXB)         # harm, flat, env, lowhi, tf_lo per block
         self.lv = _zeros('f', V2_MAXB)             # log block RMS
@@ -318,8 +318,9 @@ class V2State:
         self.sc[osc + 4] = tf
         # session-level running quantities
         sw = 0.0
-        for k in range(V2_LO0, V2_LO1):
+        for k in range(V2_LO0, V2_HI1):
             self.Wsum[k - V2_LO0] += W[k]
+        for k in range(V2_LO0, V2_LO1):
             sw += W[k]
         mw = sw / nlo
         vv = 0.0
@@ -437,6 +438,22 @@ class V2State:
         v.append(math.sqrt(s / nb))
         v.append(da / (nb - 1))
         v.append(self.frr / nb)
+        n_h = 0
+        p_h = 0.0
+        best = -1e30
+        kb = 0
+        for i in range(V2_HI1 - V2_LO0):
+            wm = self.Wsum[i] / nb
+            if wm > best:
+                best = wm
+                kb = i
+            if i >= V2_LO1 - V2_LO0 and wm > V2_LINE:
+                n_h += 1
+                p_h += wm - V2_LINE
+        v.append(float(n_h))
+        v.append(p_h)
+        v.append(math.log((prom + 0.1) / (p_h + 0.1)))
+        v.append((kb + V2_LO0) * 7.8125)
         return v
 
 

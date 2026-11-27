@@ -13,11 +13,11 @@ blocks at 4 kHz with the existing `nagraj_audio()`, and scores the session:
 2. Per block features: 15-band spectral shape, whitened log spectrum (log P minus its local
    mean over +-12 bins), harmonicity, flatness, sub-frame envelope variation, low/high ratio,
    frame-to-frame line correlation, impulse rate, level.
-3. Session vector (53 values, `features.NAMES`): means and spreads over blocks plus the
+3. Session vector (57 values, `features.NAMES`): means and spreads over blocks plus the
    line-persistence features (correlation of the whitened spectrum between consecutive and
    every-other blocks, number and persistence of strong lines below 500 Hz) and level
    variation (gusts).
-4. MLP 53-8-1 with int8 weights -> logit.
+4. MLP 57-8-1 with int8 weights -> logit.
 5. Decision (`main()`):
    * logit >= `V2_T_HIGH` -> ALARM now;
    * logit >= `V2_T_SUSP` -> store a flag in NVS, deep sleep 2 min (timer), record a second

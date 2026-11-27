@@ -136,9 +136,9 @@ def seq_table(dec, burst, M, th, ts):
     for i in range(len(dec)):
         if M['level'][i] != NOMINAL:
             continue
-        groups.setdefault((M['group'][i], M['kind'][i], M['src'][i], M['bg'][i], M['snr'][i]), []).append(i)
+        groups.setdefault((M['group'][i], M['kind'][i], M['src'][i], M['snr'][i]), []).append(i)
     res = {}
-    for (g, k, s, bg, snr), idx in groups.items():
+    for (g, k, s, snr), idx in groups.items():
         if len(idx) < 4:
             continue
         idx = sorted(idx, key=lambda i: float(M['start'][i]))
@@ -235,6 +235,8 @@ def main():
             (('engine_mix', 'soc2', '-3.0'), 'Maszyny soc2 + burza/deszcz/wiatr −3 dB'),
             (('engine_mix', 'soc2', '3.0'), 'Maszyny soc2 + burza/deszcz/wiatr +3 dB'),
             (('forest', 'sample', ''), 'Nagranie lasu 288 s'), (('forest', 'soc2', ''), 'Las Valla 109 s'),
+            (('forest', 'esc50', ''), 'Przyroda ESC-50 (≥4 ujęcia z jednego źródła)'),
+            (('mech', 'esc50', ''), 'Przeloty ESC-50 (≥4 ujęcia z jednego źródła)'),
             (('forest', 'fsd', ''), 'Przyroda/pogoda FSD50K (klipy ≥20 s)'),
             (('mech', 'fsd', ''), 'Przeloty FSD50K')]
     seq_rows = []
@@ -304,6 +306,56 @@ def main():
     main_py = HERE.parent / 'deploy' / 'v2' / 'main.py'
     git = subprocess.run(['git', 'log', '--oneline', '-12'], cwd=HERE, capture_output=True, text=True).stdout
 
+    def r(mask, a):
+        m = mask & nom
+        return pct(a[m].sum(), m.sum()), int(m.sum())
+
+    def sq(key):
+        v = seqs.get(key, [])
+        a = sum(1 for x in v if x[0] is not None)
+        b = sum(1 for x in v if x[1])
+        return a, b, len(v)
+    m_soc2, m_ext = (kind == 'engine') & (src == 'soc2'), (kind == 'engine') & ((src == 'soc') | (src == 'sample'))
+    m_fsd = (kind == 'engine') & (src == 'fsd')
+    s_soc2 = sq(('engine', 'soc2', ''))
+    s_st3 = sq(('engine_mix', 'soc2', '3.0'))
+    s_stm = sq(('engine_mix', 'soc2', '-3.0'))
+    wx_m = lambda names: np.isin(cls, names) & nom
+    storm = wx_m(['thunderstorm', 'fsd_Thunderstorm', 'fsd_Thunder'])
+    rain = wx_m(['rain', 'fsd_Rain', 'fsd_Raindrop'])
+    wind = wx_m(['wind', 'fsd_Wind'])
+    forest_cv = (kind == 'forest') & (src == 'esc50') & nom
+    forest_fsd = (kind == 'forest') & (src == 'fsd') & nom
+    summary = '<ol class="plain">' + ''.join('<li>%s</li>' % t for t in [
+        '<b>Silnik kontra las (priorytet 1).</b> Na jednej sesji 10 s v2 podejrzewa maszynę w %.0f%% sesji maszyn z CV (burst alarmuje w %.0f%%), w %.0f%% sesji zewnętrznych nagrań maszyn (burst %.0f%%) i w %.0f%% sesji niezależnego FSD50K (burst %.0f%%). Fałszywe podejrzenia: %.1f%% klipów przyrody ESC-50 i %.1f%% FSD50K; alarm od razu: %.1f%% i %.1f%%.' % (
+            r(m_soc2, susp)[0], r(m_soc2, burst)[0], r(m_ext, susp)[0], r(m_ext, burst)[0], r(m_fsd, susp)[0], r(m_fsd, burst)[0],
+            pct(susp[forest_cv].sum(), forest_cv.sum()), pct(susp[forest_fsd].sum(), max(1, forest_fsd.sum())),
+            pct(high[forest_cv].sum(), forest_cv.sum()), pct(high[forest_fsd].sum(), max(1, forest_fsd.sum()))),
+        '<b>Urządzenie (kolejne wybudzenia, maks. 2 min dźwięku):</b> alarm dla %d z %d nagrań maszyn (burst: %d z %d). Fałszywe alarmy: %s (sekcja 6).' % (
+            s_soc2[0], s_soc2[2], s_soc2[1], s_soc2[2],
+            ', '.join('%s %d z %d' % (nm, sq(k)[0], sq(k)[2]) for k, nm in [
+                (('forest', 'esc50', ''), 'przyroda ESC-50'), (('forest', 'fsd', ''), 'przyroda FSD50K'),
+                (('forest', 'soc2', ''), 'las Valla'), (('forest', 'sample', ''), 'nagranie lasu z szumem drogi'),
+                (('mech', 'esc50', ''), 'przeloty ESC-50'), (('mech', 'fsd', ''), 'przeloty FSD50K')] if sq(k)[2])),
+        '<b>Burza, deszcz, wiatr kontra silnik (priorytet 2).</b> Podejrzenie / alarm od razu: burza %.1f%% / %.1f%% (n=%d), deszcz %.1f%% / %.1f%% (n=%d), wiatr %.1f%% / %.1f%% (n=%d). Burst alarmuje: burza %.1f%%, deszcz %.1f%%, wiatr %.1f%%.' % (
+            pct(susp[storm].sum(), storm.sum()), pct(high[storm].sum(), storm.sum()), storm.sum(),
+            pct(susp[rain].sum(), rain.sum()), pct(high[rain].sum(), rain.sum()), rain.sum(),
+            pct(susp[wind].sum(), wind.sum()), pct(high[wind].sum(), wind.sum()), wind.sum(),
+            pct(burst[storm].sum(), storm.sum()), pct(burst[rain].sum(), rain.sum()), pct(burst[wind].sum(), wind.sum())),
+        '<b>Kradzież w czasie burzy, deszczu lub wiatru (priorytet 3).</b> Na urządzeniu alarm dla %d z %d nagrań maszyn zmieszanych z burzą/deszczem/wiatrem przy +3 dB i %d z %d przy −3 dB (burst: %d i %d).' % (s_st3[0], s_st3[2], s_stm[0], s_stm[2], s_st3[1], s_stm[1]),
+        '<b>Niezależność od głośności:</b> wyniki v2 przy RMS 40, 120 i 360 różnią się o pojedyncze sesje, a burst zmienia się wraz z głośnością (sekcja 8).',
+        '<b>Najsłabsze miejsca:</b> świerszcze i owady (ich śpiew zawija się bez filtra antyaliasingowego do pasma 0–2 kHz jako stałe linie), śmigłowiec oraz nagranie lasu z odległym szumem drogi. Do tego brak nagrania z naszego mikrofonu i niezmierzony czas działania na LoPy.',
+    ]) + '</ol>'
+    limits = ''.join('<li>%s</li>' % t for t in [
+        'Brak nagrania z naszego mikrofonu i ADC. Tor płytki jest symulowany (filtr 100 Hz, decymacja bez filtra, 12 bit). Pierwszy krok walidacji to nagranie przez LoPy (<code>lopy_capture.py</code>) i powtórzenie oceny.',
+        'Czas obliczeń i sterta na LoPy niezmierzone (<code>main.v2_bench()</code>). Jeśli 10 bloków liczy się zbyt długo, można zmniejszyć liczbę ramek albo przejść na rzeczywistą FFT przez FFT połowy długości.',
+        'Pozytywy to głównie auta (ICE), muzealne maszyny (soc2) i klipy ESC-50/FSD50K. Brak nagrań maszyn leśnych (forwarder, harvester, dźwig HDS) przy mygle.',
+        'Nagranie lasu <code>forest-ambience.wav</code> zawiera dryfujące linie 25–100 Hz (prawdopodobnie odległy ruch drogowy), a burst też alarmuje na %.0f%% jego sesji. Trzeba to sprawdzić odsłuchem. Jeśli to droga, czujnik przy ruchliwej drodze będzie wymagał wyższego progu.' % r((kind == 'forest') & (src == 'sample'), burst)[0],
+        'Klipy ESC-50 trwają 5 s, więc sesja ma 5 bloków, a nie 10. Część etykiet ESC-50 zawiera tło: niektóre klipy „rain” mają w tle silnik lub przydźwięk 120 Hz.',
+        'Przeloty liczone są na pojedynczych klipach. Dwuetapowe potwierdzenie (2 min) nie było sprawdzane na długich nagraniach przelotów.',
+        'Uderzenia kłód przy załadunku nie są wykrywane osobno. Czujnik drgań podnosi pewność i przyspiesza alarm.',
+        'Pewność w ramce ALARM to 100·sigmoid(logit), a nie skalibrowane prawdopodobieństwo.',
+    ])
     tpl = (HERE / 'report_template.html').read_text()
     rep = {
         '{{TAG}}': TAG, '{{T_HIGH}}': '%.2f' % th, '{{T_SUSP}}': '%.2f' % ts,
@@ -316,7 +368,7 @@ def main():
         '{{INV}}': inv, '{{SOC2}}': '\n'.join(soc2_rows), '{{ARCH}}': '\n'.join(arch),
         '{{TESTS}}': html.escape(' · '.join(tlines)), '{{MAIN_SIZE}}': '%d' % main_py.stat().st_size,
         '{{MAIN_SHA}}': sha256(main_py), '{{GIT}}': html.escape(git),
-        '{{NSESS}}': '%d' % len(dec),
+        '{{NSESS}}': '%d' % len(dec), '{{SUMMARY}}': summary, '{{LIMITS}}': limits,
     }
     for k, v in rep.items():
         tpl = tpl.replace(k, v)

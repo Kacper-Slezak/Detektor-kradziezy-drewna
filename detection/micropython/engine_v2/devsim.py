@@ -235,8 +235,14 @@ def fsd_items():
     sel = DATA / 'fsd50k' / 'selected.csv'
     if not sel.exists():
         return out
+    # FSD50K and ESC-50 are both cut from Freesound: drop clips whose Freesound ID is an
+    # ESC-50 source file (39 such clips), otherwise the held-out set would leak
+    esc_src = {r['src_file'] for r in csv.DictReader(
+        open(DATA / 'esc50' / 'ESC-50-master' / 'meta' / 'esc50.csv'))}
     with open(sel) as f:
         for r in csv.DictReader(f):
+            if r['fname'] in esc_src:
+                continue
             p = DATA / 'fsd50k' / 'audio' / (r['fname'] + '.wav')
             with wave.open(str(p)) as w:
                 total = w.getnframes() / w.getframerate()

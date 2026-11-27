@@ -85,7 +85,7 @@ svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
 
 <section>
   <h2>2. Jak działa detektor</h2>
-  <div class="flow"><span class="b">wybudzenie GPIO (dźwięk / drgania)</span>→<span class="b">10 × 1 s, 4 kHz, 12 bit</span>→<span class="b">cechy każdej sekundy</span>→<span class="b">53 cechy sesji</span>→<span class="b">MLP 53-8-1 (int8)</span>→<span class="b">decyzja</span></div>
+  <div class="flow"><span class="b">wybudzenie GPIO (dźwięk / drgania)</span>→<span class="b">10 × 1 s, 4 kHz, 12 bit</span>→<span class="b">cechy każdej sekundy</span>→<span class="b">57 cech sesji</span>→<span class="b">MLP 57-8-1 (int8)</span>→<span class="b">decyzja</span></div>
   <h3>Intuicja</h3>
   <ul class="plain">
     <li>Silnik to zestaw <b>stałych linii tonalnych</b>: częstotliwość zapłonu f<sub>z</sub> = obr/min ÷ 60 × cylindry ÷ 2 (23–111 Hz) i jej harmoniczne. Utrzymują się sekunda po sekundzie. Wiatr, deszcz, burza, owady i ptaki takich trwałych linii poniżej 500 Hz nie mają.</li>
@@ -167,7 +167,7 @@ svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
 <section>
   <h2>9. Płytka</h2>
   <ul class="plain">
-    <li><b>Zgodność:</b> <code>tg_v2_device.py</code> (czysty Python, tablice <code>array('f')</code>, bez f-stringów, zgodny z MicroPython v1.11) daje te same 53 cechy co numpy z dokładnością 10<sup>−4</sup>. Logit z <code>deploy/v2/main.py</code> zgadza się z modelem numpy (int8) do 10<sup>−2</sup>. Maszyna stanów (alarm od razu, potwierdzenie, brak potwierdzenia, heartbeat) jest pokryta testami. Testy: <code>{{TESTS}}</code>.</li>
+    <li><b>Zgodność:</b> <code>tg_v2_device.py</code> (czysty Python, tablice <code>array('f')</code>, bez f-stringów, zgodny z MicroPython v1.11) daje te same 57 cech co numpy z dokładnością 10<sup>−4</sup>. Logit z <code>deploy/v2/main.py</code> zgadza się z modelem numpy (int8) do 10<sup>−2</sup>. Maszyna stanów (alarm od razu, potwierdzenie, brak potwierdzenia, heartbeat) jest pokryta testami. Testy: <code>{{TESTS}}</code>.</li>
     <li><b>Wagi int8</b> (jak w burst). Największa różnica logitu int8 i float na zbiorze treningowym to ~0,7 przy medianie |logit| ~9.</li>
     <li><b>Niezmierzone:</b> czas obliczeń i wolna sterta na LoPy. Na sekundę dźwięku płytka liczy 5 FFT-512 (burst: 4). Sterta zajęta przez stan to około 10 KB. Pomiar: <code>import main; main.v2_bench()</code> w REPL wypisuje ms na blok i wolną stertę.</li>
   </ul>
@@ -204,7 +204,7 @@ curl -L -o $TG_DATA/fsd50k/gt.zip   https://zenodo.org/api/records/4060432/files
 # 3. potok
 ../.venv/bin/python fsd50k_extract.py
 ../.venv/bin/python cache.py v4            # sesje w torze płytki
-../.venv/bin/python feat_cache.py v4       # 53 cechy na sesję
+../.venv/bin/python feat_cache.py v4       # 57 cech na sesję
 ../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v4   # burst bez zmian
 TG_TAG=v4 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
 ../.venv/bin/python build_main.py          # deploy/v2/main.py

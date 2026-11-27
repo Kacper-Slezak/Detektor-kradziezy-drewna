@@ -19,7 +19,9 @@ ANALYSE = '''
 
 V2_T_HIGH = {t_high!r}
 V2_T_SUSP = {t_susp!r}
-V2_CONFIRM_SLEEP_MS = 120000   # 2nd look after 2 min: a machine loading timber is still there
+V2_TRYB_POKAZ = False          # True for the corridor demo: short confirm and lock-out
+V2_CONFIRM_SLEEP_MS = 15000 if V2_TRYB_POKAZ else 120000   # 2nd look: machine still there?
+V2_PO_ALARMIE_MS = 60000 if V2_TRYB_POKAZ else CZAS_SNU_SZTYWNEGO_MS
 V2_NVS_KEY = "v2_conf"
 V2_MODELS = {models}
 V2_OSTATNI = [0.0, False]       # last session: mean logit, suspicious
@@ -130,7 +132,7 @@ def main():
             print("Confirm result: alarm/conf/logit", czy, conf, V2_OSTATNI[0])
             if czy:
                 _v2_alarm(conf, vib)
-                idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
+                idz_spac_na_sztywno(V2_PO_ALARMIE_MS)
                 return
         except Exception as e:
             print("Det err:", e)
@@ -161,7 +163,7 @@ def main():
         gc.collect()
         if czy:
             _v2_alarm(conf, vib)
-            idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
+            idz_spac_na_sztywno(V2_PO_ALARMIE_MS)
         elif V2_OSTATNI[1]:
             _v2_nvs_set(V2_NVS_KEY, 1 | (2 if vib else 0))
             idz_spac_na_sztywno(V2_CONFIRM_SLEEP_MS)

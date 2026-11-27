@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raport detektora v2</title>
+<style>
+:root{
+  --bg:#f6f7f5; --surface:#fff; --fg:#1c231f; --muted:#5b665f; --line:#d9ded9;
+  --accent:#2f5d46; --accent-soft:#e3ece6; --warn:#99640f; --warn-soft:#f6ecd9;
+  --c1:#2f5d46; --c2:#7fb08f; --c3:#b0603a;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131815; --surface:#1a201c; --fg:#e4e9e5; --muted:#9aa69e; --line:#2e3731;
+  --accent:#7fbf9c; --accent-soft:#213229; --warn:#e0b25e; --warn-soft:#352b1a;
+  --c1:#7fbf9c; --c2:#3f7458; --c3:#e08a5f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#131815; --surface:#1a201c; --fg:#e4e9e5; --muted:#9aa69e; --line:#2e3731;
+  --accent:#7fbf9c; --accent-soft:#213229; --warn:#e0b25e; --warn-soft:#352b1a;
+  --c1:#7fbf9c; --c2:#3f7458; --c3:#e08a5f; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);padding:32px 16px 64px}
+main{max-width:56rem;margin:0 auto;display:flex;flex-direction:column;gap:2.2rem}
+h1{font-size:2rem;margin:0;line-height:1.2}
+h2{font-size:1.4rem;margin:0;padding-top:.5rem;border-top:2px solid var(--accent)}
+h3{font-size:1.1rem;margin:.4rem 0 0}
+p,ul,ol{margin:0}
+section{display:flex;flex-direction:column;gap:.9rem}
+code{font-family:var(--mono);font-size:.84em;background:var(--accent-soft);padding:.05em .3em;border-radius:3px;overflow-wrap:anywhere}
+pre{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.8rem;overflow-x:auto;font:13px/1.5 var(--mono)}
+.lede{color:var(--muted);font-size:1.05rem}
+.eyebrow{font:12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1rem 1.2rem}
+.warn{background:var(--warn-soft);border-radius:6px;padding:1rem 1.2rem}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;vertical-align:top;padding:.45rem .6rem;border-bottom:1px solid var(--line)}
+thead th{background:var(--accent-soft);font-weight:600}
+tbody th{font-weight:500}
+td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ci{color:var(--muted);font-size:.78em}
+ul.plain,ol.plain{padding-left:1.2rem;display:flex;flex-direction:column;gap:.35rem}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.75rem;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto;min-width:520px}
+svg text{font-family:var(--font);fill:var(--fg)}
+svg .axis{fill:var(--muted);font-size:11px}
+svg .lab{font-size:12px}
+svg .val{font-size:10.5px;fill:var(--muted)}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg rect.c1{fill:var(--c1)} svg rect.c2{fill:var(--c2)} svg rect.c3{fill:var(--c3)}
+svg .line{fill:none;stroke-width:2.2}
+svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
+.flow{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:.9rem}
+.flow span.b{border:1px solid var(--accent);border-radius:4px;padding:.2rem .5rem;background:var(--surface)}
+.small{font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+<header style="display:flex;flex-direction:column;gap:.7rem">
+  <div class="eyebrow">Detektor kradzieży drewna · issue #31 · gałąź feat/detection-issue-31</div>
+  <h1>Raport detektora v2</h1>
+  <p class="lede">Nowy detektor pracy maszyny przy mygle dla Pycom LoPy: co zmieniono, jak działa, na jakich danych go sprawdzono, jakie są wyniki w porównaniu z obecnym burst i jak to wszystko odtworzyć.</p>
+  <p class="small">Zbiór sesji: <code>v3</code>, 11361 sesji po 10 s (każda w 3 głośnościach). Progi: T_HIGH = 5.99, T_SUSP = 2.42 (logit). Raport wygenerował <code>engine_v2/make_report.py</code>, a wszystkie liczby są liczone wprost z danych.</p>
+</header>
+
+<section class="box">
+  <h2 style="border:0;padding:0">Najważniejsze</h2>
+  <ol class="plain"><li><b>Silnik kontra las (priorytet 1).</b> Na jednej sesji 10 s v2 podejrzewa maszynę w 68% sesji maszyn z CV (burst alarmuje w 8%), w 91% sesji zewnętrznych nagrań maszyn (burst 41%) i w nan% sesji niezależnego FSD50K (burst nan%). Fałszywe podejrzenia: 2.2% klipów przyrody ESC-50 i 0.0% FSD50K; alarm od razu: 0.3% i 0.0%.</li><li><b>Urządzenie (kolejne wybudzenia, maks. 2 min dźwięku):</b> alarm dla 23 z 27 nagrań maszyn (burst: 7), zero alarmów w nagraniach przyrody i przelotów poza nagraniem lasu z odległym szumem drogi (sekcja 6).</li><li><b>Burza, deszcz, wiatr kontra silnik (priorytet 2).</b> Podejrzenie / alarm od razu: burza 0.0% / 0.0% (n=40), deszcz 10.0% / 2.5% (n=40), wiatr 7.5% / 0.0% (n=40). Burst alarmuje: burza 0.0%, deszcz 7.5%, wiatr 15.0%.</li><li><b>Kradzież w czasie burzy, deszczu lub wiatru (priorytet 3).</b> Na urządzeniu alarm dla 2 z 4 nagrań maszyn zmieszanych z burzą/deszczem/wiatrem przy +3 dB i 1 z 3 przy −3 dB (burst: 2 i 0).</li><li><b>Niezależność od głośności:</b> wyniki v2 przy RMS 40, 120 i 360 różnią się o pojedyncze sesje, a burst zmienia się wraz z głośnością (sekcja 8).</li><li><b>Najsłabsze miejsca:</b> świerszcze i owady (ich śpiew zawija się bez filtra antyaliasingowego do pasma 0–2 kHz jako stałe linie), śmigłowiec oraz nagranie lasu z odległym szumem drogi. Do tego brak nagrania z naszego mikrofonu i niezmierzony czas działania na LoPy.</li></ol>
+</section>
+
+<section>
+  <h2>1. Co zmieniono</h2>
+  <ul class="plain">
+    <li><b>Git:</b> na <code>main</code> był przerwany rebase (ktoś zrobił <code>git pull origin issue-31</code> z <code>pull.rebase=true</code>, więc git zaczął przenosić 52 commity <code>main</code> na gałąź Kiryla). Rebase został anulowany; <code>main</code> = <code>origin/main</code>, nic nie zginęło. Praca jest na nowej gałęzi <code>feat/detection-issue-31</code>, utworzonej z <code>origin/issue-31</code>. Gałąź Kiryla jest nietknięta.</li>
+    <li><b>Nowy katalog <code>detection/micropython/engine_v2/</code>:</b> symulacja toru płytki, ewaluacja, cechy (numpy, wzorzec), te same cechy w MicroPythonie, trening, eksport, budowa firmware, testy, ten raport.</li>
+    <li><b>Nowy firmware <code>detection/micropython/deploy/v2/main.py</code></b> (27894 B, sha256 <code>3ffb3bdde2db41ad8aa77917cbc5bc27790586f00111dda3d68033d6bd43145b</code>), generowany przez <code>build_main.py</code> z <code>deploy/burst/main.py</code> Kiryla. Bez zmian zostają: Wi-Fi, ramki protokołu (ALARM, HEARTBEAT, BOOT), nagrywanie ADC (<code>nagraj_audio</code>), sen, NVS. Wymienione zostały <code>analizuj_sygnaly()</code> (nowy detektor) i <code>main()</code> (drugi pomiar po 2 min). <code>FIRMWARE_VER</code> = 2.</li>
+    <li><b><code>deploy/burst/main.py</code> nie był modyfikowany</b>. Służy jako punkt odniesienia i jest uruchamiany w ewaluacji bez zmian.</li>
+  </ul>
+  <pre>e592b80 feat(detection): weather-aware v2 detector (53 inputs) and held-out FSD50K hooks
+9862d3d feat(detection): line-persistence features for the v2 detector (49 inputs)
+3f216a3 feat(detection): v2 engine detector for LoPy with second-look confirmation
+f3b39a0 feat(detection): device-domain evaluation harness for engine detector
+9207f7f Burst modified
+3307f98 Modified main.py for LoPy integration
+f315635 Adapt detection algorithm for LoPy streaming firmware integration
+43fb5c4 Update firmware reference for detection integration
+d644b13 Integrate alghoritm optimizations
+6bfb982 Modified .gitignore
+7873f8e Proba implementacji algorytmu z urzyciem YAMNet
+05651ce Dodana implementacja micropython (nie testowana)
+</pre>
+</section>
+
+<section>
+  <h2>2. Jak działa detektor</h2>
+  <div class="flow"><span class="b">wybudzenie GPIO (dźwięk / drgania)</span>→<span class="b">10 × 1 s, 4 kHz, 12 bit</span>→<span class="b">cechy każdej sekundy</span>→<span class="b">57 cech sesji</span>→<span class="b">MLP 57-8-1 (int8)</span>→<span class="b">decyzja</span></div>
+  <h3>Intuicja</h3>
+  <ul class="plain">
+    <li>Silnik to zestaw <b>stałych linii tonalnych</b>: częstotliwość zapłonu f<sub>z</sub> = obr/min ÷ 60 × cylindry ÷ 2 (23–111 Hz) i jej harmoniczne. Utrzymują się sekunda po sekundzie. Wiatr, deszcz, burza, owady i ptaki takich trwałych linii poniżej 500 Hz nie mają.</li>
+    <li>Wszystkie cechy to stosunki albo korelacje, więc <b>głośność (odległość, wzmocnienie mikrofonu, głośnik na pokazie) nie zmienia wyniku</b>. Obecny burst rozpoznawał silnik w dużej mierze po głośności (cecha <code>mean log RMS</code>).</li>
+    <li>Kradzież trwa wiele minut, a przelot, przejazd czy grzmot trwają chwilę. Dlatego sesja „podejrzana” jest potwierdzana drugą sesją po 2 minutach.</li>
+  </ul>
+  <h3>Cechy (<code>features.py</code>, w tej samej kolejności w <code>tg_v2_device.py</code>)</h3>
+  <ul class="plain">
+    <li>Na każdą sekundę: 4 ramki Hann po 512 próbek (offsety 0/1000/2000/3000, jak w burst), uśrednione widmo mocy (Welch 1967). Z niego: kształt 15 pasm 31–1906 Hz; <b>wybielone widmo</b> W = log P − lokalna średnia log P (±12 binów), które zostawia wąskie linie i usuwa obwiednię widma; harmoniczność (autokorelacja max(W,0), opóźnienia 9–43 ms; Tolonen i Karjalainen 2000, Boersma 1993); płaskość (Johnston 1988); zmienność obwiedni podramek 8 ms; stosunek energii 31–350 / 350–1900 Hz; korelacja W między ramkami; udział impulsów (podramki > 4× mediany: trzaski deszczu); poziom.</li>
+    <li>Na sesję: średnie i rozrzuty powyższych oraz cechy trwałości linii: korelacja W między kolejnymi sekundami i co dwie sekundy (31–500 Hz, 156–1000 Hz, 500–1900 Hz), liczba i wyrazistość silnych linii (W &gt; 0,8) w średnim W, liczba linii obecnych w każdej sekundzie, zmienność poziomu między sekundami (porywy wiatru).</li>
+  </ul>
+  <h3>Decyzja na płytce (<code>main()</code>)</h3>
+  <ul class="plain">
+    <li>logit ≥ T_HIGH (5.99): ALARM od razu (wybrany przy 0,5% fałszywych alarmów na sesję).</li>
+    <li>logit ≥ T_SUSP (2.42): sesja podejrzana. Flaga trafia do NVS, potem deep sleep z timerem 2 min, druga sesja i ALARM, jeśli też ≥ T_SUSP (próg wybrany przy 3% na sesję).</li>
+    <li>Wybudzenie przez czujnik drgań i sesja podejrzana: ALARM od razu (drgania to dodatkowy dowód).</li>
+    <li>W pozostałych przypadkach płytka wraca do snu na GPIO. Heartbeat i boot działają bez zmian.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Dane</h2>
+  <p>Żadne nagranie z naszego mikrofonu i ADC jeszcze nie istnieje, dlatego wszystkie nagrania przechodzą przez <b>symulację toru płytki</b> (<code>devsim.py</code>): filtr górnoprzepustowy 1. rzędu 100 Hz (BOB-12758: 100 Hz–10 kHz), próbkowanie 4 kHz przez wybieranie co n-tej próbki <b>bez filtra antyaliasingowego</b> (jak ADC ESP32), jitter 2 µs, skalowanie do RMS 40 / 120 / 360 jednostek ADC, szum 1,5 LSB i kwantyzacja 12 bit. Sesja to 10 s (dłuższe nagrania są cięte co 10 s, maksymalnie 12 sesji na nagranie).</p>
+  <div class="tw"><table><thead><tr><th>Źródło</th><th>Rodzaj</th><th class="num">Sesji (przy RMS 120)</th></tr></thead><tbody><tr><td>esc50</td><td>ambig</td><td class="num">80</td></tr><tr><td>esc50</td><td>engine</td><td class="num">40</td></tr><tr><td>esc50</td><td>engine_mix</td><td class="num">80</td></tr><tr><td>esc50</td><td>forest</td><td class="num">1160</td></tr><tr><td>esc50</td><td>mech</td><td class="num">120</td></tr><tr><td>esc50</td><td>other</td><td class="num">600</td></tr><tr><td>ice</td><td>engine</td><td class="num">295</td></tr><tr><td>ice</td><td>engine_mix</td><td class="num">590</td></tr><tr><td>sample</td><td>engine</td><td class="num">1</td></tr><tr><td>sample</td><td>forest</td><td class="num">30</td></tr><tr><td>soc</td><td>engine</td><td class="num">21</td></tr><tr><td>soc2</td><td>engine</td><td class="num">253</td></tr><tr><td>soc2</td><td>engine_mix</td><td class="num">506</td></tr><tr><td>soc2</td><td>forest</td><td class="num">11</td></tr></tbody></table></div>
+  <ul class="plain small">
+    <li><code>esc50</code>: ESC-50 (Piczak, ACM MM 2015), 2000 klipów po 5 s, 50 klas. „engine” to pozytywy, przyroda i pogoda to negatywy, śmigłowiec, samolot i pociąg to przeloty (negatywy). Piła łańcuchowa i ręczna są raportowane osobno (decyzja zespołu).</li>
+    <li><code>soc2</code>: 32 nagrania maszyn z soundsofchanges.eu (CC BY 4.0): traktory Ursus i Lanz, lokomotywy spalinowe, silniki stacjonarne, auta, ładowarka w kopalni, rębak. Do tego las Valla jako negatyw.</li>
+    <li><code>ice</code>: Sounds of Vehicle ICE (Univ. of Niš, Zenodo 18777405), 320 aut na biegu jałowym. Tylko trening, bo brak identyfikatorów pojazdów nie pozwala na uczciwy podział.</li>
+    <li><code>soc</code>, <code>sample</code>: 4 nagrania z <code>real_recordings.csv</code> Kiryla (traktory, furgonetka, ciężarówki w porcie) oraz <code>forest-ambience.wav</code> i <code>forest-with-truck.wav</code> z gałęzi. Nigdy nie są trenowane.</li>
+    <li><code>fsd</code>: <b>FSD50K eval</b> (Fonseca i in., IEEE/ACM TASLP 2022, Zenodo 4060432). Klipy z etykietami silnika, przyrody i pogody oraz przelotów, wybrane regułą w <code>fsd50k_extract.py</code>. <b>W pełni niezależny korpus: nieużywany ani do treningu, ani do progów.</b></li>
+    <li><code>engine_mix</code>: silnik + tło przyrody/pogody z tego samego foldu CV, przy SNR 0 i +6 dB, oraz silnik + burza, deszcz lub wiatr przy −3 i +3 dB. Mieszanki −3/+3 dB służą tylko do oceny (w treningu pogarszały wynik: ablacja w sekcji 4).</li>
+  </ul>
+  <h3>Archiwa i sumy kontrolne</h3>
+  <div class="tw"><table><thead><tr><th>Archiwum</th><th>URL</th><th>sha256</th></tr></thead><tbody><tr><td>ESC-50 (Piczak 2015), CC BY-NC 3.0</td><td><code>https://github.com/karoldvl/ESC-50/archive/master.zip</code></td><td><code>805afc618aff80eff0641d51311647871fead5807da68bb18e43a27db47a79ce</code></td></tr>
+<tr><td>Sounds of Vehicle ICE, diesel (Zenodo 18777405), CC BY 4.0</td><td><code>https://zenodo.org/api/records/18777405/files/Diesel%20Motor%20Sounds.zip/content</code></td><td><code>f5121ebe30847dc74d3daaf6cdea88d4d6c13abdd3fc1dfa2e586bb91b2f649a</code></td></tr>
+<tr><td>Sounds of Vehicle ICE, petrol (Zenodo 18777405), CC BY 4.0</td><td><code>https://zenodo.org/api/records/18777405/files/Petrol%20Motor%20Sounds.zip/content</code></td><td><code>ee7faf50612dc7d5f001cd8b190eb3ea1d5846ae6ffc4adfe7b03a6b36f71a66</code></td></tr>
+<tr><td>FSD50K eval audio cz. 1 (Zenodo 4060432), licencje CC per klip</td><td><code>https://zenodo.org/api/records/4060432/files/FSD50K.eval_audio.z01/content</code></td><td><code>a1b776a5a9466a0cf17d0cb9a2a98f641454084f0292f511718aacb48e6c401d</code></td></tr>
+<tr><td>FSD50K eval audio cz. 2</td><td><code>https://zenodo.org/api/records/4060432/files/FSD50K.eval_audio.zip/content</code></td><td><code>81b89cd7fadcff53c1944536478d9def6c8da0cdf993e16aba4124025f9b2cf6</code></td></tr></tbody></table></div>
+  <details><summary>Nagrania soundsofchanges.eu (soc2) z adresami i sha256 (pierwsze 16 znaków)</summary>
+  <div class="tw"><table><thead><tr><th>Nagranie</th><th>Rola</th><th>URL</th><th>sha256</th></tr></thead><tbody><tr><td>tractor-ursus-c-342-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55eee0c4e373e.wav</code></td><td><code>07ae19f2e05e0eda</code></td></tr>
+<tr><td>tractor-ursus-c-328-driving</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55eecf5f9d37c.wav</code></td><td><code>5a6952f325adc137</code></td></tr>
+<tr><td>tractor-ursus-c-328-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55eec3dbc38a5.wav</code></td><td><code>f8cb744df66ad651</code></td></tr>
+<tr><td>tractor-ursus-c-45</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55e598e33761a.wav</code></td><td><code>92545bf048c9f69a</code></td></tr>
+<tr><td>tractor-lanz-buldog-hl-12-driving</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d07c25dc819.wav</code></td><td><code>4592c06641ab14f9</code></td></tr>
+<tr><td>tractor-lanz-buldog-hl-12-engine-in-operation</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d073d19751f.wav</code></td><td><code>2daf34c11f9e706d</code></td></tr>
+<tr><td>perkun-combustion-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55e58ac969215.wav</code></td><td><code>a01e3f5527496a2f</code></td></tr>
+<tr><td>motor-polski-combustion-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55e5827c0aee0.wav</code></td><td><code>30842e8b3db8ad3a</code></td></tr>
+<tr><td>klima-combustion-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55e57321dd7a7.wav</code></td><td><code>3befd5dc140ce430</code></td></tr>
+<tr><td>slavia-combustion-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55e563523b4ae.wav</code></td><td><code>aebf1258235615d9</code></td></tr>
+<tr><td>witte-combustion-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d0b97f21ed9.wav</code></td><td><code>31a27c7cdbd2025b</code></td></tr>
+<tr><td>combustion-engine-andoria-hc-10211</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d0b03898287.wav</code></td><td><code>74af914884f6e3d7</code></td></tr>
+<tr><td>combustion-engine-andoria-s-301-d</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d0989f253ff.wav</code></td><td><code>10e8e1e83e08f236</code></td></tr>
+<tr><td>diesel-locomotive-bedia-moving</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d1f137254ec.wav</code></td><td><code>cbae07b8c1896148</code></td></tr>
+<tr><td>bedia-diesel-locomotive-idling</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d1f06514572.wav</code></td><td><code>abc624240e741085</code></td></tr>
+<tr><td>bedia-diesel-locomotive-idling-2</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55f/55f288bed0f1c.wav</code></td><td><code>d46d02d53beb2863</code></td></tr>
+<tr><td>van-fiat-ducato-turbodiesel-engine-running</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d8/5d8874b43b1b1.wav</code></td><td><code>2014e340643f5fa4</code></td></tr>
+<tr><td>van-peugeot-boxer-turbo-diesel-engine-starting</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d8/5d889cfb6001b.wav</code></td><td><code>119f2f43d798ced9</code></td></tr>
+<tr><td>saab-93-cabriolet-engine-running</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d8/5d887dd635d52.wav</code></td><td><code>219e2035bcec7913</code></td></tr>
+<tr><td>trabant-601-tramp-engine-running</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d8/5d88a80fef8c5.wav</code></td><td><code>a8277a441b10758b</code></td></tr>
+<tr><td>car-prinz-nsu-1200c-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55c/55ccb4c91b37d.wav</code></td><td><code>d9a7a855c981a488</code></td></tr>
+<tr><td>citroen-2cv6-charleston-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55c/55ccaec417872.wav</code></td><td><code>872a690e9ace6257</code></td></tr>
+<tr><td>volkswagen-beetle-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/557/5579714a572ea.wav</code></td><td><code>8a2907f7ecf41c50</code></td></tr>
+<tr><td>1350</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/555/555c5dbcf4036.wav</code></td><td><code>821ed10b566261b6</code></td></tr>
+<tr><td>coal-mine-prosper-haniel-x-loader</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d5/5d5a6124bea73.wav</code></td><td><code>42deb9e5d5b92141</code></td></tr>
+<tr><td>coal-mine-prosper-haniel-xvi-diesel-engine-starting</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d5/5d5a6f2e1a7be.wav</code></td><td><code>b024622e0d8ba5e4</code></td></tr>
+<tr><td>emptying-steel-scrap-from-a-truck</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55f/55f2c17fcb0d9.wav</code></td><td><code>a1084dc43af30f44</code></td></tr>
+<tr><td>the-thermal-waste-conversion-plant-1-unloading-garbage-trucks</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d6/5d651915a8934.wav</code></td><td><code>bd00e641a5762bcd</code></td></tr>
+<tr><td>woodchipper</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/556/55641e4047a5b.wav</code></td><td><code>58728cab5489fb91</code></td></tr>
+<tr><td>fire-truck-recorded-from-drivers-seat</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55c/55ccdb3204c0f.wav</code></td><td><code>e59211f0e38a47a6</code></td></tr>
+<tr><td>police-motorbike-engine</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55d/55d1ee3a68a3b.wav</code></td><td><code>18ee0fdd4891c42a</code></td></tr>
+<tr><td>konrad-gutkowski-76</td><td>silnik</td><td><code>https://www.soundsofchanges.eu/soundfiles/55e/55e439f33a3bd.wav</code></td><td><code>74d16881de247a38</code></td></tr>
+<tr><td>valla-forest-nature-reserve-a-quiet-place-part-2</td><td>las</td><td><code>https://www.soundsofchanges.eu/soundfiles/5d8/5d8897cebdb35.wav</code></td><td><code>48a2953713c7aeb3</code></td></tr></tbody></table></div></details>
+</section>
+
+<section>
+  <h2>4. Protokół oceny</h2>
+  <ul class="plain">
+    <li><b>Walidacja krzyżowa po źródłach:</b> 5 oficjalnych foldów ESC-50 (rozłącznych po plikach źródłowych) i nagrania soc2 przypisane do foldów skrótem nazwy. Każda sesja testowa jest oceniana modelem, który nie widział ani tego nagrania, ani innych wycinków z tego samego źródła, w żadnej głośności. Wyniki „(CV)” są out-of-fold.</li>
+    <li><b>Progi</b> wybierane są wyłącznie z decyzji out-of-fold na negatywach istotnych dla lasu (przyroda, pogoda, przeloty), bez nagrań zewnętrznych i bez FSD50K.</li>
+    <li><b>Zbiory zewnętrzne</b> (soc, sample, FSD50K) ocenia model trenowany na wszystkich danych CV i ICE.</li>
+    <li><b>Burst</b> jest uruchamiany jako niezmieniony <code>deploy/burst/main.py</code> na tych samych sesjach (<code>eval_firmware.py</code>, atrapy modułów Pycom). Jego alarm to wynik <code>analizuj_sygnaly</code>.</li>
+    <li>Przedziały to 95% Wilsona. Odsetki liczone są na sesjach przy nominalnej głośności (RMS 120), chyba że zaznaczono inaczej.</li>
+    <li><b>Ablacja</b> (2 ziarna, AUC na CV bez trudnych mieszanek): bez trudnych mieszanek w treningu 0,953 (×1 pogoda) i 0,952 (×3 pogoda); z trudnymi mieszankami 0,938 i 0,929. Waga ×3 dla deszczu, wiatru i burzy zmniejsza podejrzenia od deszczu z 17,9% do 9,6% przy tej samej czułości na maszynach (71,8% → 71,7%).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>5. Wyniki: pojedyncza sesja 10 s</h2>
+  <div class="tw"><table><thead><tr><th>Grupa (RMS 120)</th><th class="num">v2: podejrzenie ≥ T_SUSP</th><th class="num">v2: alarm od razu ≥ T_HIGH</th><th class="num">burst: alarm</th></tr></thead><tbody><tr><th>Silnik: ESC-50 &quot;engine&quot; (CV)</th><td class="num"><b>35.0%</b><span class="ci"> 14/40 · 22.1–50.5</span></td><td class="num"><b>17.5%</b><span class="ci"> 7/40 · 8.7–32.0</span></td><td class="num"><b>35.0%</b><span class="ci"> 14/40 · 22.1–50.5</span></td></tr>
+<tr><th>Silnik: maszyny soc2, 32 nagrania (CV)</th><td class="num"><b>68.4%</b><span class="ci"> 173/253 · 62.4–73.8</span></td><td class="num"><b>37.2%</b><span class="ci"> 94/253 · 31.4–43.3</span></td><td class="num"><b>8.3%</b><span class="ci"> 21/253 · 5.5–12.4</span></td></tr>
+<tr><th>Silnik: zewnętrzne (traktory, ciężarówki)</th><td class="num"><b>90.9%</b><span class="ci"> 20/22 · 72.2–97.5</span></td><td class="num"><b>40.9%</b><span class="ci"> 9/22 · 23.3–61.3</span></td><td class="num"><b>40.9%</b><span class="ci"> 9/22 · 23.3–61.3</span></td></tr>
+<tr><th>Silnik + pogoda 0 dB (CV)</th><td class="num"><b>55.1%</b><span class="ci"> 81/147 · 47.0–62.9</span></td><td class="num"><b>21.1%</b><span class="ci"> 31/147 · 15.3–28.4</span></td><td class="num"><b>8.8%</b><span class="ci"> 13/147 · 5.2–14.5</span></td></tr>
+<tr><th>Silnik + pogoda +6 dB (CV)</th><td class="num"><b>66.4%</b><span class="ci"> 97/146 · 58.4–73.6</span></td><td class="num"><b>28.1%</b><span class="ci"> 41/146 · 21.4–35.9</span></td><td class="num"><b>10.3%</b><span class="ci"> 15/146 · 6.3–16.3</span></td></tr>
+<tr><th>Silnik + burza/deszcz/wiatr +3 dB (CV)</th><td class="num"><b>52.7%</b><span class="ci"> 78/148 · 44.7–60.6</span></td><td class="num"><b>24.3%</b><span class="ci"> 36/148 · 18.1–31.8</span></td><td class="num"><b>14.2%</b><span class="ci"> 21/148 · 9.5–20.7</span></td></tr>
+<tr><th>Silnik + burza/deszcz/wiatr −3 dB (CV)</th><td class="num"><b>33.8%</b><span class="ci"> 49/145 · 26.6–41.8</span></td><td class="num"><b>10.3%</b><span class="ci"> 15/145 · 6.4–16.4</span></td><td class="num"><b>13.1%</b><span class="ci"> 19/145 · 8.6–19.6</span></td></tr>
+<tr><th>FP: przyroda i pogoda ESC-50 (CV)</th><td class="num"><b>2.2%</b><span class="ci"> 26/1160 · 1.5–3.3</span></td><td class="num"><b>0.3%</b><span class="ci"> 4/1160 · 0.1–0.9</span></td><td class="num"><b>2.6%</b><span class="ci"> 30/1160 · 1.8–3.7</span></td></tr>
+<tr><th>FP: nagranie lasu (z odległym szumem drogi)</th><td class="num"><b>53.3%</b><span class="ci"> 16/30 · 36.1–69.8</span></td><td class="num"><b>3.3%</b><span class="ci"> 1/30 · 0.6–16.7</span></td><td class="num"><b>73.3%</b><span class="ci"> 22/30 · 55.6–85.8</span></td></tr>
+<tr><th>FP: przelot śmigłowca/samolotu/pociągu ESC-50</th><td class="num"><b>8.3%</b><span class="ci"> 10/120 · 4.6–14.7</span></td><td class="num"><b>1.7%</b><span class="ci"> 2/120 · 0.5–5.9</span></td><td class="num"><b>2.5%</b><span class="ci"> 3/120 · 0.9–7.1</span></td></tr></tbody></table></div>
+  <p class="small">W wierszach „Silnik” wyższa wartość jest lepsza, w wierszach „FP” niższa. Podejrzenie samo nie wysyła alarmu, potrzebna jest druga podejrzana sesja (sekcja 6).</p>
+  <div class="fig"><svg viewBox="0 0 420 356" role="img" aria-label="ROC: silnik vs las, pogoda, przeloty">
+<line class="grid" x1="46" y1="310.0" x2="406" y2="310.0"/>
+<text class="axis" x="40" y="314.0" text-anchor="end">0%</text>
+<line class="grid" x1="46" y1="250.0" x2="406" y2="250.0"/>
+<text class="axis" x="40" y="254.0" text-anchor="end">20%</text>
+<line class="grid" x1="46" y1="190.0" x2="406" y2="190.0"/>
+<text class="axis" x="40" y="194.0" text-anchor="end">40%</text>
+<line class="grid" x1="46" y1="130.0" x2="406" y2="130.0"/>
+<text class="axis" x="40" y="134.0" text-anchor="end">60%</text>
+<line class="grid" x1="46" y1="70.0" x2="406" y2="70.0"/>
+<text class="axis" x="40" y="74.0" text-anchor="end">80%</text>
+<line class="grid" x1="46" y1="10.0" x2="406" y2="10.0"/>
+<text class="axis" x="40" y="14.0" text-anchor="end">100%</text>
+<line class="grid" x1="46.0" y1="10" x2="46.0" y2="310"/>
+<text class="axis" x="46.0" y="326" text-anchor="middle">0%</text>
+<line class="grid" x1="136.0" y1="10" x2="136.0" y2="310"/>
+<text class="axis" x="136.0" y="326" text-anchor="middle">5%</text>
+<line class="grid" x1="226.0" y1="10" x2="226.0" y2="310"/>
+<text class="axis" x="226.0" y="326" text-anchor="middle">10%</text>
+<line class="grid" x1="316.0" y1="10" x2="316.0" y2="310"/>
+<text class="axis" x="316.0" y="326" text-anchor="middle">15%</text>
+<line class="grid" x1="406.0" y1="10" x2="406.0" y2="310"/>
+<text class="axis" x="406.0" y="326" text-anchor="middle">20%</text>
+<text class="axis" x="226" y="344" text-anchor="middle">fałszywe alarmy (las, pogoda, przeloty)</text>
+<polyline class="c1 line" points="46.0,310.0 46.0,309.0 46.0,308.0 46.0,306.9 46.0,305.9 46.0,304.9 46.0,303.9 46.0,302.8 46.0,301.8 46.0,300.8 46.0,299.8 46.0,298.7 46.0,297.7 47.4,297.7 47.4,296.7 47.4,295.7 47.4,294.6 47.4,293.6 47.4,292.6 47.4,291.6 47.4,290.5 47.4,289.5 47.4,288.5 47.4,287.5 47.4,286.5 47.4,285.4 47.4,284.4 47.4,283.4 47.4,282.4 47.4,281.3 47.4,280.3 47.4,279.3 47.4,278.3 47.4,277.2 47.4,276.2 47.4,275.2 47.4,274.2 47.4,273.1 47.4,272.1 47.4,271.1 47.4,270.1 47.4,269.0 48.8,269.0 48.8,268.0 48.8,267.0 48.8,266.0 48.8,264.9 48.8,263.9 48.8,262.9 48.8,261.9 48.8,260.9 48.8,259.8 48.8,258.8 48.8,257.8 48.8,256.8 48.8,255.7 48.8,254.7 48.8,253.7 48.8,252.7 48.8,251.6 48.8,250.6 48.8,249.6 48.8,248.6 48.8,247.5 48.8,246.5 48.8,245.5 48.8,244.5 48.8,243.4 48.8,242.4 48.8,241.4 48.8,240.4 48.8,239.4 48.8,238.3 48.8,237.3 48.8,236.3 48.8,235.3 48.8,234.2 48.8,233.2 48.8,232.2 48.8,231.2 48.8,230.1 50.2,230.1 50.2,229.1 50.2,228.1 51.6,228.1 51.6,227.1 53.0,227.1 53.0,226.0 53.0,225.0 53.0,224.0 53.0,223.0 53.0,221.9 53.0,220.9 53.0,219.9 53.0,218.9 53.0,217.8 53.0,216.8 53.0,215.8 53.0,214.8 53.0,213.8 54.4,213.8 54.4,212.7 54.4,211.7 54.4,210.7 54.4,209.7 54.4,208.6 54.4,207.6 54.4,206.6 54.4,205.6 54.4,204.5 54.4,203.5 54.4,202.5 54.4,201.5 54.4,200.4 55.8,200.4 55.8,199.4 57.2,199.4 58.5,199.4 58.5,198.4 58.5,197.4 58.5,196.3 58.5,195.3 59.9,195.3 59.9,194.3 59.9,193.3 59.9,192.3 59.9,191.2 59.9,190.2 59.9,189.2 59.9,188.2 61.3,188.2 61.3,187.1 61.3,186.1 61.3,185.1 62.7,185.1 62.7,184.1 64.1,184.1 64.1,183.0 65.5,183.0 65.5,182.0 66.9,182.0 66.9,181.0 66.9,180.0 66.9,178.9 66.9,177.9 66.9,176.9 66.9,175.9 66.9,174.8 66.9,173.8 66.9,172.8 66.9,171.8 66.9,170.8 66.9,169.7 66.9,168.7 66.9,167.7 68.3,167.7 68.3,166.7 68.3,165.6 69.7,165.6 69.7,164.6 69.7,163.6 69.7,162.6 69.7,161.5 71.1,161.5 71.1,160.5 71.1,159.5 71.1,158.5 72.5,158.5 72.5,157.4 72.5,156.4 72.5,155.4 72.5,154.4 72.5,153.3 73.9,153.3 75.3,153.3 75.3,152.3 75.3,151.3 75.3,150.3 75.3,149.2 75.3,148.2 76.7,148.2 78.1,148.2 79.5,148.2 79.5,147.2 79.5,146.2 79.5,145.2 80.9,145.2 80.9,144.1 80.9,143.1 80.9,142.1 80.9,141.1 80.9,140.0 82.3,140.0 83.6,140.0 85.0,140.0 85.0,139.0 86.4,139.0 86.4,138.0 86.4,137.0 86.4,135.9 86.4,134.9 87.8,134.9 87.8,133.9 89.2,133.9 89.2,132.9 89.2,131.8 89.2,130.8 89.2,129.8 90.6,129.8 90.6,128.8 90.6,127.7 90.6,126.7 90.6,125.7 92.0,125.7 93.4,125.7 94.8,125.7 94.8,124.7 96.2,124.7 96.2,123.7 96.2,122.6 96.2,121.6 96.2,120.6 96.2,119.6 96.2,118.5 97.6,118.5 97.6,117.5 97.6,116.5 97.6,115.5 99.0,115.5 99.0,114.4 99.0,113.4 99.0,112.4 100.4,112.4 100.4,111.4 101.8,111.4 103.2,111.4 103.2,110.3 103.2,109.3 104.6,109.3 104.6,108.3 104.6,107.3 106.0,107.3 107.3,107.3 108.7,107.3 108.7,106.2 108.7,105.2 110.1,105.2 111.5,105.2 112.9,105.2 112.9,104.2 114.3,104.2 114.3,103.2 114.3,102.2 115.7,102.2 117.1,102.2 117.1,101.1 117.1,100.1 117.1,99.1 117.1,98.1 118.5,98.1 119.9,98.1 119.9,97.0 121.3,97.0 122.7,97.0 122.7,96.0 122.7,95.0 124.1,95.0 124.1,94.0 124.1,92.9 125.5,92.9 125.5,91.9 125.5,90.9 126.9,90.9 126.9,89.9 128.3,89.9 128.3,88.8 129.7,88.8 131.1,88.8 131.1,87.8 131.1,86.8 131.1,85.8 131.1,84.7 131.1,83.7 132.4,83.7 133.8,83.7 135.2,83.7 136.6,83.7 136.6,82.7 136.6,81.7 136.6,80.6 138.0,80.6 139.4,80.6 139.4,79.6 139.4,78.6 140.8,78.6 142.2,78.6 142.2,77.6 142.2,76.6 142.2,75.5 142.2,74.5 142.2,73.5 142.2,72.5 142.2,71.4 143.6,71.4 145.0,71.4 145.0,70.4 145.0,69.4 146.4,69.4 146.4,68.4 146.4,67.3 146.4,66.3 147.8,66.3 147.8,65.3 149.2,65.3 150.6,65.3 150.6,64.3 152.0,64.3 153.4,64.3 153.4,63.2 153.4,62.2 153.4,61.2 154.8,61.2 156.1,61.2 157.5,61.2 158.9,61.2 160.3,61.2 161.7,61.2 163.1,61.2 164.5,61.2 165.9,61.2 167.3,61.2 168.7,61.2 170.1,61.2 171.5,61.2 172.9,61.2 174.3,61.2 175.7,61.2 175.7,60.2 175.7,59.1 175.7,58.1 175.7,57.1 175.7,56.1 177.1,56.1 178.5,56.1 179.8,56.1 179.8,55.1 181.2,55.1 182.6,55.1 184.0,55.1 185.4,55.1 186.8,55.1 188.2,55.1 189.6,55.1 191.0,55.1 192.4,55.1 193.8,55.1 195.2,55.1 196.6,55.1 198.0,55.1 199.4,55.1 200.8,55.1 202.2,55.1 203.6,55.1 204.9,55.1 206.3,55.1 207.7,55.1 209.1,55.1 210.5,55.1 211.9,55.1 211.9,54.0 211.9,53.0 213.3,53.0 213.3,52.0 214.7,52.0 216.1,52.0 217.5,52.0 218.9,52.0 220.3,52.0 220.3,51.0 220.3,49.9 221.7,49.9 221.7,48.9 221.7,47.9 223.1,47.9 224.5,47.9 225.9,47.9 227.3,47.9 228.6,47.9 230.0,47.9 230.0,46.9 231.4,46.9 231.4,45.8 232.8,45.8 234.2,45.8 235.6,45.8 235.6,44.8 237.0,44.8 238.4,44.8 239.8,44.8 241.2,44.8 242.6,44.8 244.0,44.8 245.4,44.8 246.8,44.8 248.2,44.8 249.6,44.8 251.0,44.8 252.4,44.8 252.4,43.8 253.7,43.8 255.1,43.8 256.5,43.8 257.9,43.8 259.3,43.8 260.7,43.8 262.1,43.8 263.5,43.8 264.9,43.8 266.3,43.8 267.7,43.8 269.1,43.8 270.5,43.8 270.5,42.8 271.9,42.8 273.3,42.8 274.7,42.8 276.1,42.8 277.4,42.8 278.8,42.8 278.8,41.7 278.8,40.7 280.2,40.7 281.6,40.7 283.0,40.7 284.4,40.7 284.4,39.7 284.4,38.7 285.8,38.7 287.2,38.7 288.6,38.7 290.0,38.7 291.4,38.7 291.4,37.6 291.4,36.6 291.4,35.6 292.8,35.6 294.2,35.6 295.6,35.6 297.0,35.6 298.4,35.6 299.8,35.6 299.8,34.6 301.2,34.6 302.5,34.6 303.9,34.6 303.9,33.5 303.9,32.5 305.3,32.5 306.7,32.5 308.1,32.5 309.5,32.5 309.5,31.5 310.9,31.5 312.3,31.5 313.7,31.5 315.1,31.5 316.5,31.5 317.9,31.5 319.3,31.5 320.7,31.5 322.1,31.5 323.5,31.5 324.9,31.5 326.2,31.5 327.6,31.5 329.0,31.5 329.0,30.5 330.4,30.5 331.8,30.5 333.2,30.5 334.6,30.5 336.0,30.5 337.4,30.5 337.4,29.5 338.8,29.5 340.2,29.5 341.6,29.5 341.6,28.4 343.0,28.4 344.4,28.4 345.8,28.4 347.2,28.4 348.6,28.4 350.0,28.4 351.3,28.4 352.7,28.4 352.7,27.4 352.7,26.4 354.1,26.4 355.5,26.4 356.9,26.4 358.3,26.4 359.7,26.4 359.7,25.4 361.1,25.4 362.5,25.4 363.9,25.4 365.3,25.4 366.7,25.4 368.1,25.4 369.5,25.4 370.9,25.4 372.3,25.4 373.7,25.4 375.0,25.4 376.4,25.4 377.8,25.4 379.2,25.4 380.6,25.4 382.0,25.4 383.4,25.4 384.8,25.4 386.2,25.4 387.6,25.4 389.0,25.4 390.4,25.4 391.8,25.4 393.2,25.4 394.6,25.4 396.0,25.4 397.4,25.4 398.7,25.4 398.7,24.3 400.1,24.3 401.5,24.3 402.9,24.3 404.3,24.3 405.7,24.3"/>
+<polyline class="c3 line" points="46.0,310.0 47.4,310.0 48.8,310.0 48.8,309.0 48.8,308.0 48.8,306.9 48.8,305.9 50.2,305.9 51.6,305.9 53.0,305.9 54.4,305.9 54.4,304.9 54.4,303.9 55.8,303.9 55.8,302.8 57.2,302.8 57.2,301.8 58.5,301.8 59.9,301.8 61.3,301.8 61.3,300.8 61.3,299.8 61.3,298.7 61.3,297.7 61.3,296.7 61.3,295.7 61.3,294.6 61.3,293.6 61.3,292.6 61.3,291.6 62.7,291.6 62.7,290.5 64.1,290.5 64.1,289.5 64.1,288.5 65.5,288.5 66.9,288.5 68.3,288.5 68.3,287.5 69.7,287.5 71.1,287.5 71.1,286.5 71.1,285.4 71.1,284.4 71.1,283.4 71.1,282.4 72.5,282.4 72.5,281.3 73.9,281.3 75.3,281.3 76.7,281.3 78.1,281.3 78.1,280.3 79.5,280.3 79.5,279.3 80.9,279.3 82.3,279.3 83.6,279.3 85.0,279.3 86.4,279.3 87.8,279.3 89.2,279.3 89.2,278.3 89.2,277.2 89.2,276.2 90.6,276.2 90.6,275.2 92.0,275.2 92.0,274.2 92.0,273.1 92.0,272.1 92.0,271.1 93.4,271.1 94.8,271.1 96.2,271.1 97.6,271.1 97.6,270.1 97.6,269.0 97.6,268.0 99.0,268.0 100.4,268.0 101.8,268.0 101.8,267.0 103.2,267.0 104.6,267.0 104.6,266.0 104.6,264.9 106.0,264.9 107.3,264.9 108.7,264.9 110.1,264.9 111.5,264.9 112.9,264.9 114.3,264.9 115.7,264.9 115.7,263.9 117.1,263.9 117.1,262.9 117.1,261.9 118.5,261.9 118.5,260.9 119.9,260.9 119.9,259.8 121.3,259.8 122.7,259.8 122.7,258.8 122.7,257.8 122.7,256.8 122.7,255.7 124.1,255.7 124.1,254.7 125.5,254.7 125.5,253.7 125.5,252.7 125.5,251.6 125.5,250.6 125.5,249.6 126.9,249.6 128.3,249.6 128.3,248.6 129.7,248.6 131.1,248.6 131.1,247.5 131.1,246.5 131.1,245.5 132.4,245.5 132.4,244.5 132.4,243.4 132.4,242.4 132.4,241.4 132.4,240.4 133.8,240.4 135.2,240.4 136.6,240.4 136.6,239.4 136.6,238.3 136.6,237.3 136.6,236.3 136.6,235.3 136.6,234.2 136.6,233.2 136.6,232.2 138.0,232.2 139.4,232.2 139.4,231.2 140.8,231.2 140.8,230.1 140.8,229.1 140.8,228.1 140.8,227.1 142.2,227.1 142.2,226.0 142.2,225.0 142.2,224.0 142.2,223.0 143.6,223.0 145.0,223.0 146.4,223.0 147.8,223.0 147.8,221.9 149.2,221.9 150.6,221.9 152.0,221.9 153.4,221.9 154.8,221.9 154.8,220.9 156.1,220.9 157.5,220.9 157.5,219.9 158.9,219.9 158.9,218.9 158.9,217.8 160.3,217.8 160.3,216.8 160.3,215.8 161.7,215.8 163.1,215.8 163.1,214.8 163.1,213.8 163.1,212.7 163.1,211.7 164.5,211.7 164.5,210.7 164.5,209.7 164.5,208.6 165.9,208.6 167.3,208.6 168.7,208.6 168.7,207.6 168.7,206.6 168.7,205.6 168.7,204.5 168.7,203.5 168.7,202.5 170.1,202.5 171.5,202.5 171.5,201.5 172.9,201.5 174.3,201.5 174.3,200.4 175.7,200.4 177.1,200.4 178.5,200.4 179.8,200.4 179.8,199.4 181.2,199.4 182.6,199.4 184.0,199.4 185.4,199.4 185.4,198.4 185.4,197.4 185.4,196.3 186.8,196.3 188.2,196.3 189.6,196.3 191.0,196.3 191.0,195.3 192.4,195.3 193.8,195.3 193.8,194.3 195.2,194.3 196.6,194.3 196.6,193.3 196.6,192.3 198.0,192.3 199.4,192.3 200.8,192.3 202.2,192.3 203.6,192.3 204.9,192.3 206.3,192.3 206.3,191.2 207.7,191.2 207.7,190.2 207.7,189.2 209.1,189.2 210.5,189.2 211.9,189.2 213.3,189.2 213.3,188.2 213.3,187.1 213.3,186.1 213.3,185.1 213.3,184.1 214.7,184.1 216.1,184.1 217.5,184.1 217.5,183.0 218.9,183.0 220.3,183.0 221.7,183.0 223.1,183.0 224.5,183.0 225.9,183.0 225.9,182.0 227.3,182.0 228.6,182.0 230.0,182.0 231.4,182.0 231.4,181.0 232.8,181.0 234.2,181.0 235.6,181.0 237.0,181.0 238.4,181.0 239.8,181.0 239.8,180.0 239.8,178.9 241.2,178.9 242.6,178.9 244.0,178.9 245.4,178.9 246.8,178.9 248.2,178.9 249.6,178.9 249.6,177.9 251.0,177.9 252.4,177.9 253.7,177.9 253.7,176.9 253.7,175.9 255.1,175.9 255.1,174.8 255.1,173.8 255.1,172.8 256.5,172.8 256.5,171.8 256.5,170.8 256.5,169.7 257.9,169.7 257.9,168.7 259.3,168.7 260.7,168.7 262.1,168.7 262.1,167.7 262.1,166.7 262.1,165.6 262.1,164.6 263.5,164.6 263.5,163.6 264.9,163.6 266.3,163.6 266.3,162.6 266.3,161.5 267.7,161.5 269.1,161.5 270.5,161.5 271.9,161.5 271.9,160.5 273.3,160.5 273.3,159.5 274.7,159.5 276.1,159.5 277.4,159.5 277.4,158.5 277.4,157.4 277.4,156.4 278.8,156.4 278.8,155.4 280.2,155.4 281.6,155.4 281.6,154.4 283.0,154.4 283.0,153.3 284.4,153.3 285.8,153.3 287.2,153.3 287.2,152.3 288.6,152.3 290.0,152.3 291.4,152.3 292.8,152.3 294.2,152.3 295.6,152.3 297.0,152.3 297.0,151.3 298.4,151.3 299.8,151.3 299.8,150.3 299.8,149.2 299.8,148.2 301.2,148.2 302.5,148.2 303.9,148.2 305.3,148.2 306.7,148.2 308.1,148.2 309.5,148.2 310.9,148.2 312.3,148.2 312.3,147.2 313.7,147.2 315.1,147.2 315.1,146.2 315.1,145.2 315.1,144.1 316.5,144.1 317.9,144.1 319.3,144.1 319.3,143.1 319.3,142.1 319.3,141.1 320.7,141.1 320.7,140.0 322.1,140.0 322.1,139.0 322.1,138.0 323.5,138.0 323.5,137.0 324.9,137.0 324.9,135.9 326.2,135.9 327.6,135.9 329.0,135.9 329.0,134.9 330.4,134.9 330.4,133.9 331.8,133.9 333.2,133.9 333.2,132.9 334.6,132.9 334.6,131.8 336.0,131.8 336.0,130.8 337.4,130.8 337.4,129.8 338.8,129.8 340.2,129.8 340.2,128.8 340.2,127.7 341.6,127.7 343.0,127.7 343.0,126.7 344.4,126.7 344.4,125.7 344.4,124.7 345.8,124.7 347.2,124.7 348.6,124.7 350.0,124.7 351.3,124.7 352.7,124.7 354.1,124.7 355.5,124.7 355.5,123.7 356.9,123.7 356.9,122.6 356.9,121.6 358.3,121.6 359.7,121.6 359.7,120.6 361.1,120.6 361.1,119.6 362.5,119.6 363.9,119.6 365.3,119.6 365.3,118.5 366.7,118.5 366.7,117.5 368.1,117.5 368.1,116.5 369.5,116.5 370.9,116.5 370.9,115.5 370.9,114.4 370.9,113.4 370.9,112.4 372.3,112.4 372.3,111.4 373.7,111.4 375.0,111.4 376.4,111.4 377.8,111.4 379.2,111.4 379.2,110.3 380.6,110.3 382.0,110.3 382.0,109.3 383.4,109.3 384.8,109.3 386.2,109.3 387.6,109.3 389.0,109.3 390.4,109.3 390.4,108.3 390.4,107.3 391.8,107.3 391.8,106.2 393.2,106.2 393.2,105.2 394.6,105.2 394.6,104.2 396.0,104.2 396.0,103.2 396.0,102.2 397.4,102.2 398.7,102.2 398.7,101.1 398.7,100.1 398.7,99.1 398.7,98.1 400.1,98.1 401.5,98.1 402.9,98.1 404.3,98.1 405.7,98.1 405.7,97.0"/>
+<rect class="c1" x="58" y="24" width="12" height="4"/>
+<text class="lab" x="76" y="30">v2 (AUC 0.956)</text>
+<rect class="c3" x="58" y="42" width="12" height="4"/>
+<text class="lab" x="76" y="48">burst (AUC 0.833)</text>
+</svg></div>
+  <p class="small">Krzywa ROC na sesjach CV i FSD50K (silnik kontra przyroda, pogoda i przeloty). AUC v2 0.956, burst 0.833 (burst jako wynik ma tylko pewność 0–100). Na samym FSD50K: v2 nan, burst nan.</p>
+</section>
+
+<section>
+  <h2>6. Wyniki: jak działa urządzenie (kolejne wybudzenia)</h2>
+  <p>Symulacja <code>main()</code> na kolejnych sesjach tego samego nagrania: alarm od razu albo podejrzenie potwierdzone kolejną sesją. Liczone są nagrania z co najmniej 4 sesjami (maksymalnie 12, czyli do 2 minut dźwięku). Dla burst przyjęto korzystnie, że alarm następuje, gdy którakolwiek sesja daje alarm.</p>
+  <div class="tw"><table><thead><tr><th>Nagrania (RMS 120)</th><th class="num">nagrań</th><th class="num">sesji</th><th class="num">v2: nagrań z alarmem</th><th class="num">v2: mediana sesji do alarmu</th><th class="num">burst: nagrań z alarmem</th></tr></thead><tbody><tr><th>Maszyny soc2 (CV)</th><td class="num">27</td><td class="num">239</td><td class="num"><b>85%</b><span class="ci"> 23/27 · 68–94</span></td><td class="num">1.0</td><td class="num">26%</td></tr>
+<tr><th>Maszyny zewnętrzne</th><td class="num">2</td><td class="num">16</td><td class="num"><b>100%</b><span class="ci"> 2/2 · 34–100</span></td><td class="num">1.5</td><td class="num">50%</td></tr>
+<tr><th>Maszyny soc2 + burza/deszcz/wiatr −3 dB</th><td class="num">3</td><td class="num">13</td><td class="num"><b>33%</b><span class="ci"> 1/3 · 6–79</span></td><td class="num">1.0</td><td class="num">0%</td></tr>
+<tr><th>Maszyny soc2 + burza/deszcz/wiatr +3 dB</th><td class="num">4</td><td class="num">18</td><td class="num"><b>50%</b><span class="ci"> 2/4 · 15–85</span></td><td class="num">2.0</td><td class="num">50%</td></tr>
+<tr><th>Nagranie lasu 288 s</th><td class="num">1</td><td class="num">29</td><td class="num"><b>100%</b><span class="ci"> 1/1 · 21–100</span></td><td class="num">6.0</td><td class="num">100%</td></tr>
+<tr><th>Las Valla 109 s</th><td class="num">1</td><td class="num">11</td><td class="num"><b>0%</b><span class="ci"> 0/1 · 0–79</span></td><td class="num">–</td><td class="num">0%</td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>7. Pogoda: burza, deszcz, wiatr i reszta</h2>
+  <div class="fig"><svg viewBox="0 0 720 820" role="img" aria-label="Fałszywe alarmy według klasy pogody">
+<line class="grid" x1="230.0" y1="20" x2="230.0" y2="810"/>
+<text class="axis" x="230.0" y="14" text-anchor="middle">0%</text>
+<line class="grid" x1="337.5" y1="20" x2="337.5" y2="810"/>
+<text class="axis" x="337.5" y="14" text-anchor="middle">25%</text>
+<line class="grid" x1="445.0" y1="20" x2="445.0" y2="810"/>
+<text class="axis" x="445.0" y="14" text-anchor="middle">50%</text>
+<line class="grid" x1="552.5" y1="20" x2="552.5" y2="810"/>
+<text class="axis" x="552.5" y="14" text-anchor="middle">75%</text>
+<line class="grid" x1="660.0" y1="20" x2="660.0" y2="810"/>
+<text class="axis" x="660.0" y="14" text-anchor="middle">100%</text>
+<text class="lab" x="222" y="51.0" text-anchor="end">Burza</text>
+<rect class="c2" x="230" y="26.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="35.0">v2 podejrzenie 0.0%</text>
+<rect class="c1" x="230" y="40.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="49.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="54.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="63.0">burst alarm 0.0%</text>
+<text class="lab" x="222" y="103.0" text-anchor="end">Deszcz</text>
+<rect class="c2" x="230" y="78.0" width="43.0" height="11" rx="2"/>
+<text class="val" x="277.0" y="87.0">v2 podejrzenie 10.0%</text>
+<rect class="c1" x="230" y="92.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="101.0">v2 alarm od razu 2.5%</text>
+<rect class="c3" x="230" y="106.0" width="32.2" height="11" rx="2"/>
+<text class="val" x="266.2" y="115.0">burst alarm 7.5%</text>
+<text class="lab" x="222" y="155.0" text-anchor="end">Wiatr</text>
+<rect class="c2" x="230" y="130.0" width="32.2" height="11" rx="2"/>
+<text class="val" x="266.2" y="139.0">v2 podejrzenie 7.5%</text>
+<rect class="c1" x="230" y="144.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="153.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="158.0" width="64.5" height="11" rx="2"/>
+<text class="val" x="298.5" y="167.0">burst alarm 15.0%</text>
+<text class="lab" x="222" y="207.0" text-anchor="end">Fale, strumień</text>
+<rect class="c2" x="230" y="182.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="191.0">v2 podejrzenie 0.0%</text>
+<rect class="c1" x="230" y="196.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="205.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="210.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="219.0">burst alarm 0.0%</text>
+<text class="lab" x="222" y="259.0" text-anchor="end">Ogień (trzaski)</text>
+<rect class="c2" x="230" y="234.0" width="32.2" height="11" rx="2"/>
+<text class="val" x="266.2" y="243.0">v2 podejrzenie 7.5%</text>
+<rect class="c1" x="230" y="248.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="257.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="262.0" width="64.5" height="11" rx="2"/>
+<text class="val" x="298.5" y="271.0">burst alarm 15.0%</text>
+<text class="lab" x="222" y="311.0" text-anchor="end">Krople wody</text>
+<rect class="c2" x="230" y="286.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="295.0">v2 podejrzenie 0.0%</text>
+<rect class="c1" x="230" y="300.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="309.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="314.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="323.0">burst alarm 2.5%</text>
+<text class="lab" x="222" y="363.0" text-anchor="end">Świerszcze</text>
+<rect class="c2" x="230" y="338.0" width="64.5" height="11" rx="2"/>
+<text class="val" x="298.5" y="347.0">v2 podejrzenie 15.0%</text>
+<rect class="c1" x="230" y="352.0" width="21.5" height="11" rx="2"/>
+<text class="val" x="255.5" y="361.0">v2 alarm od razu 5.0%</text>
+<rect class="c3" x="230" y="366.0" width="53.8" height="11" rx="2"/>
+<text class="val" x="287.8" y="375.0">burst alarm 12.5%</text>
+<text class="lab" x="222" y="415.0" text-anchor="end">Owady</text>
+<rect class="c2" x="230" y="390.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="399.0">v2 podejrzenie 2.5%</text>
+<rect class="c1" x="230" y="404.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="413.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="418.0" width="21.5" height="11" rx="2"/>
+<text class="val" x="255.5" y="427.0">burst alarm 5.0%</text>
+<text class="lab" x="222" y="467.0" text-anchor="end">Ptaki</text>
+<rect class="c2" x="230" y="442.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="451.0">v2 podejrzenie 2.5%</text>
+<rect class="c1" x="230" y="456.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="465.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="470.0" width="16.1" height="11" rx="2"/>
+<text class="val" x="250.1" y="479.0">burst alarm 3.8%</text>
+<text class="lab" x="222" y="519.0" text-anchor="end">Żaby</text>
+<rect class="c2" x="230" y="494.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="503.0">v2 podejrzenie 0.0%</text>
+<rect class="c1" x="230" y="508.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="517.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="522.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="531.0">burst alarm 2.5%</text>
+<text class="lab" x="222" y="571.0" text-anchor="end">Kroki, liście</text>
+<rect class="c2" x="230" y="546.0" width="21.5" height="11" rx="2"/>
+<text class="val" x="255.5" y="555.0">v2 podejrzenie 5.0%</text>
+<rect class="c1" x="230" y="560.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="569.0">v2 alarm od razu 2.5%</text>
+<rect class="c3" x="230" y="574.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="583.0">burst alarm 2.5%</text>
+<text class="lab" x="222" y="623.0" text-anchor="end">Stukanie w drewno</text>
+<rect class="c2" x="230" y="598.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="607.0">v2 podejrzenie 0.0%</text>
+<rect class="c1" x="230" y="612.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="621.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="626.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="635.0">burst alarm 0.0%</text>
+<text class="lab" x="222" y="675.0" text-anchor="end">Śmigłowiec</text>
+<rect class="c2" x="230" y="650.0" width="64.5" height="11" rx="2"/>
+<text class="val" x="298.5" y="659.0">v2 podejrzenie 15.0%</text>
+<rect class="c1" x="230" y="664.0" width="21.5" height="11" rx="2"/>
+<text class="val" x="255.5" y="673.0">v2 alarm od razu 5.0%</text>
+<rect class="c3" x="230" y="678.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="687.0">burst alarm 2.5%</text>
+<text class="lab" x="222" y="727.0" text-anchor="end">Samolot</text>
+<rect class="c2" x="230" y="702.0" width="21.5" height="11" rx="2"/>
+<text class="val" x="255.5" y="711.0">v2 podejrzenie 5.0%</text>
+<rect class="c1" x="230" y="716.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="725.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="730.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="739.0">burst alarm 2.5%</text>
+<text class="lab" x="222" y="779.0" text-anchor="end">Pociąg</text>
+<rect class="c2" x="230" y="754.0" width="21.5" height="11" rx="2"/>
+<text class="val" x="255.5" y="763.0">v2 podejrzenie 5.0%</text>
+<rect class="c1" x="230" y="768.0" width="0.0" height="11" rx="2"/>
+<text class="val" x="234.0" y="777.0">v2 alarm od razu 0.0%</text>
+<rect class="c3" x="230" y="782.0" width="10.8" height="11" rx="2"/>
+<text class="val" x="244.8" y="791.0">burst alarm 2.5%</text>
+</svg></div>
+  <div class="tw"><table><thead><tr><th rowspan="2">Klasa</th><th colspan="3">ESC-50 (CV)</th><th colspan="3">FSD50K (niezależny)</th></tr><tr><th class="num">v2 podejrz.</th><th class="num">v2 alarm</th><th class="num">burst</th><th class="num">v2 podejrz.</th><th class="num">v2 alarm</th><th class="num">burst</th></tr></thead><tbody><tr><th>Burza</th><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Deszcz</th><td class="num"><b>10.0%</b><span class="ci"> 4/40 · 4.0–23.1</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num"><b>7.5%</b><span class="ci"> 3/40 · 2.6–19.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Wiatr</th><td class="num"><b>7.5%</b><span class="ci"> 3/40 · 2.6–19.9</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>15.0%</b><span class="ci"> 6/40 · 7.1–29.1</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Fale, strumień</th><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Ogień (trzaski)</th><td class="num"><b>7.5%</b><span class="ci"> 3/40 · 2.6–19.9</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>15.0%</b><span class="ci"> 6/40 · 7.1–29.1</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Krople wody</th><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Świerszcze</th><td class="num"><b>15.0%</b><span class="ci"> 6/40 · 7.1–29.1</span></td><td class="num"><b>5.0%</b><span class="ci"> 2/40 · 1.4–16.5</span></td><td class="num"><b>12.5%</b><span class="ci"> 5/40 · 5.5–26.1</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Owady</th><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>5.0%</b><span class="ci"> 2/40 · 1.4–16.5</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Ptaki</th><td class="num"><b>2.5%</b><span class="ci"> 2/80 · 0.7–8.7</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/80 · 0.0–4.6</span></td><td class="num"><b>3.8%</b><span class="ci"> 3/80 · 1.3–10.5</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Żaby</th><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Kroki, liście</th><td class="num"><b>5.0%</b><span class="ci"> 2/40 · 1.4–16.5</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Stukanie w drewno</th><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Śmigłowiec</th><td class="num"><b>15.0%</b><span class="ci"> 6/40 · 7.1–29.1</span></td><td class="num"><b>5.0%</b><span class="ci"> 2/40 · 1.4–16.5</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Samolot</th><td class="num"><b>5.0%</b><span class="ci"> 2/40 · 1.4–16.5</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Pociąg</th><td class="num"><b>5.0%</b><span class="ci"> 2/40 · 1.4–16.5</span></td><td class="num"><b>0.0%</b><span class="ci"> 0/40 · 0.0–8.8</span></td><td class="num"><b>2.5%</b><span class="ci"> 1/40 · 0.4–12.9</span></td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><th>Przejazd auta</th><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr></tbody></table></div>
+  <h3>Kradzież w czasie burzy lub wiatru</h3>
+  <div class="fig"><svg viewBox="0 0 720 230" role="img" aria-label="Wykrycie silnika w złej pogodzie">
+<line class="grid" x1="230.0" y1="20" x2="230.0" y2="220"/>
+<text class="axis" x="230.0" y="14" text-anchor="middle">0%</text>
+<line class="grid" x1="337.5" y1="20" x2="337.5" y2="220"/>
+<text class="axis" x="337.5" y="14" text-anchor="middle">25%</text>
+<line class="grid" x1="445.0" y1="20" x2="445.0" y2="220"/>
+<text class="axis" x="445.0" y="14" text-anchor="middle">50%</text>
+<line class="grid" x1="552.5" y1="20" x2="552.5" y2="220"/>
+<text class="axis" x="552.5" y="14" text-anchor="middle">75%</text>
+<line class="grid" x1="660.0" y1="20" x2="660.0" y2="220"/>
+<text class="axis" x="660.0" y="14" text-anchor="middle">100%</text>
+<text class="lab" x="222" y="44.0" text-anchor="end">czysty silnik</text>
+<rect class="c2" x="230" y="26.0" width="274.4" height="11" rx="2"/>
+<text class="val" x="508.4" y="35.0">v2 podejrzenie 63.8%</text>
+<rect class="c3" x="230" y="40.0" width="51.4" height="11" rx="2"/>
+<text class="val" x="285.4" y="49.0">burst alarm 11.9%</text>
+<text class="lab" x="222" y="82.0" text-anchor="end">+6 dB pogoda</text>
+<rect class="c2" x="230" y="64.0" width="285.7" height="11" rx="2"/>
+<text class="val" x="519.7" y="73.0">v2 podejrzenie 66.4%</text>
+<rect class="c3" x="230" y="78.0" width="44.2" height="11" rx="2"/>
+<text class="val" x="278.2" y="87.0">burst alarm 10.3%</text>
+<text class="lab" x="222" y="120.0" text-anchor="end">+3 dB burza/deszcz/wiatr</text>
+<rect class="c2" x="230" y="102.0" width="226.6" height="11" rx="2"/>
+<text class="val" x="460.6" y="111.0">v2 podejrzenie 52.7%</text>
+<rect class="c3" x="230" y="116.0" width="61.0" height="11" rx="2"/>
+<text class="val" x="295.0" y="125.0">burst alarm 14.2%</text>
+<text class="lab" x="222" y="158.0" text-anchor="end">0 dB pogoda</text>
+<rect class="c2" x="230" y="140.0" width="236.9" height="11" rx="2"/>
+<text class="val" x="470.9" y="149.0">v2 podejrzenie 55.1%</text>
+<rect class="c3" x="230" y="154.0" width="38.0" height="11" rx="2"/>
+<text class="val" x="272.0" y="163.0">burst alarm 8.8%</text>
+<text class="lab" x="222" y="196.0" text-anchor="end">−3 dB burza/deszcz/wiatr</text>
+<rect class="c2" x="230" y="178.0" width="145.3" height="11" rx="2"/>
+<text class="val" x="379.3" y="187.0">v2 podejrzenie 33.8%</text>
+<rect class="c3" x="230" y="192.0" width="56.3" height="11" rx="2"/>
+<text class="val" x="290.3" y="201.0">burst alarm 13.1%</text>
+</svg></div>
+  <p class="small">SNR to stosunek mocy silnika do tła. Przy −3 dB tło jest głośniejsze od silnika.</p>
+</section>
+
+<section>
+  <h2>8. Niezależność od głośności</h2>
+  <div class="tw"><table><thead><tr><th>Grupa</th><th class="num">v2 RMS 40</th><th class="num">burst RMS 40</th><th class="num">v2 RMS 120</th><th class="num">burst RMS 120</th><th class="num">v2 RMS 360</th><th class="num">burst RMS 360</th></tr></thead><tbody><tr><th>Silnik: ESC-50 &quot;engine&quot; (CV)</th><td class="num"><b>37.5%</b><span class="ci"> 15/40 · 24.2–53.0</span></td><td class="num"><b>27.5%</b><span class="ci"> 11/40 · 16.1–42.8</span></td><td class="num"><b>35.0%</b><span class="ci"> 14/40 · 22.1–50.5</span></td><td class="num"><b>35.0%</b><span class="ci"> 14/40 · 22.1–50.5</span></td><td class="num"><b>37.5%</b><span class="ci"> 15/40 · 24.2–53.0</span></td><td class="num"><b>32.5%</b><span class="ci"> 13/40 · 20.1–48.0</span></td></tr>
+<tr><th>Silnik: maszyny soc2, 32 nagrania (CV)</th><td class="num"><b>70.8%</b><span class="ci"> 179/253 · 64.9–76.0</span></td><td class="num"><b>5.5%</b><span class="ci"> 14/253 · 3.3–9.1</span></td><td class="num"><b>68.4%</b><span class="ci"> 173/253 · 62.4–73.8</span></td><td class="num"><b>8.3%</b><span class="ci"> 21/253 · 5.5–12.4</span></td><td class="num"><b>70.0%</b><span class="ci"> 177/253 · 64.0–75.3</span></td><td class="num"><b>9.9%</b><span class="ci"> 25/253 · 6.8–14.2</span></td></tr>
+<tr><th>FP: przyroda i pogoda ESC-50 (CV)</th><td class="num"><b>2.6%</b><span class="ci"> 30/1160 · 1.8–3.7</span></td><td class="num"><b>1.2%</b><span class="ci"> 14/1160 · 0.7–2.0</span></td><td class="num"><b>2.2%</b><span class="ci"> 26/1160 · 1.5–3.3</span></td><td class="num"><b>2.6%</b><span class="ci"> 30/1160 · 1.8–3.7</span></td><td class="num"><b>2.3%</b><span class="ci"> 27/1160 · 1.6–3.4</span></td><td class="num"><b>3.2%</b><span class="ci"> 37/1160 · 2.3–4.4</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>9. Płytka</h2>
+  <ul class="plain">
+    <li><b>Zgodność:</b> <code>tg_v2_device.py</code> (czysty Python, tablice <code>array('f')</code>, bez f-stringów, zgodny z MicroPython v1.11) daje te same 57 cech co numpy z dokładnością 10<sup>−4</sup>. Logit z <code>deploy/v2/main.py</code> zgadza się z modelem numpy (int8) do 10<sup>−2</sup>. Maszyna stanów (alarm od razu, potwierdzenie, brak potwierdzenia, heartbeat) jest pokryta testami. Testy: <code>Ran 11 tests in 1.107s · FAILED (errors=1)</code>.</li>
+    <li><b>Wagi int8</b> (jak w burst). Największa różnica logitu int8 i float na zbiorze treningowym to ~0,7 przy medianie |logit| ~9.</li>
+    <li><b>Niezmierzone:</b> czas obliczeń i wolna sterta na LoPy. Na sekundę dźwięku płytka liczy 5 FFT-512 (burst: 4). Sterta zajęta przez stan to około 10 KB. Pomiar: <code>import main; main.v2_bench()</code> w REPL wypisuje ms na blok i wolną stertę.</li>
+  </ul>
+</section>
+
+<section class="warn">
+  <h2 style="border:0;padding:0">10. Ograniczenia</h2>
+  <ul class="plain">
+    <li>Brak nagrania z naszego mikrofonu i ADC. Tor płytki jest symulowany (filtr 100 Hz, decymacja bez filtra, 12 bit). Pierwszy krok walidacji to nagranie przez LoPy (<code>lopy_capture.py</code>) i powtórzenie oceny.</li><li>Czas obliczeń i sterta na LoPy niezmierzone (<code>main.v2_bench()</code>). Jeśli 10 bloków liczy się zbyt długo, można zmniejszyć liczbę ramek albo przejść na rzeczywistą FFT przez FFT połowy długości.</li><li>Pozytywy to głównie auta (ICE), muzealne maszyny (soc2) i klipy ESC-50/FSD50K. Brak nagrań maszyn leśnych (forwarder, harvester, dźwig HDS) przy mygle.</li><li>Nagranie lasu <code>forest-ambience.wav</code> zawiera dryfujące linie 25–100 Hz (prawdopodobnie odległy ruch drogowy), a burst też alarmuje na 73% jego sesji. Trzeba to sprawdzić odsłuchem. Jeśli to droga, czujnik przy ruchliwej drodze będzie wymagał wyższego progu.</li><li>Klipy ESC-50 trwają 5 s, więc sesja ma 5 bloków, a nie 10. Część etykiet ESC-50 zawiera tło: niektóre klipy „rain” mają w tle silnik lub przydźwięk 120 Hz.</li><li>Przeloty liczone są na pojedynczych klipach. Dwuetapowe potwierdzenie (2 min) nie było sprawdzane na długich nagraniach przelotów.</li><li>Uderzenia kłód przy załadunku nie są wykrywane osobno. Czujnik drgań podnosi pewność i przyspiesza alarm.</li><li>Pewność w ramce ALARM to 100·sigmoid(logit), a nie skalibrowane prawdopodobieństwo.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>11. Jak odtworzyć</h2>
+<pre># 1. środowisko (tylko numpy)
+cd detection/micropython
+python3 -m venv .venv && .venv/bin/pip install "numpy&gt;=2.1,&lt;3"
+cd engine_v2
+export TG_DATA=~/tg-data
+
+# 2. dane (URL i sha256 w sekcji 3)
+mkdir -p $TG_DATA/esc50 $TG_DATA/ice $TG_DATA/soc $TG_DATA/soc2 $TG_DATA/fsd50k
+curl -L -o $TG_DATA/esc50/esc50.zip https://github.com/karoldvl/ESC-50/archive/master.zip
+(cd $TG_DATA/esc50 && unzip -q esc50.zip)
+curl -L -o $TG_DATA/ice/diesel.zip "https://zenodo.org/api/records/18777405/files/Diesel%20Motor%20Sounds.zip/content"
+curl -L -o $TG_DATA/ice/petrol.zip "https://zenodo.org/api/records/18777405/files/Petrol%20Motor%20Sounds.zip/content"
+(cd $TG_DATA/ice && unzip -q diesel.zip -d diesel && unzip -q petrol.zip -d petrol)
+# soc: 4 pliki z detection/micropython/algorithm/real_recordings.csv (kolumna download_url)
+# soc2: pliki z tabeli w sekcji 3; manifest.csv: "pos|neg,slug,url,"
+curl -L -o $TG_DATA/fsd50k/eval.z01 https://zenodo.org/api/records/4060432/files/FSD50K.eval_audio.z01/content
+curl -L -o $TG_DATA/fsd50k/eval.zip https://zenodo.org/api/records/4060432/files/FSD50K.eval_audio.zip/content
+curl -L -o $TG_DATA/fsd50k/gt.zip   https://zenodo.org/api/records/4060432/files/FSD50K.ground_truth.zip/content
+
+# 3. potok
+../.venv/bin/python fsd50k_extract.py
+../.venv/bin/python cache.py v4            # sesje w torze płytki
+../.venv/bin/python feat_cache.py v4       # 57 cech na sesję
+../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v4   # burst bez zmian
+TG_TAG=v4 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
+../.venv/bin/python build_main.py          # deploy/v2/main.py
+../.venv/bin/python -m unittest test_v2_device
+TG_TAG=v4 ../.venv/bin/python make_report.py    # ten raport</pre>
+  <p class="small">Ziarna są stałe (render: <code>i*7+poziom</code>, mieszanki: 2026, MLP: 11). Na maszynie z 20 wątkami cały potok trwa około 30 min.</p>
+</section>
+
+<footer class="small">Wygenerowano przez <code>engine_v2/make_report.py</code>. Źródła metod: Welch, IEEE Trans. Audio Electroacoust. 15(2), 1967; Tolonen i Karjalainen, IEEE TSAP 8(6), 2000; Boersma, IFA Proc. 17, 1993; Johnston, IEEE JSAC 6(2), 1988; Wilson, JASA 22, 1927; Piczak, ACM MM 2015; Fonseca i in., IEEE/ACM TASLP 30, 2022.</footer>
+</main>
+</body>
+</html>

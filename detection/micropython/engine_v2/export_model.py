@@ -1,4 +1,4 @@
-"""Train the deployed v2 model (MLP 53-8-1, int8 weights on the device) and pick thresholds.
+"""Train the deployed v2 model (MLP 57-8-1, int8 weights on the device) and pick thresholds.
 
 Thresholds come from out-of-fold decisions of the same recipe on the forest-relevant CV
 negatives (ESC-50 nature/weather/people + passing helicopter/plane/train, soc2 forest):
@@ -68,7 +68,7 @@ def main():
     q = h @ (np.array(mm['W2']) * mm['S2']) + mm['B2']
     print('int8 vs float logit: max abs diff %.3f, median |logit| %.2f' % (np.abs(q - f).max(), np.median(np.abs(f))))
     out = dict(names=list(features.NAMES), models=models, T_HIGH=t_high, T_SUSP=t_susp,
-               note='MLP 53-8-1 int8 weights; thresholds from out-of-fold CV (float model)')
+               note='MLP 57-8-1 int8 weights; thresholds from out-of-fold CV (float model)')
     js = json.dumps(out)
     (cache.devsim.DATA / 'cache' / 'model_v2.json').write_text(js)
     Path(__file__).with_name('model_v2.json').write_text(js)
