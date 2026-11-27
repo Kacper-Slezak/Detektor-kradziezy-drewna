@@ -222,7 +222,8 @@ def cross_val(X, M, make_model, verbose=True):
     fold = M['fold'].astype(int)
     y = (M['label'] == '1').astype(float)
     dec = np.full(len(y), np.nan)
-    esc = (src == 'esc50') | (src == 'soc2')          # source-disjoint CV folds
+    esc = ((src == 'esc50') | (src == 'soc2') | (src == 'synth')
+           | ((src == 'fsd') & (M['fold'] != '0')))  # CV folds
     ice = src == 'ice'
     ext = ~(esc | ice)
     # storm/rain/wind mixtures at -3/+3 dB are evaluation-only: training on them hurt every
@@ -243,7 +244,9 @@ def cross_val(X, M, make_model, verbose=True):
 def threshold_at_fp(dec, M, fp_target=0.01):
     """Pick threshold on out-of-fold ESC negatives (forest+other+mech) at a target FP rate."""
     # forest-relevant negatives only: nature/weather/people + passing machines (no domestic)
-    neg = (((M['src'] == 'esc50') | (M['src'] == 'soc2')) & (M['label'] == '0')
+    neg = (((M['src'] == 'esc50') | (M['src'] == 'soc2') | (M['src'] == 'synth')
+            | ((M['src'] == 'fsd') & (M['fold'] != '0')))
+           & (M['label'] == '0')
            & ((M['kind'] == 'forest') | (M['kind'] == 'mech')))
     return float(np.quantile(dec[neg], 1 - fp_target))
 

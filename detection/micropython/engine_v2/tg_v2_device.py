@@ -7,7 +7,7 @@
 #   st = V2State()                 # allocate once per wake (about 9 KB)
 #   for blk in nagraj_audio():     # 8000-byte LE blocks of 12-bit ADC codes
 #       st.add_block(blk)
-#   vec = st.session_vector()      # list of 57 floats, same order as features.NAMES
+#   vec = st.session_vector()      # list of 58 floats, same order as features.NAMES
 #   p = score(vec, MODEL)          # probability of "machine at the pile"
 
 import math
@@ -27,6 +27,11 @@ V2_MAXB = 12
 V2_LINE = 0.8
 V2_MID0 = 20
 V2_MID1 = 128
+V2_HUM = bytearray(244)
+for _k in range(1, 39):
+    _b = int(50.0 * _k / 7.8125 + 0.5)
+    if 4 <= _b < 244:
+        V2_HUM[_b] = 1
 
 
 def _zeros(tc, n):
@@ -454,6 +459,15 @@ class V2State:
         v.append(p_h)
         v.append(math.log((prom + 0.1) / (p_h + 0.1)))
         v.append((kb + V2_LO0) * 7.8125)
+        eh = 0.0
+        et = 0.0
+        for i in range(V2_HI1 - V2_LO0):
+            x = self.Wsum[i] / nb - V2_LINE
+            if x > 0.0:
+                et += x
+                if V2_HUM[i + V2_LO0]:
+                    eh += x
+        v.append(eh / (et + 0.1))
         return v
 
 

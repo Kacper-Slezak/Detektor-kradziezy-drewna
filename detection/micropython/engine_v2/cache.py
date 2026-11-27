@@ -23,8 +23,21 @@ STORMY = {'rain', 'wind', 'thunderstorm'}
 
 
 def synth_noise(n, rng, kind):
-    """Synthetic 4 kHz background: 'wind' = gusty brown noise, 'rain' = pink + clicks."""
+    """Synthetic 4 kHz background: 'wind' = gusty brown noise, 'rain' = pink + clicks,
+    'hum' = mains hum (50 Hz +-0.2 %, random harmonic amplitudes, fixed for the session),
+    'vent' = pink noise + one steady fan tone 80-250 Hz."""
     w = rng.normal(0, 1, n)
+    t = np.arange(n) / 4000.0
+    if kind == 'hum':
+        f0 = 50.0 * (1 + rng.uniform(-0.002, 0.002))
+        x = sum(rng.uniform(0.05, 1.0) * (0.75 ** k) * np.sin(2 * np.pi * f0 * (k + 1) * t + rng.uniform(0, 6.3))
+                for k in range(39) if f0 * (k + 1) < 1990)
+        return (x + 0.02 * w) / (np.std(x) + 1e-12)
+    if kind == 'vent':
+        X = np.fft.rfft(w)
+        x = np.fft.irfft(X / np.sqrt(np.arange(len(X)) + 1.0), n=n)
+        x = x / x.std() + rng.uniform(0.2, 1.0) * np.sin(2 * np.pi * rng.uniform(80, 250) * t)
+        return x / x.std()
     if kind == 'wind':
         x = np.cumsum(w)
         x -= np.convolve(x, np.ones(400) / 400, 'same')          # remove drift (< ~10 Hz)
@@ -45,8 +58,8 @@ def all_items(tag):
     if tag == 'v1':
         return items
     items += devsim.soc2_items()
-    if tag == 'v4':
-        items += devsim.fsd_items()             # held-out corpus, appended after soc2
+    if tag in ('v4', 'v5'):
+        items += devsim.fsd_items()             # v4: held-out corpus; v5: third CV corpus
     rng = np.random.default_rng(2026)
     esc = devsim.esc50_items()
     bg_by_fold = {f: [e for e in esc if e['cls'] in WEATHER and e['fold'] == f] for f in range(1, 6)}
@@ -66,13 +79,14 @@ def all_items(tag):
         if it['src'] == 'ice':
             m['bg'] = ('synth', ('wind', 'rain')[(i // 2) % 2])
         elif it['src'] == 'fsd':
-            b = fsd_bg[rng.integers(len(fsd_bg))]
+            pool = [e for e in fsd_bg if tag != 'v5' or e['fold'] == it['fold']]
+            b = pool[rng.integers(len(pool))]
             m['bg'] = (str(b['path']), b['cls'])
         else:
             b = bg_by_fold[it['fold']][rng.integers(len(bg_by_fold[it['fold']]))]
             m['bg'] = (str(b['path']), b['cls'])
         mixes.append(m)
-        if tag not in ('v3', 'v4'):
+        if tag not in ('v3', 'v4', 'v5'):
             continue
         # v3: a second, harder mixture with storm / rain / wind only (theft during bad weather)
         m2 = dict(it)
@@ -81,18 +95,37 @@ def all_items(tag):
         if it['src'] == 'ice':
             m2['bg'] = ('synth', ('wind', 'rain')[i % 2])
         elif it['src'] == 'fsd':
-            b = fsd_storm[rng.integers(len(fsd_storm))]
+            pool = [e for e in fsd_storm if tag != 'v5' or e['fold'] == it['fold']]
+            b = pool[rng.integers(len(pool))]
             m2['bg'] = (str(b['path']), b['cls'])
         else:
             pool = [b for b in bg_by_fold[it['fold']] if b['cls'] in STORMY]
             b = pool[rng.integers(len(pool))]
             m2['bg'] = (str(b['path']), b['cls'])
         mixes.append(m2)
-    return items + mixes
+    extra = []
+    if tag == 'v5':
+        # corridor / mains: pure hum and ventilation sessions (negatives, CV folds 1-5)
+        for j in range(250):
+            k = 'hum' if j < 200 else 'vent'
+            extra.append(dict(path='synth:' + k, start=0.0, dur=10.0, label=0, kind='forest',
+                              cls='synth_' + k, group='synth%d' % j, fold=1 + j % 5, src='synth'))
+        # mains hum under a quarter of the nature negatives and of the engines
+        pool = [e for e in items if e['src'] in ('esc50', 'soc2', 'fsd') and e['kind'] in ('forest', 'engine')]
+        for j, e in enumerate(pool):
+            if j % 4 == 0:
+                h = dict(e)
+                h['hum'] = float(rng.uniform(6.0, 20.0))      # hum this many dB below the sound
+                h['cls'] = e['cls'] + '+hum'
+                extra.append(h)
+    return items + mixes + extra
 
 
 def render(it, level, seed):
     rng = np.random.default_rng(seed)
+    if str(it['path']).startswith('synth:'):
+        x = synth_noise(int(it['dur'] * 4000), rng, str(it['path'])[6:])
+        return devsim.to_adc(x, level, rng)
     x = devsim.device_float(it['path'], it['start'], it['dur'], seed=seed)
     if 'bg' in it:
         src, k = it['bg']
@@ -106,6 +139,8 @@ def render(it, level, seed):
         # SNR on active parts: engine RMS vs background RMS
         b = b * (np.sqrt(np.mean(x ** 2)) / (np.sqrt(np.mean(b ** 2)) + 1e-12)) * 10 ** (-it['snr'] / 20)
         x = x + b
+    if 'hum' in it:
+        x = x + synth_noise(len(x), rng, 'hum') * np.std(x) * 10 ** (-it['hum'] / 20)
     return devsim.to_adc(x, level, rng)
 
 
@@ -123,7 +158,7 @@ def build(tag='v2'):
             if n < 3 * 4000:            # burst needs >= 3 blocks for a 2-of-2 decision
                 continue
             codes.append(c[:n].astype(np.int16))
-            m = {k: str(v) for k, v in it.items() if k not in ('path', 'bg', 'snr')}
+            m = {k: str(v) for k, v in it.items() if k not in ('path', 'bg', 'snr', 'hum')}
             m['path'] = str(it['path'])
             m['level'] = str(lv)
             m['snr'] = str(it.get('snr', ''))

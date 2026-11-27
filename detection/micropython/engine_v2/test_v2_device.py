@@ -18,6 +18,8 @@ def _session(seed, kind):
         f0 = 31.0 + 0.5 * np.sin(2 * np.pi * 0.1 * t)
         ph = 2 * np.pi * np.cumsum(f0) / 4000.0
         x = sum(np.cos(h * ph) / h for h in range(1, 25)) + 0.3 * rng.normal(0, 1, n)
+    elif kind == 'hum':
+        x = sum(np.sin(2 * np.pi * 50.0 * h * t) / h for h in range(1, 30)) + 0.05 * rng.normal(0, 1, n)
     else:
         x = np.cumsum(rng.normal(0, 1, n))
         x -= np.convolve(x, np.ones(200) / 200, 'same')
@@ -47,6 +49,13 @@ class ParityTest(unittest.TestCase):
 
     def test_noise(self):
         self.check(_session(2, 'noise'))
+
+    def test_hum(self):
+        self.check(_session(8, 'hum'))
+        h = features.session_features(_session(8, 'hum'))[features.NAMES.index('hum50')]
+        e = features.session_features(_session(1, 'engine'))[features.NAMES.index('hum50')]
+        self.assertGreater(h, 0.4)
+        self.assertLess(e, 0.3)
 
     def test_gain_invariance(self):
         c = _session(3, 'engine')

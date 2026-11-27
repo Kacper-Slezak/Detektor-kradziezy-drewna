@@ -16,6 +16,7 @@ Dataset roots default to ~/tg-data (see engine_v2/README.md for download command
 """
 
 import csv
+import hashlib
 import os
 import wave
 from pathlib import Path
@@ -229,8 +230,8 @@ FSD_KEY = ('Thunderstorm', 'Thunder', 'Rain', 'Raindrop', 'Wind', 'Stream', 'Wav
 
 
 def fsd_items():
-    """FSD50K eval clips selected by fsd50k_extract.py: an independent test corpus.
-    Never used for training or threshold selection (src='fsd', fold=0, not ICE)."""
+    """FSD50K eval clips selected by fsd50k_extract.py.  Tag v4 uses them as a held-out
+    corpus (never trained); tag v5 puts them into the 5-fold CV (fold = hash of Freesound ID)."""
     out = []
     sel = DATA / 'fsd50k' / 'selected.csv'
     if not sel.exists():
@@ -249,9 +250,10 @@ def fsd_items():
             if total < 3.0:
                 continue
             labs = r['labels'].split(',')
+            fold = 1 + int(hashlib.sha256(r['fname'].encode()).hexdigest(), 16) % 5
             cls = next((k for k in FSD_KEY if k in labs), labs[0])
             for t in (0.0, 10.0)[:1 + int(total >= 20.0)]:
                 out.append(dict(path=p, start=t, dur=min(10.0, total - t),
                                 label=int(r['kind'] == 'engine'), kind=r['kind'],
-                                cls='fsd_' + cls, group='fsd' + r['fname'], fold=0, src='fsd'))
+                                cls='fsd_' + cls, group='fsd' + r['fname'], fold=fold, src='fsd'))
     return out

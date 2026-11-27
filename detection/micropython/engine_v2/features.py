@@ -31,6 +31,8 @@ Session (blocks b = 0..nb-1):
   frame_range  mean log(max/min) of the energy of the four 248 ms quarters of a block
   lines_*_hi like lines_* over 500-1906 Hz; lines_lo_hi = log((prom_lo+0.1)/(prom_hi+0.1));
              peak_hz: frequency of the strongest bin of the session-mean W (31-1906 Hz)
+  hum50      share of line prominence (session-mean W above LINE) that sits on the bins of
+             exact multiples of 50 Hz: mains hum is there, an engine's drifting comb is not
   + mean and std over blocks of bands, harm, flat, env, lowhi, tf_lo.
 """
 
@@ -54,7 +56,8 @@ NAMES = (['band_mu%d' % i for i in range(15)] + ['band_sd%d' % i for i in range(
             'tb_lo', 'tb_hi', 'stab_lo', 'cos_bands',
             'lines_n', 'lines_prom', 'lines_persist', 'tb2_lo', 'tb_mid',
             'imp_rate', 'lvl_sd', 'lvl_dabs', 'frame_range',
-            'lines_n_hi', 'lines_prom_hi', 'lines_lo_hi', 'peak_hz'])
+            'lines_n_hi', 'lines_prom_hi', 'lines_lo_hi', 'peak_hz', 'hum50'])
+HUM_BINS = sorted({int(round(50.0 * k / 7.8125)) for k in range(1, 39)} & set(range(4, 244)))
 LINE = 0.8                                       # whitened log level of a 'strong line'
 MID = slice(20, 128)                             # 156-1000 Hz
 
@@ -148,4 +151,6 @@ def session_features(codes):
     p_hi = float(np.clip(wh - LINE, 0, None).sum())
     v += [float((wh > LINE).sum()), p_hi, float(np.log((p_lo + 0.1) / (p_hi + 0.1))),
           float(np.argmax(W[:, 4:244].mean(0)) + 4) * 7.8125]
+    ex = np.clip(W[:, 4:244].mean(0) - LINE, 0, None)
+    v += [float(ex[[k - 4 for k in HUM_BINS]].sum() / (ex.sum() + 0.1))]
     return np.array(v)

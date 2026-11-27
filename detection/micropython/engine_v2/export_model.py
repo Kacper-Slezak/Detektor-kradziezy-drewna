@@ -1,4 +1,4 @@
-"""Train the deployed v2 model (MLP 57-8-1, int8 weights on the device) and pick thresholds.
+"""Train the deployed v2 model (MLP 58-8-1, int8 weights on the device) and pick thresholds.
 
 Thresholds come from out-of-fold decisions of the same recipe on the forest-relevant CV
 negatives (ESC-50 nature/weather/people + passing helicopter/plane/train, soc2 forest):
@@ -19,7 +19,7 @@ import features
 import train_eval as te
 
 SEEDS = (11,)
-H = 8
+H = int(os.environ.get('TG_H', '8'))
 TAG = os.environ.get('TG_TAG', 'v2')
 
 
@@ -46,7 +46,8 @@ def main():
     for name, t in (('T_HIGH', t_high), ('T_SUSP', t_susp)):
         te.summary(dec, M, t, 'ens8 %s=%.3f' % (name, t))
     y = (M['label'] == '1').astype(float)
-    tr = np.where(((M['src'] == 'esc50') | (M['src'] == 'soc2') | (M['src'] == 'ice'))
+    tr = np.where(((M['src'] == 'esc50') | (M['src'] == 'soc2') | (M['src'] == 'ice')
+                   | (M['src'] == 'synth') | ((M['src'] == 'fsd') & (M['fold'] != '0')))
                   & ~((M['kind'] == 'engine_mix') & np.isin(M['snr'], ('-3.0', '3.0'))))[0]
     ens = Ens().fit(X[tr], y[tr], te.class_weights(M, tr))
     models = []
@@ -68,7 +69,7 @@ def main():
     q = h @ (np.array(mm['W2']) * mm['S2']) + mm['B2']
     print('int8 vs float logit: max abs diff %.3f, median |logit| %.2f' % (np.abs(q - f).max(), np.median(np.abs(f))))
     out = dict(names=list(features.NAMES), models=models, T_HIGH=t_high, T_SUSP=t_susp,
-               note='MLP 57-8-1 int8 weights; thresholds from out-of-fold CV (float model)')
+               note='MLP 58-8-1 int8 weights; thresholds from out-of-fold CV (float model)')
     js = json.dumps(out)
     (cache.devsim.DATA / 'cache' / 'model_v2.json').write_text(js)
     Path(__file__).with_name('model_v2.json').write_text(js)
