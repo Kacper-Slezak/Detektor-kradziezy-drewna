@@ -1,0 +1,425 @@
+# Testowanie całego systemu
+
+Uruchomienie backendu i frontendu, wysyłanie ramek (symulator, `curl`, płytka LoPy przez Wi-Fi) oraz sprawdzanie wyniku w bazie, w API i na mapie.
+
+Komendy `docker compose` wykonuje się w folderze, którego dotyczą: `backend/` albo `frontend/`.
+
+## Zakres
+
+| Ścieżka | Stan |
+|---|---|
+| ramka → `POST /api/v1/ingest` → baza (`messages`, `alarms`, stan czujnika) | działa |
+| symulator czujników → backend → mapa | działa |
+| LoPy przez Wi-Fi → backend (bez TTN) | działa w tej samej sieci, przez tunel HTTPS (Cloudflare) i przez tunel TCP (bore), skrypt [firmware/przyklady/wyslij_wifi.py](../firmware/przyklady/wyslij_wifi.py) |
+| logowanie, konta, rejestracja czujników w panelu admina, mapa | działa |
+| lista alarmów i odpowiedź leśniczego | API gotowe (`/api/v1/alarms`), brak widoku w aplikacji; alarm widoczny jako czerwona pinezka |
+| montaż czujnika, wydania drewna | API gotowe (`PUT /api/v1/sensors/{id}/mount`, `/api/v1/sensors/{id}/releases`, `/api/v1/releases`), widoki w aplikacji w przygotowaniu; do tego czasu Swagger |
+| LoPy → TTN → webhook → backend | brak adaptera `/ingest/ttn` |
+| powiadomienia push | brak |
+
+## 1. Backend
+
+```bash
+cd backend
+cp -n .env.example .env                                   # -n nie nadpisuje istniejącego .env
+docker compose up -d --build
+docker compose run --rm web alembic upgrade head          # tabele: przy nowej bazie i po każdej nowej migracji
+docker compose run --rm web python -m app.seed --demo     # admin, konta demo, 10 czujników z historią 7 dni
+curl localhost:8000/health                                # {"status":"ok"}
+```
+
+Klucz dla `/ingest` (`INGEST_API_KEY` w `.env`, opis: [konfiguracja.md](backend/konfiguracja.md)): bez niego endpoint jest otwarty, co wystarcza tylko lokalnie. Przy wystawianiu backendu przez tunel klucz jest obowiązkowy:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # wynik wpisać w .env jako INGEST_API_KEY=...
+docker compose up -d                                             # backend wczytuje nowy .env
+```
+
+- W `.env` muszą być ustawione `POSTGRES_PASSWORD` i `JWT_SECRET`. Zmiana `POSTGRES_PASSWORD` po utworzeniu bazy wymaga `docker compose down -v` (kasuje dane), bo hasło zapisuje się w wolumenie przy pierwszym starcie.
+- Hasło admina: z `SEED_ADMIN_PASSWORD` w `.env`, a bez niego losowe, wypisane przez seed. Przy pierwszym logowaniu trzeba je zmienić.
+- Konta demo, hasło `demo-haslo-1`:
+
+  | Login | Rola | Zakres |
+  |---|---|---|
+  | `blazej` | leśniczy | Leśnictwo Dąbrowa (7 czujników) |
+  | `ola` | leśniczy | Leśnictwo Olszyny (3 czujniki) |
+  | `bogdan` | nadleśniczy | wszystkie czujniki |
+
+- Stany czujników demo są liczone od chwili uruchomienia seeda, po kilku godzinach się zmieniają (np. `ok` → `silent`). Odświeżenie danych demo: `docker compose run --rm web python -m app.seed --demo --reset`.
+- Swagger: http://localhost:8000/docs. Endpointy wymagające logowania: token z `POST /api/v1/auth/login` wklejony w **Authorize**.
+
+## 2. Frontend
+
+```bash
+cd frontend
+docker compose up -d --build
+```
+
+Aplikacja: http://localhost:5173. Zapytania `/api` przechodzą przez proxy Vite do backendu na porcie 8000.
+
+| Konto | Ekran po zalogowaniu |
+|---|---|
+| leśniczy (`blazej`, `ola`) | mapa czujników własnego leśnictwa |
+| nadleśniczy (`bogdan`) | mapa wszystkich czujników |
+| `admin` | panel z menu bocznym: Użytkownicy, Czujniki (na wąskim ekranie menu pod ☰) |
+
+Tabela czujników i rejestracja nowych czujników są tylko w panelu admina. Leśniczy i nadleśniczy nie mają dostępu do panelu.
+
+Kolory pinezek:
+
+| Kolor | Stan | Znaczenie |
+|---|---|---|
+| zielony | `ok` | czujnik działa |
+| niebieski | `muted` | trwa wydanie drewna, alarmy wyłączone |
+| czerwony, pulsujący | `alarm` | otwarty alarm bez odpowiedzi |
+| żółty | `silent` | brak ramki od ponad 12 h |
+| szary | `inactive` | czujnik wyłączony |
+
+Czujniki bez lokalizacji nie mają pinezki, są liczone w legendzie jako „do montażu”.
+
+Odświeżanie danych:
+
+| Ekran | Odświeżanie |
+|---|---|
+| mapa | automatycznie co 60 s |
+| panel admina (czujniki, konta) | tylko po przeładowaniu strony (F5) albo zmianie sekcji |
+
+Praca bez backendu: `VITE_USE_MOCK=true`, opis w [frontend/README.md](../frontend/README.md).
+
+## 3. Symulator czujników
+
+Symulator udaje płytki: wysyła na `POST /api/v1/ingest` te same ramki co firmware (wersja 3, przy ustawionym `FRAME_AES_KEY` zaszyfrowane). Na starcie każdy czujnik wysyła BOOT, potem heartbeat co `--interval` sekund, a w scenariuszach alarm (3 ramki, jak z płytki).
+
+### Szybki start
+
+Backend musi działać i mieć dane demo ([sekcja 1](#1-backend)):
+
+```bash
+cd backend
+docker compose --profile sim up simulator
+```
+
+Sześć czujników demo nadaje heartbeat co 30 s, czasem któryś zgłasza kradzież. Na mapie (`blazej` lub `ola`) zmienia się „ostatni kontakt” i bateria. Ctrl+C kończy.
+
+Klucze bierze sam z `backend/.env`: `INGEST_API_KEY` (nagłówek `X-Ingest-Key`) i `FRAME_AES_KEY` (szyfrowanie). Nic nie trzeba przepisywać.
+
+### Scenariusze
+
+Jednorazowy scenariusz uruchamiasz obok (w drugim terminalu), także wtedy, gdy `up simulator` dalej działa:
+
+| Co sprawdzić | Komenda | Konto | Efekt |
+|---|---|---|---|
+| kradzież | `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once` | `ola` | „Skład na Kopcu” czerwony; w logu `NOWY ALARM #…` i 2× `powtórzenie alarmu`; push, jeśli włączony |
+| manipulacja | `docker compose run --rm simulator --scenario false-alarm --target 70B3D57ED00D0008 --once` | `ola` | alarm z samych drgań, „Możliwa manipulacja przy czujniku” |
+| słaba bateria | `docker compose run --rm simulator --scenario battery-drain --target 70B3D57ED00D0008 --interval 5` | `ola` | bateria spada o 5 pkt co 5 s; poniżej 20% na czerwono i push „Słaba bateria” |
+| alarm w czasie wydania | `docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0003 --once` | `blazej` | czujnik z wydaniem zostaje niebieski; w logu `alarm pominięty (wyciszony/wyłączony)` |
+| brak kontaktu | `docker compose run --rm simulator --scenario silent --target 70B3D57ED00D0001` | `blazej` | czujnik przestaje nadawać; stan `silent` (i push) po `SENSOR_SILENT_AFTER_H` godzinach |
+| duplikaty | `docker compose run --rm simulator --scenario duplicate --once` | – | każda ramka wysłana 2×; w logu druga kopia `duplicate` |
+
+Czujniki demo: `…0001`–`…0005` to Leśnictwo Dąbrowa (`blazej`), `…0008` i `…0009` to Olszyny (`ola`). `…0003` ma trwające wydanie, a `…0005` słabą baterię z seeda.
+
+Własne wydanie na dowolnym czujniku (Swagger, jako `ola`):
+
+1. `POST /api/v1/sensors/70B3D57ED00D0009/releases` z body `{}`: wydanie na 4 h, pinezka niebieska.
+2. Scenariusz `theft` na `70B3D57ED00D0009`: w logu `alarm pominięty (wyciszony/wyłączony)`.
+3. `POST /api/v1/releases/{id}/end`: koniec wydania; kolejny `theft` tworzy alarm.
+
+### Najważniejsze opcje
+
+| Opcja | Domyślnie | Po co |
+|---|---|---|
+| `--scenario` | `normal` | `normal`, `theft`, `false-alarm`, `battery-drain`, `silent`, `duplicate` |
+| `--target` | pierwszy czujnik | czujnik, którego dotyczy scenariusz; reszta wysyła zwykłe heartbeaty |
+| `--sensors` | 6 czujników demo | własna lista ID po przecinku |
+| `--once` | – | jeden obrót (BOOT, scenariusz, heartbeat) i koniec |
+| `--interval` | `30` | sekundy między heartbeatami |
+| `--alarm-chance` | `0.02` | szansa losowej kradzieży na obrót (tylko `normal`); `0` = bez kradzieży |
+| `--fresh` | – | zacznij od zera: baterie jak po `seed --demo`, bez pliku stanu |
+| `--aes-key` | `FRAME_AES_KEY` | klucz AES (32 znaki hex); pusty = ramki jawne |
+| `--ingest-key` | `INGEST_API_KEY` | klucz `X-Ingest-Key` |
+| `--frame-version 2` | `3` | stare ramki; tylko przy `LEGACY_FRAMES=true` |
+
+Wszystkie: `docker compose run --rm simulator --help`.
+
+### Stan wirtualnych czujników
+
+Licznik, `boot_id` i bateria są w `backend/.simulator-state.json` (poza repozytorium), tak jak płytka trzyma `boot_id` w pamięci nieulotnej. Dzięki temu bateria po `battery-drain` zostaje niska także w następnym uruchomieniu. `--fresh` przywraca baterie.
+
+Symulator sam naprawia sesję. Gdy backend odrzuci ramkę jako powtórkę, bo pamięta nowszy `boot_id` (scenariusz uruchomiony obok, skasowany plik stanu, baza z innego komputera), symulator wysyła nowy BOOT z większym `boot_id` i ponawia ramkę. W logu widać wtedy ostrzeżenie `backend zna nowszą sesję` albo `próbuję <numer>`, a dalej zwykłe `zapisano`.
+
+### Typowe problemy
+
+| Objaw w logu symulatora | Przyczyna | Co zrobić |
+|---|---|---|
+| `Czekam na backend...`, potem `Backend nie odpowiada` | `web` nie działa | `docker compose up -d`, `docker compose ps` |
+| `backend nie zna czujnika` (404) | brak danych demo | `docker compose run --rm web python -m app.seed --demo` |
+| `błąd serwera 500` | baza bez tabel | `docker compose run --rm web alembic upgrade head` |
+| `backend odrzucił klucz` (401) | inny `INGEST_API_KEY` | ten sam klucz w `.env` backendu i symulatora; po zmianie `.env`: `docker compose up -d` |
+| `422 …` i `→ backend ma FRAME_AES_KEY …` | backend wymaga szyfrowania, symulator nie ma klucza | `FRAME_AES_KEY` w `backend/.env` (ten sam plik czyta symulator) albo `--aes-key` |
+| `422 …` i `→ inny klucz AES …` | różne klucze | jeden `FRAME_AES_KEY` dla backendu i symulatora |
+| `422 …` i `→ backend przyjmuje tylko wersję 3` | `--frame-version 2` przy `LEGACY_FRAMES=false` | uruchomić bez `--frame-version` |
+| `backend odrzuca każdy BOOT` | bardzo rzadkie, sesja nie dała się naprawić | `POST /api/v1/sensors/{id}/reset-boot` (admin) albo `seed --demo --reset` |
+| bateria wciąż 0% | stan po `battery-drain` | `--fresh` |
+
+## 4. Ręczne wysyłanie ramek
+
+Endpoint `POST /api/v1/ingest` jest wspólny dla symulatora, płytki i testów ręcznych. Gdy w `backend/.env` jest ustawiony `INGEST_API_KEY`, każde zapytanie musi mieć nagłówek `X-Ingest-Key` z tym kluczem (bez niego: `401`). Przy pustym `INGEST_API_KEY` nagłówek nie jest wymagany.
+
+```bash
+curl -X POST localhost:8000/api/v1/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-Ingest-Key: <INGEST_API_KEY>" \
+  -d '{"device": "70B3D57ED00D0008", "payload_hex": "3200070001580000"}'
+```
+
+W Swaggerze klucz wpisuje się w **Authorize** → `APIKeyHeader (X-Ingest-Key)`. Symulator bierze klucz z `INGEST_API_KEY` w `.env` (serwis `simulator` czyta ten plik) albo z opcji `--ingest-key`.
+
+Przykłady poniżej to ramki **jawne**: działają przy pustym `FRAME_AES_KEY`. Gdy klucz jest ustawiony, backend przyjmuje tylko ramki zaszyfrowane AES, a jawne odrzuca z `422` ([szyfrowanie.md](backend/szyfrowanie.md)). Symulator szyfruje sam, gdy zna `FRAME_AES_KEY` ([sekcja 3](#3-symulator-czujników)).
+
+`payload_hex` to ramka z protokołu zapisana szesnastkowo. Płytki wysyłają **wersję 3** (`boot_id` w nagłówku, [boot-id.md](backend/boot-id.md)). Przykłady:
+
+| Ramka | Zawartość |
+|---|---|
+| `3300070001010158` | BOOT v3, `boot_id` 7, licznik 1, firmware 1, zwykłe włączenie, bateria 88% |
+| `3200070002580000` | HEARTBEAT v3, `boot_id` 7, licznik 2, bateria 88% |
+| `3100070003010157002AB440` | ALARM v3, `boot_id` 7, licznik 3, mikrofon, pewność 87, 42 s, bateria 64% |
+
+Ramki wersji 1 i 2 (np. `130001010158`, `1200FF5A0000`, `11002A0101570028B440`) backend przyjmuje tylko przy `LEGACY_FRAMES=true` (domyślnie, okres przejściowy).
+
+W wersji 3 kolejne ramki muszą mieć nowszą parę (`boot_id`, licznik): ten sam `boot_id` i większy licznik albo większy `boot_id` (nowa sesja, licznik od dowolnej wartości). Powtórzone `curl` z tą samą ramką dostanie `duplicate`.
+
+Złożenie własnej ramki koderem backendu:
+
+```bash
+docker compose run --rm web python -c "from app.protocol.encoder import encode_alarm; print(encode_alarm(300, sources=['microphone','vibration'], confidence=95, duration_s=120, energy=220, battery_pct=70, version=3, boot_id=7).hex())"
+```
+
+Odczytanie ramki dekoderem:
+
+```bash
+docker compose run --rm web python -c "from app.protocol.decoder import decode_hex, to_dict; print(to_dict(decode_hex('3100070003010157002AB440')))"
+```
+
+Odpowiedzi `/ingest`:
+
+| Kod | `status` / `detail` | Znaczenie |
+|---|---|---|
+| 201 | `stored` | zapisane; przy ALARM `alarm_created: true` (nowy alarm) albo `false` (doklejony do otwartego alarmu z ostatnich 10 min) |
+| 201 | `stored`, `muted: true` | czujnik wyłączony albo trwa wydanie: ramka zapisana, alarm nie powstaje |
+| 200 | `duplicate` | wersja 3: para (`boot_id`, licznik) nie nowsza niż ostatnio przyjęta, np. powtórzona ramka albo ramka z poprzedniej sesji. Wersje 1 i 2: licznik nie większy niż ostatni albo powtórka BOOT (`boot_id` nie większy niż ostatni). Nic nie zapisano |
+| 401 | `Brak lub zły klucz X-Ingest-Key` | ustawiony `INGEST_API_KEY`, a nagłówka brak albo klucz się nie zgadza |
+| 404 | `Nieznany czujnik` | brak czujnika o tym ID w bazie |
+| 422 | `Błędna ramka: …` | zła długość, wersja, typ, wartość procentowa > 100 albo BOOT bez `boot_id` tam, gdzie jest wymagany ([boot-id.md](backend/boot-id.md)), ramka wersji 1 lub 2 przy `LEGACY_FRAMES=false`; przy ustawionym `FRAME_AES_KEY` także jawna ramka albo ramka zaszyfrowana innym kluczem ([szyfrowanie.md](backend/szyfrowanie.md)) |
+
+Wersja 3: w jednej sesji (ten sam `boot_id`) licznik musi rosnąć; nowa sesja (większy `boot_id`) zaczyna licznik od nowa, także bez BOOT-a. Wersje 1 i 2: licznik musi rosnąć, a po ramce BOOT backend przyjmuje go od nowa.
+
+## 5. Sprawdzanie zapisu
+
+Konsola bazy:
+
+```bash
+cd backend
+docker compose exec timescaledb psql -U detektor -d detektor
+```
+
+Zapytania (wyjście z `psql`: `\q`):
+
+```sql
+-- ostatnie ramki
+SELECT received_at, sensor_id, msg_type, counter, payload_hex, rssi
+FROM messages ORDER BY received_at DESC LIMIT 10;
+
+-- ostatnie alarmy (repeats = liczba scalonych ramek)
+SELECT id, sensor_id, started_at, repeats, confidence, sources, status
+FROM alarms ORDER BY started_at DESC LIMIT 10;
+
+-- stan czujnika
+SELECT id, name, battery_pct, last_seen, last_counter, active
+FROM sensors WHERE id = '70B3D57ED00D0009';
+
+-- zdekodowana zawartość ramek
+SELECT received_at, decoded FROM messages
+WHERE sensor_id = '70B3D57ED00D0009' ORDER BY received_at DESC LIMIT 3;
+
+-- liczba ramek z każdego czujnika
+SELECT sensor_id, count(*) AS ramek, max(received_at) AS ostatnia
+FROM messages GROUP BY sensor_id ORDER BY sensor_id;
+```
+
+Pojedyncze zapytanie bez wchodzenia do konsoli:
+
+```bash
+docker compose exec timescaledb psql -U detektor -d detektor -c "SELECT * FROM messages ORDER BY received_at DESC LIMIT 5;"
+```
+
+Logi backendu (duplikaty, zgubione ramki, pominięte alarmy, błędne ramki):
+
+```bash
+docker compose logs -f web
+```
+
+W API: `GET /api/v1/sensors/{id}` zwraca stan, baterię, `last_seen` oraz ostatnie alarmy i wydania czujnika.
+
+## 6. Płytka LoPy przez Wi-Fi
+
+Test sprzętu bez TTN: LoPy łączy się z Wi-Fi i wysyła ramki na `POST /api/v1/ingest`, tak jak `curl` w sekcji 4. Skrypt [firmware/przyklady/wyslij_wifi.py](../firmware/przyklady/wyslij_wifi.py) wysyła BOOT, HEARTBEAT i 3 ramki ALARM, a w konsoli wypisuje odpowiedzi backendu.
+
+### Sieć
+
+Płytka musi dosięgnąć backendu. Adres ustawia się w `API_URL` w skrypcie. Są trzy sposoby:
+
+| Sposób | `API_URL` | Kiedy |
+|---|---|---|
+| A. tunel Cloudflare (zalecany) | `https://<losowa-nazwa>.trycloudflare.com` | płytka w dowolnej sieci z internetem (hotspot, eduroam); bez konfiguracji Windows |
+| B. ta sama sieć | `http://<IP laptopa>:8000` | gdy TLS na płytce nie działa albo nie ma internetu; laptop i płytka w jednej sieci |
+| C. tunel bore (TCP, bez TLS) | `http://bore.pub:<port>` | gdy TLS na płytce nie działa (np. `MBEDTLS_ERR_SSL_ALLOC_FAILED`), a płytka i laptop są w różnych sieciach |
+
+#### A. Tunel Cloudflare (quick tunnel)
+
+Quick tunnel daje tymczasowy publiczny adres HTTPS prowadzący do backendu na laptopie. Nie wymaga konta ani hasła (w przeciwieństwie do localtunnel). Adres zmienia się przy każdym uruchomieniu, a tunel działa, dopóki działa komenda.
+
+1. Klucz `INGEST_API_KEY` ustawiony w `backend/.env` ([sekcja 1](#1-backend)). Tunel wystawia `/ingest` do internetu.
+2. Tunel (osobny terminal, Docker, bez instalacji):
+   ```bash
+   docker run --rm --network host cloudflare/cloudflared:2025.10.0 tunnel --no-autoupdate --url http://127.0.0.1:8000
+   ```
+   W logu pojawi się adres, np. `https://oct-commitment-vital-satellite.trycloudflare.com`.
+3. Kontrola z laptopa (ten sam skrypt, zwykły Python):
+   ```bash
+   python3 firmware/przyklady/wyslij_wifi.py https://<adres>.trycloudflare.com <INGEST_API_KEY>
+   ```
+   Oczekiwane: pięć linii `-> 201`.
+
+Skrypt na płytce łączy się po TLS z SNI (`ussl.wrap_socket(..., server_hostname=...)`), bez sprawdzania certyfikatu (brak pliku CA na płytce). Połączenie jest szyfrowane, więc klucz nie idzie otwartym tekstem.
+
+#### B. Ta sama sieć
+
+Sieci uczelniane (eduroam) zwykle blokują ruch między urządzeniami, dlatego zalecany jest hotspot z telefonu.
+
+Konfiguracja laptopa (Windows + WSL + Docker Desktop):
+
+1. Adres IP laptopa: `ipconfig` w PowerShellu, adres IPv4 karty Wi-Fi (np. `192.168.43.20`).
+2. Reguła zapory (jednorazowo, PowerShell jako administrator):
+   ```powershell
+   New-NetFirewallRule -DisplayName "Detektor API 8000" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow -Profile Private
+   ```
+   Sieć hotspotu musi mieć w Windows profil **prywatny**.
+3. Kontrola: `http://<IP laptopa>:8000/health` otwarty na telefonie w tej samej sieci zwraca `{"status":"ok"}`. Bez tego płytka również nie połączy się z backendem.
+
+#### C. Tunel bore (bez TLS)
+
+[bore](https://github.com/ekzhang/bore) przekazuje zwykły TCP przez publiczny serwer `bore.pub`, bez konta. Płytka łączy się po zwykłym HTTP, więc TLS na płytce nie jest potrzebny. Port zmienia się przy każdym uruchomieniu.
+
+Ruch nie jest szyfrowany: ramki i `X-Ingest-Key` idą otwartym tekstem przez cudzy serwer. Tylko do testów, z osobnym kluczem testowym w `INGEST_API_KEY`, zmienionym po testach.
+
+1. Tunel (osobny terminal, Docker, bez instalacji):
+   ```bash
+   docker run --rm -it --init --network host ekzhang/bore:0.6.0 local 8000 --local-host 127.0.0.1 --to bore.pub
+   ```
+   W logu pojawi się adres, np. `listening at bore.pub:41235`.
+2. Kontrola z laptopa:
+   ```bash
+   python3 firmware/przyklady/wyslij_wifi.py http://bore.pub:41235 <INGEST_API_KEY>
+   ```
+3. Na płytce `API_URL = "http://bore.pub:41235"`.
+
+### Uruchomienie na płytce
+
+1. W skrypcie ustawić `WIFI_SSID`, `WIFI_HASLO`, `API_URL` (adres tunelu albo `http://<IP laptopa>:8000`), `DEVICE_ID` i `INGEST_KEY` (wartość `INGEST_API_KEY` z `backend/.env`, pusty, gdy backend działa bez klucza).
+2. Wgrać i uruchomić: Pymakr (*Upload*, *Run*) albo w REPL `exec(open('wyslij_wifi.py').read())`.
+3. Oczekiwane odpowiedzi w konsoli płytki: `201 {"status":"stored", ...}`, przy pierwszym alarmie `"alarm_created":true`.
+4. Wynik w bazie: [sekcja 5](#5-sprawdzanie-zapisu), na mapie: [sekcja 2](#2-frontend).
+
+Ten sam skrypt uruchomiony zwykłym Pythonem na laptopie wysyła ramki na podany adres (domyślnie `http://127.0.0.1:8000`), co pozwala oddzielić problemy sieci i płytki od problemów backendu:
+
+```bash
+python3 firmware/przyklady/wyslij_wifi.py                                  # lokalny backend, bez klucza
+python3 firmware/przyklady/wyslij_wifi.py http://127.0.0.1:8000 <klucz>
+python3 firmware/przyklady/wyslij_wifi.py https://<adres>.trycloudflare.com <klucz>
+```
+
+### Własne ID płytki
+
+DevEUI płytki (REPL):
+
+```python
+from network import LoRa; import ubinascii; print(ubinascii.hexlify(LoRa().mac()).upper())
+```
+
+Czujnik z tym ID rejestruje się w panelu admina (Czujniki → Dodaj czujnik). Nowy czujnik jest nieaktywny i bez lokalizacji. Montaż (nazwa, lokalizacja, włączenie) robi leśniczy tego leśnictwa albo admin; do czasu ekranu montażu w aplikacji przez Swagger, `PUT /api/v1/sensors/{id}/mount`:
+
+```json
+{ "name": "Czujnik testowy", "lat": 50.0647, "lon": 20.3105 }
+```
+
+Po montażu czujnik ma pinezkę na mapie (stan `silent` do pierwszej ramki).
+
+## 6a. Powiadomienia push
+
+Wymagają HTTPS (tunel albo serwer) i kluczy VAPID w `backend/.env`:
+
+```bash
+cd backend
+docker compose run --rm web python -m tools.generate_vapid_keys    # wynik wkleić do .env (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT)
+docker compose up -d                                                 # backend wczyta nowe zmienne
+```
+
+1. W aplikacji (telefon, HTTPS) zalogować się jako leśniczy, np. `blazej`, i włączyć powiadomienia (przycisk w menu).
+2. Wysłać alarm na czujnik z jego leśnictwa (sekcja 3 albo 4), np. symulatorem:
+   ```bash
+   docker compose run --rm simulator --scenario theft --target 70B3D57ED00D0009 --once
+   ```
+3. Telefon dostaje powiadomienie „Alarm: …” (leśniczy z innego leśnictwa i nadleśniczy nie dostają). Kolejne ramki tego samego alarmu pusha nie powtarzają.
+4. Słaba bateria: symulator `--scenario battery-drain --target 70B3D57ED00D0009` (bateria −5 pkt na heartbeat). Gdy spadnie poniżej 20%, przychodzi „Słaba bateria: …” raz; następne ramki już nie.
+5. Koniec wydania: założyć w aplikacji wydanie, poczekać na jego koniec; w ciągu 5 min przychodzi „Koniec wydania: …”. Zakończenie przyciskiem w aplikacji pusha nie daje.
+6. Brak kontaktu: najszybciej z `SENSOR_SILENT_AFTER_H=1` w `.env` i czujnikiem, który przestał nadawać; po godzinie (+ do 5 min) przychodzi „Brak kontaktu: …”.
+
+Subskrypcje w bazie: `SELECT user_id, left(endpoint, 40), device_label FROM push_subscriptions;`. W logu backendu po każdej wysyłce: `Push alarm (czujnik …): wysłano X/Y, usunięto wygasłych Z` (zamiast `alarm` odpowiednio `low_battery`, `silent`, `release_ended`).
+
+## 7. Telefon
+
+Dostęp do aplikacji z telefonu (tunel Cloudflare, localtunnel albo USB): [docs/frontend/pwa.md](frontend/pwa.md). Tunel obejmuje tylko port frontendu, zapytania `/api` przechodzą przez proxy Vite. Do płytki służy osobny tunel na port backendu ([sekcja 6](#6-płytka-lopy-przez-wi-fi)).
+
+## 8. Testy automatyczne
+
+```bash
+cd backend
+docker compose run --rm web pytest                                    # SQLite w pamięci, baza z Dockera niepotrzebna
+docker compose run --rm web pytest --cov=app --cov-report=term-missing
+docker compose run --rm web ruff check app tests tools
+
+cd ../frontend
+docker compose run --rm web npm test
+docker compose run --rm web npm run lint
+```
+
+Kod jest montowany do kontenerów, zmiany w plikach nie wymagają przebudowy obrazu. Przebudowa jest potrzebna po zmianie zależności:
+
+| Zmiana | Komenda |
+|---|---|
+| `backend/requirements.txt` | `docker compose up -d --build` |
+| `frontend/package.json` | `docker compose up -d --build --renew-anon-volumes` (paczki są w osobnym wolumenie, który przetrwa samo `--build`) |
+
+## 9. Typowe problemy
+
+| Objaw | Przyczyna | Rozwiązanie |
+|---|---|---|
+| `relation "ranges" does not exist`, symulator dostaje 500 | baza bez tabel | `docker compose run --rm web alembic upgrade head` |
+| `password authentication failed for user "detektor"` | hasło w `.env` inne niż przy tworzeniu wolumenu (np. `.env` nadpisany przez `cp`) | przywrócić poprzednie hasło albo `docker compose down -v` (kasuje dane) |
+| `Failed to resolve import "leaflet/..."` (albo innej paczki) we frontendzie | stare `node_modules` w wolumenie kontenera | `docker compose up -d --build --renew-anon-volumes` w `frontend/` |
+| brak hasła admina | hasło wypisane tylko przy pierwszym seedzie | `SEED_ADMIN_PASSWORD` w `.env` i nowa baza (`down -v`) albo reset hasła w bazie |
+| brak tabeli czujników po zalogowaniu | konto nie jest adminem | logowanie jako `admin` |
+| `/ingest` zwraca `duplicate` dla każdej ramki | licznik nie rośnie | ramka BOOT przed pozostałymi albo większy licznik |
+| `/ingest` zwraca 401 | brak nagłówka `X-Ingest-Key` albo inny klucz niż `INGEST_API_KEY` w `backend/.env` | nagłówek z kluczem; w symulatorze `INGEST_API_KEY` w `.env` albo `--ingest-key`; na płytce `INGEST_KEY`; po zmianie `.env`: `docker compose up -d` |
+| wydanie (`POST …/releases`) zwraca 409 | czujnik niezamontowany albo wydanie dla niego już trwa (`id` w `detail`) | montaż przez `PUT /api/v1/sensors/{id}/mount`; trwające wydanie zakończyć `POST /api/v1/releases/{id}/end` |
+| `/ingest` zwraca 404 | brak czujnika w bazie | `seed --demo` albo rejestracja w panelu admina |
+| mapa nie pokazuje nowego alarmu | odświeżanie co 60 s albo konto z innego leśnictwa | odczekać lub F5; konto właściwego leśnictwa |
+| tabela czujników w panelu się nie zmienia | panel nie odświeża się automatycznie | F5 |
+| frontend: błąd sieci, `/api` zwraca 502 | backend nie działa | `docker compose ps` w `backend/` |
+| nietypowe stany czujników demo po kilku godzinach | dane demo liczone od chwili seeda | `seed --demo --reset` |
+| `curl localhost:8000/health` działa przy zatrzymanym kontenerze | port 8000 zajęty przez lokalny `uvicorn` | `ss -ltnp \| grep 8000`, zatrzymać proces |
+| płytka nie łączy się z backendem (`http://IP:8000`) | inna sieć, zapora, izolacja klientów w sieci | test `/health` z telefonu; reguła zapory; hotspot albo tunel |
+| skrypt przez tunel: `Connection refused`, 502 albo 530 | tunel zamknięty, nieaktualny adres albo backend nie działa | uruchomić tunel ponownie i wziąć nowy adres z logu; `curl localhost:8000/health` |
+| płytka: `TypeError` przy `wrap_socket` albo `OSError` przy `connect` po `https://` | stary firmware Pycom (brak SNI, stary mbedTLS) | aktualizacja firmware (Pycom Firmware Updater); wersja: `import os; os.uname()` w REPL; awaryjnie sposób C albo B (`http://`) |
+| płytka: `MemoryError` albo `MBEDTLS_ERR_SSL_ALLOC_FAILED` przy `https://` | za mało RAM na bufory TLS (mbedTLS, ok. 40–50 KB) | uruchomić skrypt zaraz po resecie, bez innego kodu w `main.py`; jeśli dalej to samo: sposób C (bore) albo B, oba bez TLS |
+| `docker` nie istnieje w WSL | brak integracji WSL | Docker Desktop → Settings → Resources → WSL integration |

@@ -1,0 +1,62 @@
+# Obrazy produkcyjne do GHCR, budowane tutaj, bo serwer (Mikrus, 1 GB RAM bez swapu)
+# nie zbuduje frontendu. Serwer robi tylko `docker compose pull`.
+#   ghcr.io/<owner>/detektor-api  – backend (backend/Dockerfile)
+#   ghcr.io/<owner>/detektor-web  – zbudowany frontend + Caddy (frontend/Dockerfile.prod)
+# Tagi: latest i sha-<7 znaków commita> (do cofnięcia wersji).
+name: Obrazy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/obrazy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: obrazy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  obraz:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: detektor-api
+            context: backend
+            dockerfile: backend/Dockerfile
+          - name: detektor-web
+            context: frontend
+            dockerfile: frontend/Dockerfile.prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: nazwa obrazu (GHCR wymaga małych liter)
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.name }}" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:sha-${{ env.SHORT_SHA }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

@@ -23,20 +23,22 @@
 
 ### Czujnik: ID vs nazwa
 
-- **`id`** to identyfikator czujnika. Nadajemy go my i nie zmienia się.
+- **`id`** to identyfikator czujnika: DevEUI, 16 znaków szesnastkowych (np. `70B3D57ED0051234`). Wpisuje go admin przy rejestracji i nie zmienia się. Backend usuwa spacje, `:` i `-` oraz zamienia litery na wielkie, więc można go przepisać z naklejki.
 - **`name`** nadaje leśniczy, np. „Skład przy drodze 5”, i może ją zmieniać.
 
-### Stan czujnika (`stan`)
+### Stan czujnika (`state`)
 
-Wylicza go backend, a frontend tylko koloruje pinezkę:
+Wylicza go backend przy każdym odczycie (nie jest zapisany w bazie), a frontend tylko koloruje pinezkę. Sprawdzamy w tej kolejności, pierwszy pasujący wygrywa:
 
 | wartość | kiedy |
 |---|---|
-| `ok` | czuwa, działa, nic się nie dzieje |
-| `muted` | trwa wydanie drewna, alarmy wyłączone do `muted_until` |
-| `alarm` | jest otwarty alarm (bez odpowiedzi leśniczego) |
-| `silent` | brak heartbeatu dłużej niż ~12 h (zerwany, rozładowany, poza zasięgiem) |
 | `inactive` | czujnik wyłączony w apce albo jeszcze niezamontowany (brak lokalizacji) |
+| `alarm` | jest otwarty alarm (bez odpowiedzi leśniczego), także gdy potem zaczęło się wydanie |
+| `muted` | trwa wydanie drewna, alarmy wyłączone do `muted_until` |
+| `silent` | brak ramki dłużej niż 12 h albo czujnik jeszcze nic nie wysłał (zerwany, rozładowany, poza zasięgiem) |
+| `ok` | czuwa, działa, nic się nie dzieje |
+
+`open_alarm_id` i `muted_until` są wypełnione zawsze, gdy jest otwarty alarm albo trwa wydanie, niezależnie od `state`.
 
 
 
@@ -91,7 +93,13 @@ Każdy błąd ma ten sam kształt:
 }
 ```
 
-Złe hasło → `401`.
+Złe hasło, nieistniejący login i konto nieaktywne dają ten sam `401` (`"Błędny login lub hasło"`), żeby nie zdradzać, które loginy istnieją.
+
+Po 5 nieudanych próbach dla jednego loginu w ciągu 15 min kolejne próby (także z dobrym hasłem) dostają `429` z nagłówkiem `Retry-After` (sekundy) do końca tego okna. Udane logowanie zeruje licznik. Apka może pokazać `detail` z odpowiedzi ("Za dużo nieudanych prób, spróbuj za … min").
+
+Token jest ważny 24 h i wysyłamy go w nagłówku `Authorization: Bearer <token>`. W Swaggerze (`/docs`) wklej go po kliknięciu **Authorize**. Token przestaje działać, gdy admin dezaktywuje konto.
+
+**Wymuszona zmiana hasła.** Gdy `must_change_password` = `true`, token działa tylko na `/auth/me` i `/auth/change-password`. Pozostałe endpointy zwracają `403` z `"Najpierw zmień hasło"`. Po zmianie hasła ten sam token działa już wszędzie.
 
 ### `GET /api/v1/auth/me`
 
@@ -106,7 +114,7 @@ Zmiana własnego hasła (także wymuszona przy pierwszym logowaniu).
 { "old_password": "Tymczasowe123!", "new_password": "MojeNoweHaslo2026" }
 ```
  
-Odpowiedź `204`. Złe stare hasło → `400`. Po zmianie `must_change_password` = `false`.
+Odpowiedź `204`. Złe stare hasło → `400`. Nowe hasło takie samo jak stare → `400`. Nowe hasło krótsze niż 8 znaków → `422`. Po zmianie `must_change_password` = `false`.
  
 
 
@@ -114,11 +122,24 @@ Odpowiedź `204`. Złe stare hasło → `400`. Po zmianie `must_change_password`
 
 ## 2. Czujniki (mapa)
 
-### `GET /api/v1/czujniki`
+Kto co może:
 
-Parametry (opcjonalne): `?state=alarm&range_id=1&unmounted=true`
+| | leśniczy | nadleśniczy | admin |
+|---|---|---|---|
+| lista i szczegóły | swoje leśnictwo (cudzy czujnik → `403`) | wszystkie | wszystkie |
+| rejestracja (`POST`) | – | – | tak |
+| usunięcie (`DELETE`, tylko bez historii) | – | – | tak |
+| nazwa, włączenie (`PATCH`) | swoje leśnictwo | – | tak |
+| leśnictwo (`PATCH range_id`) | – | – | tak |
+| montaż (`PUT .../mount`) | swoje leśnictwo | – | tak (poprawki) |
+| wydania: tworzenie i zakończenie | swoje leśnictwo | – | tak (poprawki) |
+| wydania: historia (`GET /releases`) | swoje leśnictwo | wszystkie | wszystkie |
 
-Leśniczy dostaje tylko swoje leśnictwo, a nadleśniczy wszystko. `unmounted=true` zwraca czujniki bez lokalizacji (do listy przy montażu).
+### `GET /api/v1/sensors`
+
+Jedna lista dla mapy i dla tabeli w panelu admina. Parametry (opcjonalne): `?state=alarm&range_id=1&unmounted=true`
+
+Leśniczy dostaje tylko swoje leśnictwo (leśniczy bez leśnictwa dostaje pustą listę), a nadleśniczy i admin wszystko. `unmounted=true` zwraca czujniki bez lokalizacji (do listy przy montażu). Nieznany `state` → `422`.
  
 ```json
 // 200
@@ -154,7 +175,7 @@ Leśniczy dostaje tylko swoje leśnictwo, a nadleśniczy wszystko. `unmounted=tr
     "name": null,
     "lat": null,
     "lon": null,
-    "range_id": null,
+    "range_id": 1,
     "active": false,
     "state": "inactive",
     "battery_pct": 100,
@@ -167,7 +188,7 @@ Leśniczy dostaje tylko swoje leśnictwo, a nadleśniczy wszystko. `unmounted=tr
  
 ### `GET /api/v1/sensors/{id}`
  
-Jeden czujnik, ten sam kształt + ostatnie alarmy i wydania:
+Jeden czujnik, ten sam kształt + 5 ostatnich alarmów i 5 ostatnich wydań (od najnowszych). Brak czujnika → `404`, czujnik z innego leśnictwa → `403`.
  
 ```json
 {
@@ -184,6 +205,21 @@ Jeden czujnik, ten sam kształt + ostatnie alarmy i wydania:
 }
 ```
  
+### `POST /api/v1/sensors`
+
+Admin rejestruje nowy czujnik (np. po odebraniu partii od hardware). Leśnictwo jest wymagane, nazwa opcjonalna (zwykle nadaje ją leśniczy przy montażu).
+
+```json
+// zapytanie
+{ "id": "70B3D57ED0051234", "range_id": 1, "name": null }
+```
+
+Odpowiedź `201`: czujnik z `active: false`, bez lokalizacji, `state: "inactive"`. Pojawia się na liście `?unmounted=true` leśniczych tego leśnictwa.
+
+- czujnik o tym ID już jest → `409`
+- nie ma takiego leśnictwa → `400`
+- ID nie ma 16 znaków szesnastkowych → `422`
+
 ### `PUT /api/v1/sensors/{id}/mount`
  
 Leśniczy montuje czujnik na miejscu: wybiera czujnik z listy, telefon podaje GPS. Po tym czujnik staje się aktywny.
@@ -193,11 +229,26 @@ Leśniczy montuje czujnik na miejscu: wybiera czujnik z listy, telefon podaje GP
 { "name": "Skład przy drodze 5", "lat": 50.0647, "lon": 19.9450 }
 ```
  
-Odpowiedź `200`: czujnik z `active: true`. Leśnictwo bierzemy z konta leśniczego. Ponowny montaż (przeniesienie czujnika w inne miejsce) nadpisuje lokalizację.
+Odpowiedź `200`: czujnik jak w `GET /api/v1/sensors/{id}` (bez ostatnich alarmów i wydań), z `active: true`. Leśnictwo się nie zmienia: przypisuje je admin przy rejestracji.
+
+- `name` wymagane, 1–100 znaków (spacje na początku i końcu są obcinane); `lat` −90…90, `lon` −180…180
+- ponowny montaż (przeniesienie czujnika w inne miejsce) nadpisuje nazwę i lokalizację
+- montaż włącza też czujnik wyłączony wcześniej przez `PATCH`
+- świeżo zamontowany czujnik, który jeszcze nic nie wysłał, ma stan `silent`; po pierwszej ramce `ok`
+- czujnik z innego leśnictwa albo zapytanie od nadleśniczego → `403`, brak czujnika → `404`, złe dane → `422`
  
+### `DELETE /api/v1/sensors/{id}`
+
+Tylko admin. Trwale usuwa czujnik, który **nie ma historii**: literówka w DevEUI przy rejestracji, czujnik testowy. Odpowiedź `204`.
+
+- czujnik z alarmami albo wydaniami → `409` z liczbami (`"Czujnik ma historię (alarmy: 4, wydania: 2), więc nie można go usunąć. Wyłącz go zamiast tego (PATCH active=false)."`): alarmy i wydania to ewidencja (raporty nadleśniczego, spory z przewoźnikiem), więc ich nie kasujemy
+- **wyłączenie** (`PATCH active=false`) niczego nie usuwa: historia zostaje, a czujnik dalej jest na liście i w raportach; wyłączyć można każdy czujnik
+- razem z czujnikiem znikają jego surowe ramki (`messages`), które i tak wygasają po 90 dniach
+- brak czujnika → `404`, inna rola niż admin → `403`; ID można podać tak jak przy rejestracji (z `:`, małymi literami)
+
 ### `PATCH /api/v1/sensors/{id}`
  
-Zmiana nazwy albo włączenie/wyłączenie czujnika:
+Zmiana nazwy, leśnictwa albo włączenie/wyłączenie. Pola, których nie podasz, zostają bez zmian. `"name": null` usuwa nazwę.
  
 ```json
 // zmiana nazwy
@@ -209,7 +260,20 @@ Zmiana nazwy albo włączenie/wyłączenie czujnika:
 { "active": false }
 ```
  
+```json
+// przeniesienie do innego leśnictwa (tylko admin)
+{ "range_id": 2 }
+```
+
 Odpowiedź `200`: zaktualizowany czujnik. Wyłączony czujnik dalej wysyła heartbeaty (widzimy baterię), ale nie generuje alarmów ani pushy.
+
+- leśniczy zmienia `range_id`, cudzy czujnik albo zapytanie od nadleśniczego → `403`
+- nie ma takiego leśnictwa → `400`
+- `"range_id": null`, `"active": null` albo pusta nazwa → `422` (leśnictwa nie da się odpiąć)
+
+### `POST /api/v1/sensors/{id}/reset-boot`
+
+Tylko admin. Po wymianie płytki albo skasowaniu jej pamięci numer uruchomienia (`boot_id`) zaczyna od nowa i backend uznaje ramki za powtórkę (`duplicate`). Ten endpoint zapomina ostatni `boot_id` i licznik ramek czujnika, więc następna ramka zostanie przyjęta (w wersji 3 dowolna, w wersji 2 BOOT). Odpowiedź `204`, brak czujnika → `404`, inna rola niż admin → `403`. Opis: [boot-id.md](boot-id.md).
 
 ---
 
@@ -227,15 +291,19 @@ Leśniczy wydaje drewno przewoźnikowi i potwierdza to w apce. **W apce wybiera 
 ```
  
 - `starts_at` nie trzeba podawać, backend wpisze „teraz”,
-- bez `ends_at` backend przyjmie domyślne 4 h,
-- opcjonalnie do ewidencji: `carrier` (przewoźnik), `log_count` (liczba kłód), `comment`.
+- bez `ends_at` backend przyjmie domyślne 4 h (`RELEASE_DEFAULT_HOURS`),
+- `ends_at` musi być w przyszłości i najwyżej 24 h od teraz (`RELEASE_MAX_HOURS`), inaczej `422`; czas bez strefy = UTC,
+- opcjonalnie do ewidencji: `carrier` (przewoźnik, do 100 znaków), `log_count` (liczba kłód, ≥ 0), `comment` (do 500 znaków),
+- `created_by` to login z tokena.
 ```json
 // 201
 {
   "id": 8,
   "sensor_id": "70B3D57ED0055678",
+  "sensor_name": "Skład przy drodze 5",
   "starts_at": "2026-10-16T10:05:00Z",
   "ends_at": "2026-10-16T14:05:00Z",
+  "active": true,
   "carrier": null,
   "log_count": null,
   "comment": null,
@@ -243,15 +311,25 @@ Leśniczy wydaje drewno przewoźnikowi i potwierdza to w apce. **W apce wybiera 
 }
 ```
  
-Jeśli wydanie dla tego czujnika już trwa, zwracamy `409`.
+- `active`: czy wydanie trwa w chwili odpowiedzi
+- wydanie dla tego czujnika już trwa → `409` (w `detail` jest jego `id`, żeby apka mogła je zakończyć)
+- czujnik niezamontowany (bez lokalizacji) → `409`; dwa równoczesne wydania dla jednego czujnika nie powstaną (blokada wiersza czujnika)
+- czujnik z innego leśnictwa albo zapytanie od nadleśniczego → `403`, brak czujnika → `404`
+
+W trakcie wydania `/ingest` zapisuje ramki, ale nie tworzy alarmów, a czujnik ma stan `muted` z `muted_until` = `ends_at`.
  
 ### `POST /api/v1/releases/{id}/end`
  
-Przewoźnik odjechał wcześniej, więc leśniczy kończy wyciszenie od razu i czujnik wraca do czuwania. Odpowiedź `200`: wydanie z `ends_at` ustawionym na „teraz”.
+Przewoźnik odjechał wcześniej, więc leśniczy kończy wyciszenie od razu i czujnik wraca do czuwania. Odpowiedź `200`: wydanie z `ends_at` ustawionym na „teraz” i `active: false`. Wydanie już zakończone → `409`, brak → `404`, cudze leśnictwo / nadleśniczy → `403`.
  
 ### `GET /api/v1/releases`
  
-Historia wydań: `?sensor_id=...&from=...&to=...`. Kształt jak wyżej, lista. Przydaje się w raportach i przy wyjaśnianiu sporów z przewoźnikiem.
+Historia wydań: `?sensor_id=...&active=true&from=...&to=...&limit=100&offset=0`. Kształt jak wyżej, lista od najnowszych. Przydaje się w raportach i przy wyjaśnianiu sporów z przewoźnikiem.
+
+- `active=true` tylko trwające, `active=false` tylko zakończone
+- `from` / `to`: wydania, które choć częściowo trwały w tym przedziale; czas bez strefy = UTC
+- `limit` 1–500 (domyślnie 100)
+- leśniczy dostaje wydania swojego leśnictwa, nadleśniczy i admin wszystkie
  
 ---
  
@@ -259,8 +337,12 @@ Historia wydań: `?sensor_id=...&from=...&to=...`. Kształt jak wyżej, lista. P
  
 ### `GET /api/v1/alarms`
  
-Parametry: `?status=new&sensor_id=70B3D57ED0051234&from=2026-10-01T00:00:00Z&to=2026-10-31T23:59:59Z`
- 
+Parametry (wszystkie opcjonalne): `?status=new&sensor_id=70B3D57ED0051234&from=2026-10-01T00:00:00Z&to=2026-10-31T23:59:59Z&limit=100&offset=0`
+
+- `from` / `to` dotyczą chwili wykrycia (`detected_at`); czas bez strefy = UTC
+- `limit` 1–500 (domyślnie 100), `offset` do stronicowania
+- leśniczy dostaje alarmy swojego leśnictwa, nadleśniczy i admin wszystkie
+
 Sortowane od najnowszego.
  
 ```json
@@ -268,11 +350,14 @@ Sortowane od najnowszego.
   {
     "id": 41,
     "detected_at": "2026-10-16T09:57:40Z",
+    "last_frame_at": "2026-10-16T09:58:40Z",
     "sensor": { "id": "70B3D57ED0051234", "name": "Skład przy drodze 5", "lat": 50.0647, "lon": 19.9450 },
     "event_type": "theft",
     "sources": ["microphone", "vibration"],
     "confidence": 87,
     "duration_s": 40,
+    "energy": 180,
+    "repeats": 3,
     "possible_tampering": false,
     "status": "new",
     "response": null
@@ -280,11 +365,14 @@ Sortowane od najnowszego.
   {
     "id": 39,
     "detected_at": "2026-10-15T14:12:03Z",
+    "last_frame_at": "2026-10-15T14:13:03Z",
     "sensor": { "id": "70B3D57ED0051234", "name": "Skład przy drodze 5", "lat": 50.0647, "lon": 19.9450 },
     "event_type": "theft",
     "sources": ["vibration"],
     "confidence": 55,
     "duration_s": 12,
+    "energy": 60,
+    "repeats": 3,
     "possible_tampering": true,
     "status": "false_alarm",
     "response": {
@@ -298,16 +386,19 @@ Sortowane od najnowszego.
 ]
 ```
  
-- `sources` pochodzi z ramki: które czujniki zareagowały
-- `possible_tampering: true`, gdy były same wibracje bez dźwięku maszyny. Apka może wtedy pokazać „możliwa manipulacja przy czujniku”
+- `sources` pochodzi z ramki: które czujniki zareagowały (`microphone`, `vibration`)
+- `possible_tampering: true`, gdy `sources` to same wibracje (bez dźwięku). Apka może wtedy pokazać „możliwa manipulacja przy czujniku”
+- `event_type`: kod rodzaju zdarzenia z ramki zamieniony na nazwę. Na razie `1` → `theft`, a każdy inny kod → `unknown`. Listę ustala Kiryl
+- `repeats`: z ilu ramek złożył się alarm (urządzenie wysyła ALARM 3 razy, a backend scala ramki z 10 minut w jeden alarm); `last_frame_at` to czas ostatniej z nich
+- `confidence`, `duration_s`, `energy`: największe wartości ze scalonych ramek
 - alarmy w czasie wydania nie powstają wcale (backend je pomija), więc tej listy nie trzeba filtrować
 ### `GET /api/v1/alarms/{id}`
  
-Jeden alarm, ten sam kształt.
+Jeden alarm, ten sam kształt. Brak alarmu → `404`, alarm z innego leśnictwa → `403`.
  
 ### `POST /api/v1/alarms/{id}/response`
  
-Leśniczy po sprawdzeniu na miejscu.
+Leśniczy po sprawdzeniu na miejscu. Odpowiedzieć może leśniczy leśnictwa, w którym jest czujnik, oraz admin (np. żeby coś poprawić). Nadleśniczy → `403`.
  
 ```json
 // zapytanie
@@ -315,7 +406,9 @@ Leśniczy po sprawdzeniu na miejscu.
 ```
  
 - `result`: `theft` albo `false_alarm`
-- `comment`, `lat`, `lon` opcjonalne. **Lokalizacji nie sprawdzamy, ufamy leśniczemu.** Apka może jednak dosłać pozycję z telefonu, a serwer tylko ją zapisze jako dowód, że ktoś był na miejscu
+- `comment` (do 500 znaków), `lat`, `lon` opcjonalne. **Lokalizacji nie sprawdzamy, ufamy leśniczemu.** Apka może jednak dosłać pozycję z telefonu, a serwer tylko ją zapisze jako dowód, że ktoś był na miejscu
+- `lat` i `lon` podajemy razem albo wcale; jedna współrzędna albo wartość poza zakresem → `422`
+- `response.by` to login z tokena, `response.at` to czas serwera
 Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponowna odpowiedź na ten sam alarm zwraca `409`.
  
 > Odpowiedź **nie idzie do czujnika** (komunikacja jednostronna), tylko zostaje w bazie: zamyka alarm i jest etykietą dla algorytmu.
@@ -323,9 +416,13 @@ Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponow
 ---
  
 ## 5. Raporty (nadleśniczy)
- 
+
+Dostęp: `district_manager` i `admin` (wszystkie leśnictwa). Leśniczy dostaje `403`, bez tokena `401`.
+
+Oba endpointy biorą ten sam okres: `from` i `to` są **wymagane**, w formacie `RRRR-MM-DD`. To dni kalendarzowe w **UTC**, od `from` 00:00 do końca dnia `to` **włącznie**. `to` przed `from`, zła data albo okres dłuższy niż **366 dni** → `422`. Alarm należy do okresu według czasu wykrycia (`detected_at`), wydanie według czasu rozpoczęcia (`starts_at`).
+
 ### `GET /api/v1/reports/summary?from=2026-07-01&to=2026-09-30`
- 
+
 ```json
 {
   "period": { "from": "2026-07-01", "to": "2026-09-30" },
@@ -342,47 +439,114 @@ Odpowiedź `200`: alarm ze zmienionym `status` i uzupełnionym `response`. Ponow
   ]
 }
 ```
- 
-`per_week` służy do wykresu.
- 
+
+- `alarms.unanswered`: alarmy w statusie `new` (bez odpowiedzi leśniczego); `theft` i `false_alarm` to odpowiedzi leśniczego
+- `sensors` to **stan z chwili zapytania**, nie z okresu: `total` to czujniki zamontowane (z lokalizacją), `silent` to te w stanie `silent` ([stan czujnika](#stan-czujnika-state)), `low_battery` to bateria poniżej 20%
+- `per_sensor`: zamontowane czujniki oraz te, które miały alarm lub wydanie w okresie; od najwięcej alarmów, potem po nazwie; czujniki bez danych mają zera
+- `per_week` służy do wykresu: **każdy** tydzień ISO od `from` do `to` po kolei (`RRRR-Wnn`), także bez alarmów; tydzień ISO bywa z innego roku niż data (np. 1 stycznia 2027 to `2026-W53`)
+
 ### `GET /api/v1/reports/export.csv?from=2026-07-01&to=2026-09-30`
- 
-Plik CSV z alarmami i wydaniami (do Excela). `Content-Type: text/csv`, a frontend robi z tego zwykły link do pobrania.
- 
+
+Plik CSV z alarmami **i** wydaniami z okresu w jednej tabeli, od najstarszego (do Excela). Odpowiedź `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="raport-2026-07-01_2026-09-30.csv"`, więc frontend robi z tego zwykły link do pobrania (z tokenem w nagłówku trzeba pobrać plik zapytaniem i zapisać go jako plik).
+
+- kodowanie UTF-8 **z BOM**, separator `;`, końce wierszy CRLF: Excel w polskich ustawieniach otwiera plik bez importu i poprawnie pokazuje polskie znaki
+- czas w UTC, `RRRR-MM-DD GG:MM:SS`
+- pierwszy wiersz to nagłówek; kolumny:
+
+| kolumna | alarm | wydanie |
+|---|---|---|
+| `typ` | `alarm` | `wydanie` |
+| `id`, `czujnik_id`, `czujnik`, `leśnictwo` | tak | tak |
+| `start (UTC)`, `koniec (UTC)` | wykrycie, ostatnia ramka | początek, koniec wydania |
+| `status` | `nowy` / `kradzież` / `fałszywy alarm` | `trwa` / `zakończone` |
+| `pewność %`, `źródła`, `powtórzenia` | tak (źródła: `dźwięk, wibracje`) | puste |
+| `odpowiedź: kto`, `odpowiedź: kiedy (UTC)` | tak (puste bez odpowiedzi) | puste |
+| `komentarz` | komentarz leśniczego | komentarz do wydania |
+| `przewoźnik`, `liczba kłód`, `utworzył` | puste | tak |
+
+- tekst zaczynający się od `=`, `+`, `-` albo `@` dostaje na początku apostrof (`'=…`), żeby Excel nie wykonał go jak formuły; komentarze i nazwy wpisują użytkownicy
+- okres bez danych daje plik z samym nagłówkiem
+
 ---
+
+## 6. Powiadomienia push (Web Push, VAPID)
  
-## 6. Powiadomienia push (FCM)
+Standardowy Web Push przeglądarki z kluczami VAPID, bez Firebase. Pushe dostaje tylko leśniczy (`forester`). Nadleśniczy korzysta z raportów.
  
-Pushe dostaje tylko leśniczy (`forester`). Nadleśniczy korzysta z raportów.
+Działa tylko po HTTPS albo na `localhost`. Android (Chrome, Edge, Firefox): w przeglądarce i w zainstalowanej PWA. iPhone (iOS 16.4+): tylko w aplikacji dodanej do ekranu początkowego.
+ 
+### `GET /api/v1/push/vapid-public-key`
+ 
+Klucz publiczny do `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`. Front nie wpisuje go na sztywno. Wymaga logowania. Gdy serwer nie ma ustawionego `VAPID_PUBLIC_KEY`: `503` (powiadomienia są wyłączone, reszta aplikacji działa).
+ 
+```json
+// 200
+{ "public_key": "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U" }
+```
+ 
+Klucz jest w base64url, a `applicationServerKey` przyjmuje go po zamianie na `Uint8Array`.
  
 ### `POST /api/v1/push/subscriptions`
  
-Apka po zgodzie użytkownika na powiadomienia wysyła token FCM.
+Po zgodzie użytkownika (prośba po kliknięciu przycisku, nie przy wejściu) apka wysyła to, co zwraca `subscription.toJSON()`, plus opcjonalną etykietę urządzenia.
  
 ```json
 // zapytanie
-{ "fcm_token": "fGx1...:APA91b...", "device_label": "Android – Chrome" }
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/dXk0...:APA91b...",
+  "expirationTime": null,
+  "keys": { "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "auth": "tBHItJI5svbpez7KI4CCXg" },
+  "device_label": "Android – Chrome"
+}
 ```
  
-Odpowiedź `201`. Ten sam token wysłany ponownie niczego nie psuje.
+- odpowiedź `201` z `{ "id": 5 }`; ten sam `endpoint` wysłany ponownie nadpisuje klucze i właściciela (np. inne konto na tym samym telefonie), duplikatu nie ma, więc można go bezpiecznie wysyłać przy każdym logowaniu,
+- `endpoint` musi zaczynać się od `https://`, `keys.p256dh` i `keys.auth` są wymagane (inaczej `422`),
+- `expirationTime` backend ignoruje,
+- konto inne niż leśniczy → `403`.
  
-### `DELETE /api/v1/push/subscriptions/{fcm_token}`
+### `DELETE /api/v1/push/subscriptions?endpoint=…`
  
-Przy wylogowaniu. Odpowiedź `204`.
+Przy wylogowaniu, razem z `subscription.unsubscribe()` w przeglądarce. `endpoint` w zapytaniu zakodowany przez `encodeURIComponent`. Odpowiedź `204`, także gdy subskrypcji już nie ma. Usunąć można tylko własną subskrypcję.
  
-**Co przychodzi w pushu** (pole `data` w wiadomości FCM):
+**Co przychodzi w pushu** (treść wiadomości, w service workerze `event.data.json()`):
  
 ```json
 {
   "type": "alarm",
-  "alarm_id": "41",
+  "alarm_id": 41,
   "sensor_id": "70B3D57ED0051234",
   "title": "Alarm: Skład przy drodze 5",
-  "body": "Możliwe podbieranie drewna, pewność 87%"
+  "body": "Możliwe podbieranie drewna, pewność 87%",
+  "url": "/alarms/41"
 }
 ```
  
-Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszenie się skończyło). Kliknięcie otwiera ekran alarmu albo czujnika.
+Service worker pokazuje `title` i `body` (`showNotification`), a `notificationclick` otwiera `url`.
+
+Inne typy dotyczą czujnika, nie alarmu. Mają `sensor_id`, nie mają `alarm_id`. `url` dla baterii i braku kontaktu to `/sensors/<id>` (mapa z otwartą pinezką czujnika), a dla końca wydania `/releases/<id>` (panel wydań z tym wydaniem):
+
+```json
+{ "type": "low_battery", "sensor_id": "70B3D57ED0051234", "title": "Słaba bateria: Skład przy drodze 5", "body": "Bateria 15%, wymień ją przy najbliższej wizycie", "url": "/sensors/70B3D57ED0051234" }
+{ "type": "silent", "sensor_id": "70B3D57ED0051234", "title": "Brak kontaktu: Skład przy drodze 5", "body": "Czujnik nie odzywa się od 13 h", "url": "/sensors/70B3D57ED0051234" }
+{ "type": "release_ended", "sensor_id": "70B3D57ED0051234", "release_id": 7, "title": "Koniec wydania: Skład przy drodze 5", "body": "Wyciszenie się skończyło, czujnik znów pilnuje mygły", "url": "/releases/7" }
+```
+ 
+**Kiedy backend wysyła.** Push o typie `alarm` leci po **utworzeniu nowego alarmu** (z `/ingest`, po odpowiedzi płytce) do wszystkich subskrypcji aktywnych leśniczych **leśnictwa tego czujnika**. Powtórzenia ramki ALARM, które scalają się z istniejącym alarmem, nie wysyłają kolejnego pusha. Alarm z wyciszonego lub wyłączonego czujnika nie powstaje, więc pusha też nie ma. Nadleśniczy i admin pushy nie dostają.
+
+Pozostałe typy idą do tych samych odbiorców, **raz na zdarzenie**:
+
+| Typ | Kiedy | Kiedy znowu |
+|---|---|---|
+| `low_battery` | ramka z baterią poniżej `BATTERY_LOW_PCT` (20%) albo heartbeat z flagą słabej baterii (z `/ingest`, po odpowiedzi płytce); nie dla wyłączonego czujnika | gdy bateria wróci do co najmniej progu + 5 pp (wymiana) i znowu spadnie |
+| `silent` | czujnik ma stan `silent`: brak ramki dłużej niż `SENSOR_SILENT_AFTER_H`. Nie dla czujnika, który nigdy się nie odezwał (świeżo zamontowany), wyłączonego, z otwartym alarmem ani w trakcie wydania (przyjdzie, gdy ten stan minie) | po kolejnej ramce i kolejnej ciszy |
+| `release_ended` | minął `ends_at` wydania. Nie, gdy leśniczy zakończył je sam (`POST /releases/{id}/end`), gdy zaraz zaczęło się następne wydanie, gdy czujnik jest wyłączony, ani gdy skończyło się ponad 1 h temu (np. backend nie działał) | nie |
+
+`silent` i `release_ended` sprawdza pętla w backendzie co `NOTIFY_CHECK_INTERVAL_S` (5 min), więc przychodzą z opóźnieniem do 5 min. Pętla zakłada jeden worker uvicorna (tak jest teraz: `Dockerfile` nie ustawia `--workers`); przy kilku każdy wysyłałby swoje.
+
+Wiadomość ma ważność 1 h (`TTL`): jeśli telefon jest dłużej poza zasięgiem, usługa push ją porzuca.
+
+Gdy usługa push odpowie `404` albo `410` (subskrypcja wygasła, użytkownik cofnął zgodę), backend usuwa subskrypcję. Inne błędy (sieć, `429`, `5xx`) subskrypcji nie usuwają.
  
 ---
  
@@ -405,10 +569,18 @@ Inne typy: `silent`, `low_battery`, `release_ended` (przypomnienie, że wyciszen
 ```
  
 Odpowiedź `201`: utworzony użytkownik (bez hasła), z `must_change_password: true`, więc przy pierwszym logowaniu musi ustawić własne hasło.
+
+- login zajęty → `409`
+- `forester` bez `range_id` albo nieistniejące leśnictwo → `400`
+- nieznana rola albo hasło krótsze niż 8 znaków → `422`
  
 ### `PATCH /api/v1/users/{id}`
  
-Zmiana roli, leśnictwa albo dezaktywacja: `{ "active": false }`.
+Zmiana roli, leśnictwa albo dezaktywacja: `{ "active": false }`. Można też zmienić `full_name`. Pola, których nie podasz, zostają bez zmian, a `"range_id": null` odpina leśnictwo. Dezaktywowany użytkownik nie zaloguje się, a jego token od razu przestaje działać.
+
+- `forester` bez leśnictwa albo nieistniejące leśnictwo → `400`
+- admin nie może dezaktywować ani zdegradować samego siebie → `409`
+- nie ma takiego użytkownika → `404`
  
 ### `POST /api/v1/users/{id}/reset-password`
  
@@ -423,10 +595,24 @@ Admin przekazuje hasło tymczasowe leśniczemu, a konto dostaje `must_change_pas
  
 ### `GET /api/v1/ranges`
  
-Lista leśnictw do formularza.
+Lista leśnictw do formularza. Dostępna tylko dla admina.
  
 ```json
 [ { "id": 1, "name": "Leśnictwo Dąbrowa" }, { "id": 2, "name": "Leśnictwo Olszyny" } ]
+```
+
+### `GET /api/v1/admin/logs?tail=200`
+
+Ostatnie wpisy logu backendu (aplikacja + uvicorn, bez udanych `/health`), od najstarszego. Tylko admin, w panelu sekcja „Logi”. `tail` 1–2000, domyślnie 200. Bufor jest w pamięci procesu: restart albo wdrożenie go czyści, starsza historia tylko przez `docker compose logs web` na serwerze.
+
+```json
+[
+  { "time": "2026-11-25T10:25:00.123Z", "level": "ERROR", "logger": "app.routers.ingest", "message": "Zła ramka\nTraceback ..." }
+]
+```
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "https://<adres>/api/v1/admin/logs?tail=500" | jq -r '.[] | "\(.time) \(.level) \(.logger): \(.message)"'
 ```
  
 ---

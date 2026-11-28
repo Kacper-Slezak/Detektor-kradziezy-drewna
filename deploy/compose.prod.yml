@@ -1,0 +1,58 @@
+# Produkcja (Mikrus): gotowe obrazy z GHCR, budowane w GitHub Actions (.github/workflows/obrazy.yml).
+# Instrukcja: docs/wdrozenie.md. Zmienne w deploy/.env (wzór w docs/wdrozenie.md).
+#
+#   docker compose -f compose.prod.yml pull && docker compose -f compose.prod.yml up -d
+#
+# Na zewnątrz jest tylko caddy (PUBLIC_PORT). Baza i backend nie mają portów na hoście.
+# Limity pamięci pilnują, żeby jeden serwis nie zabrał całego 1 GB (serwer nie ma swapu).
+name: detektor
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_USER: detektor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ustaw POSTGRES_PASSWORD w .env}
+      POSTGRES_DB: detektor
+      # timescaledb-tune przy pierwszym starcie: bez tego w kontenerze LXC widzi RAM całej
+      # maszyny fizycznej i ustawia Postgresowi więcej pamięci, niż serwer ma
+      TS_TUNE_MEMORY: 512MB
+      TS_TUNE_NUM_CPUS: "1"
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U detektor -d detektor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 450m
+    restart: unless-stopped
+
+  web:
+    image: ${REGISTRY:-ghcr.io/kacper-slezak}/detektor-api:${TAG:-latest}
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://detektor:${POSTGRES_PASSWORD}@db:5432/detektor
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 300m
+    restart: unless-stopped
+
+  caddy:
+    image: ${REGISTRY:-ghcr.io/kacper-slezak}/detektor-web:${TAG:-latest}
+    ports:
+      - "${PUBLIC_PORT:?ustaw PUBLIC_PORT w .env (port z panelu Mikrusa, np. 20123)}:80"
+    depends_on:
+      - web
+    mem_limit: 64m
+    restart: unless-stopped
+
+volumes:
+  db:

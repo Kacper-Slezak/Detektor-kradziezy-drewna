@@ -17,7 +17,7 @@ docker compose up --build        # start (z przebudowaniem obrazu)
 docker compose up -d             # w tle
 docker compose logs -f web       # logi Vite
 docker compose down              # stop
-docker compose build --no-cache  # po zmianie package.json (nowe paczki)
+docker compose up -d --build --renew-anon-volumes   # po zmianie package.json (nowe paczki)
 ```
 
 ## Zmienne środowiskowe
@@ -31,6 +31,6 @@ docker compose build --no-cache  # po zmianie package.json (nowe paczki)
 
 - **`/api/...` zwraca 502** – backend nie działa; uruchom `docker compose up` w `backend/`.
 - **Zmiany w kodzie nie odświeżają strony** – sprawdź, czy w compose jest `CHOKIDAR_USEPOLLING: "true"`.
-- **Nowa paczka z npm nie działa w kontenerze** – `node_modules` są w obrazie, więc po `npm install` przebuduj: `docker compose up --build`.
+- **Nowa paczka z npm nie działa w kontenerze** (`Failed to resolve import ...`) – `node_modules` są w osobnym wolumenie, który przetrwa samo `--build`. Po zmianie `package.json`: `docker compose up -d --build --renew-anon-volumes`.
 - **Port 5173 zajęty** – zatrzymaj lokalne `npm run dev` lub zmień mapowanie portu w compose.
 - **`npm` w PowerShellu: „running scripts is disabled”** – użyj `npm.cmd` albo raz wykonaj `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.

@@ -1,0 +1,1 @@
+"""Narzędzia deweloperskie (symulator czujników)."""

@@ -1,0 +1,392 @@
+{
+  "app": {
+    "name": "Detektor kradzieży drewna",
+    "loading": "Ładowanie…",
+    "shortName": "Detektor"
+  },
+  "login": {
+    "description": "Zaloguj się, aby zobaczyć czujniki i alarmy.",
+    "login": "Login",
+    "password": "Hasło",
+    "submit": "Zaloguj się",
+    "submitting": "Logowanie…"
+  },
+  "home": {
+    "logout": "Wyloguj",
+    "changePassword": "Zmień hasło",
+    "passwordChanged": "Hasło zostało zmienione."
+  },
+  "changePassword": {
+    "title": "Zmiana hasła",
+    "description": "Podaj obecne hasło i ustaw nowe.",
+    "forcedDescription": "To Twoje pierwsze logowanie. Ustaw własne hasło, aby kontynuować.",
+    "oldPassword": "Obecne hasło",
+    "temporaryPassword": "Hasło tymczasowe",
+    "newPassword": "Nowe hasło",
+    "repeatPassword": "Powtórz nowe hasło",
+    "submit": "Zmień hasło",
+    "submitting": "Zapisywanie…",
+    "cancel": "Anuluj",
+    "errors": {
+      "tooShort": "Nowe hasło musi mieć co najmniej {{count}} znaków",
+      "mismatch": "Nowe hasła nie są takie same",
+      "sameAsOld": "Nowe hasło musi być inne niż obecne"
+    }
+  },
+  "admin": {
+    "menu": "Menu panelu",
+    "openMenu": "Otwórz menu",
+    "closeMenu": "Zamknij menu",
+    "soon": "wkrótce",
+    "nav": {
+      "users": "Użytkownicy",
+      "sensors": "Czujniki",
+      "ranges": "Leśnictwa",
+      "logs": "Logi"
+    }
+  },
+  "users": {
+    "title": "Użytkownicy",
+    "add": "Dodaj konto",
+    "search": "Szukaj po imieniu, nazwisku lub loginie",
+    "noResults": "Brak kont",
+    "stats": {
+      "all": "Wszystkie konta",
+      "foresters": "Leśniczy",
+      "temporaryPassword": "Z hasłem tymczasowym",
+      "inactive": "Nieaktywne"
+    },
+    "table": {
+      "name": "Imię i nazwisko",
+      "login": "Login",
+      "role": "Rola",
+      "range": "Leśnictwo",
+      "status": "Status",
+      "actions": "Akcje"
+    },
+    "status": {
+      "active": "Aktywne",
+      "temporaryPassword": "Hasło tymczasowe",
+      "inactive": "Nieaktywne"
+    },
+    "form": {
+      "title": "Nowe konto",
+      "description": "Login uzupełnia się z imienia i nazwiska. Przy pierwszym logowaniu użytkownik ustawi własne hasło.",
+      "fullName": "Imię i nazwisko",
+      "login": "Login",
+      "role": "Rola",
+      "range": "Leśnictwo",
+      "chooseRange": "Wybierz leśnictwo",
+      "password": "Hasło tymczasowe",
+      "generate": "Wylosuj",
+      "submit": "Utwórz konto",
+      "submitting": "Tworzenie…",
+      "errors": {
+        "passwordTooShort": "Hasło musi mieć co najmniej {{count}} znaków",
+        "rangeRequired": "Leśniczy musi mieć przypisane leśnictwo"
+      },
+      "close": "Zamknij"
+    },
+    "edit": {
+      "open": "Edytuj konto {{login}}",
+      "title": "Edycja konta",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "saved": "Zapisano zmiany konta {{login}}.",
+      "active": "Konto aktywne",
+      "activeHint": "Nieaktywne konto nie może się zalogować, a jego sesja od razu wygasa.",
+      "selfHint": "Nie możesz wyłączyć własnego konta ani zmienić sobie roli.",
+      "resetTitle": "Hasło",
+      "resetHint": "Backend wylosuje nowe hasło tymczasowe. Obecne hasło przestanie działać, a użytkownik przy logowaniu ustawi własne.",
+      "reset": "Resetuj hasło",
+      "resetConfirm": "Tak, resetuj hasło",
+      "resetCancel": "Anuluj"
+    },
+    "created": {
+      "title": "Konto utworzone",
+      "resetTitle": "Hasło zresetowane",
+      "description": "Przekaż te dane użytkownikowi. Hasła nie da się później podejrzeć.",
+      "login": "Login",
+      "password": "Hasło",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "done": "Gotowe"
+    }
+  },
+  "sensors": {
+    "title": "Czujniki",
+    "search": "Szukaj po nazwie lub ID",
+    "noResults": "Brak czujników",
+    "noName": "bez nazwy",
+    "noForester": "brak leśniczego",
+    "add": "Dodaj czujnik",
+    "added": "Dodano czujnik {{id}}. Leśniczy zamontuje go w aplikacji.",
+    "addedDone": "OK",
+    "saved": "Zapisano zmiany czujnika {{id}}.",
+    "deleted": "Usunięto czujnik {{id}}.",
+    "switchedOff": "Wyłączono czujnik {{id}}.",
+    "delete": {
+      "section": "Usuwanie czujnika",
+      "open": "Usuń czujnik",
+      "hint": "Tylko czujnik bez alarmów i wydań.",
+      "question": "Usunąć czujnik {{id}} na stałe?",
+      "cannotUndo": "Tego nie da się cofnąć.",
+      "cancel": "Anuluj",
+      "confirm": "Usuń",
+      "deleting": "Usuwanie…",
+      "hasHistory": "Tego czujnika nie można usunąć, bo ma alarmy lub wydania.",
+      "switchOffHint": "Możesz go wyłączyć: przestanie zgłaszać alarmy, a historia zostanie.",
+      "alreadyOff": "Zostaje w systemie jako wyłączony, razem z historią.",
+      "switchOff": "Wyłącz czujnik",
+      "switchingOff": "Wyłączanie…",
+      "ok": "OK"
+    },
+    "form": {
+      "title": "Nowy czujnik",
+      "description": "Czujnik pojawi się u leśniczego na liście do montażu. Lokalizację zapisze telefon przy montażu.",
+      "id": "ID czujnika (DevEUI)",
+      "idHint": "16 znaków z naklejki na czujniku. Spacje i myślniki zostaną usunięte.",
+      "range": "Leśnictwo",
+      "chooseRange": "Wybierz leśnictwo",
+      "name": "Nazwa (opcjonalnie)",
+      "nameHint": "Zwykle nadaje ją leśniczy przy montażu.",
+      "submit": "Dodaj czujnik",
+      "submitting": "Dodawanie…",
+      "close": "Zamknij",
+      "errors": {
+        "invalidId": "ID czujnika musi mieć 16 znaków: cyfry 0–9 i litery A–F",
+        "rangeRequired": "Wybierz leśnictwo"
+      }
+    },
+    "edit": {
+      "open": "Edytuj czujnik {{id}}",
+      "title": "Edycja czujnika",
+      "description": "Po zmianie leśnictwa czujnik zobaczy leśniczy z nowego leśnictwa.",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "active": "Czujnik włączony",
+      "activeHint": "Wyłączony czujnik nie zgłasza alarmów, a jego pinezka jest szara. Historia alarmów i wydań zostaje.",
+      "activeUnmounted": "Czujnik włączy się sam, gdy leśniczy go zamontuje."
+    },
+    "stats": {
+      "all": "Wszystkie czujniki",
+      "alarm": "Z alarmem",
+      "silent": "Bez kontaktu",
+      "unmounted": "Do zamontowania"
+    },
+    "table": {
+      "name": "Nazwa",
+      "id": "ID (DevEUI)",
+      "range": "Leśnictwo",
+      "forester": "Leśniczy",
+      "state": "Stan",
+      "battery": "Bateria",
+      "lastSeen": "Ostatni kontakt",
+      "actions": "Akcje"
+    },
+    "status": {
+      "ok": "Działa",
+      "muted": "Wyciszony",
+      "alarm": "Alarm",
+      "silent": "Bez kontaktu",
+      "inactive": "Wyłączony",
+      "unmounted": "Niezamontowany"
+    }
+  },
+  "map": {
+    "title": "Mapa czujników",
+    "menu": "Menu",
+    "legend": "Legenda",
+    "noSensors": "Brak zamontowanych czujników",
+    "sensorNotFound": "Czujnika {{id}} nie ma na mapie.",
+    "unmounted_one": "{{count}} czujnik czeka na montaż",
+    "unmounted_few": "{{count}} czujniki czekają na montaż",
+    "unmounted_many": "{{count}} czujników czeka na montaż",
+    "mutedUntil": "do {{time}}",
+    "views": "Widok",
+    "viewMap": "Mapa",
+    "viewAlarms": "Alarmy",
+    "viewAlarmsOpen_one": "Alarmy, {{count}} otwarty",
+    "viewAlarmsOpen_few": "Alarmy, {{count}} otwarte",
+    "viewAlarmsOpen_many": "Alarmy, {{count}} otwartych",
+    "viewReleases": "Wydania",
+    "viewReleasesOngoing_one": "Wydania, {{count}} trwa",
+    "viewReleasesOngoing_few": "Wydania, {{count}} trwają",
+    "viewReleasesOngoing_many": "Wydania, {{count}} trwa"
+  },
+  "alarms": {
+    "title": "Alarmy",
+    "filter": "Pokaż alarmy",
+    "filters": {
+      "new": "Nowe",
+      "theft": "Kradzież",
+      "false_alarm": "Fałszywe",
+      "all": "Wszystkie"
+    },
+    "status": {
+      "new": "Nowy",
+      "theft": "Kradzież",
+      "false_alarm": "Fałszywy alarm"
+    },
+    "sources": {
+      "microphone": "dźwięk",
+      "vibration": "wibracje"
+    },
+    "confidence": "pewność {{value}}%",
+    "tampering": "Możliwa manipulacja przy czujniku (same wibracje, bez dźwięku)",
+    "responded": "Sprawdził(a) {{by}}, {{time}}",
+    "comment": "„{{comment}}”",
+    "noNew": "Brak nowych alarmów",
+    "empty": "Brak alarmów",
+    "notFound": "Nie znaleziono alarmu {{id}}. Mógł zostać usunięty albo dotyczy innego leśnictwa.",
+    "answer": {
+      "question": "Co się stało?",
+      "theft": "Kradzież",
+      "falseAlarm": "Fałszywy alarm",
+      "confirmTheft": "Potwierdzasz kradzież?",
+      "confirmFalseAlarm": "Oznaczyć jako fałszywy alarm?",
+      "comment": "Komentarz (opcjonalnie)",
+      "theftHint": "np. przewoźnik ładował dodatkowe kłody",
+      "falseAlarmHint": "np. zwierzę przy stosie",
+      "cancel": "Wróć",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "saved": "Zapisano: {{result}} – {{sensor}}",
+      "ok": "OK"
+    }
+  },
+  "role": {
+    "forester": "Leśniczy",
+    "district_manager": "Nadleśniczy",
+    "admin": "Administrator"
+  },
+  "mount": {
+    "open": "Zamontuj",
+    "move": "Przenieś czujnik",
+    "title": "Montaż czujnika",
+    "description": "Stań przy składzie i pobierz pozycję z telefonu.",
+    "moveTitle": "Przeniesienie czujnika",
+    "moveDescription": "Stań przy nowym składzie i pobierz pozycję z telefonu.",
+    "sensor": "Czujnik",
+    "name": "Nazwa",
+    "nameHint": "np. „Skład przy drodze 5”",
+    "location": "Lokalizacja",
+    "locate": "Pobierz pozycję",
+    "relocate": "Pobierz ponownie",
+    "locating": "Szukam pozycji…",
+    "current": "Obecna pozycja: {{lat}}, {{lon}}",
+    "accuracy": "±{{meters}} m",
+    "poorAccuracy": "Słaba dokładność, spróbuj ponownie na otwartym terenie",
+    "save": "Zapisz",
+    "saveMove": "Zapisz nową pozycję",
+    "saving": "Zapisywanie…",
+    "saved": "Zamontowano: {{name}}",
+    "moved": "Przeniesiono: {{name}}",
+    "close": "Zamknij",
+    "errors": {
+      "unsupported": "Ta przeglądarka nie podaje lokalizacji",
+      "insecure": "Lokalizacja działa tylko na stronie https",
+      "denied": "Brak zgody na lokalizację. Zezwól na nią w ustawieniach przeglądarki",
+      "unavailable": "Nie udało się ustalić pozycji. Sprawdź, czy GPS jest włączony",
+      "timeout": "Szukanie pozycji trwało za długo. Spróbuj ponownie"
+    }
+  },
+  "release": {
+    "open": "Wycisz na czas wywozu",
+    "end": "Zakończ wyciszenie",
+    "duration": "Czas wyciszenia",
+    "hours": "{{hours}} h",
+    "until": "Czujnik zacznie znów czuwać o {{time}}",
+    "carrier": "Przewoźnik (opcjonalnie)",
+    "logCount": "Liczba kłód (opcjonalnie)",
+    "comment": "Komentarz (opcjonalnie)",
+    "save": "Wycisz",
+    "saving": "Wyciszanie…",
+    "title": "Wyciszenie na czas wywozu",
+    "description": "Czujnik nie zgłosi alarmu, gdy przewoźnik ładuje drewno.",
+    "saved": "Wyciszono: {{name}} do {{time}}",
+    "endTitle": "Zakończyć wyciszenie?",
+    "endDescription": "Gdy przewoźnik już odjechał.",
+    "endQuestion": "Czujnik „{{name}}” znów będzie zgłaszał alarmy.",
+    "endConfirm": "Zakończ",
+    "ending": "Kończenie…",
+    "cancel": "Anuluj",
+    "ended": "{{name}} znów czuwa"
+  },
+  "releases": {
+    "title": "Wydania drewna",
+    "ongoing": "Trwające wydania",
+    "noOngoing": "Żaden czujnik nie jest teraz wyciszony.",
+    "until": "do {{time}}",
+    "leftMinutes": "jeszcze {{minutes}} min",
+    "leftHours": "jeszcze {{hours}} h",
+    "leftHoursMinutes": "jeszcze {{hours}} h {{minutes}} min",
+    "logs_one": "{{count}} kłoda",
+    "logs_few": "{{count}} kłody",
+    "logs_many": "{{count}} kłód",
+    "comment": "„{{comment}}”",
+    "since": "od {{time}}",
+    "tabs": "Pokaż wydania",
+    "tab": {
+      "ongoing": "Trwające",
+      "history": "Historia"
+    },
+    "history": "Zakończone wydania",
+    "noHistory": "Brak zakończonych wydań.",
+    "more": "Pokaż starsze",
+    "loadingMore": "Wczytywanie…",
+    "notFound": "Wydania {{id}} nie ma w historii. Mogło zostać usunięte albo dotyczy innego leśnictwa.",
+    "noHistoryFiltered": "Brak zakończonych wydań w tym okresie.",
+    "filters": {
+      "sensor": "Czujnik",
+      "allSensors": "Wszystkie czujniki",
+      "period": "Okres",
+      "periods": {
+        "7": "7 dni",
+        "30": "30 dni",
+        "365": "Rok",
+        "all": "Wszystko"
+      }
+    }
+  },
+  "errors": {
+    "network": "Brak połączenia z serwerem",
+    "http": "Błąd {{status}}"
+  },
+  "install": {
+    "button": "Zainstaluj aplikację"
+  },
+  "push": {
+    "enable": "Włącz powiadomienia",
+    "enabling": "Włączanie…",
+    "enabled": "Powiadomienia włączone",
+    "denied": "Powiadomienia są zablokowane. Włącz je w ustawieniach strony (kłódka przy adresie) i odśwież aplikację.",
+    "unsupported": "To urządzenie nie obsługuje powiadomień.",
+    "error": "Nie udało się włączyć powiadomień. Spróbuj ponownie."
+  },
+  "theme": {
+    "label": "Motyw",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Jak w systemie"
+  },
+  "language": {
+    "label": "Język"
+  },
+  "logs": {
+    "title": "Logi backendu",
+    "refresh": "Odśwież",
+    "auto": "Odświeżaj co 5 s",
+    "search": "Szukaj w logach",
+    "level": "Poziom",
+    "levels": {
+      "all": "Wszystkie",
+      "WARNING": "Ostrzeżenia i błędy",
+      "ERROR": "Tylko błędy"
+    },
+    "empty": "Brak wpisów",
+    "count": "{{shown}} z {{total}} wpisów",
+    "note": "Ostatnie wpisy z pamięci backendu. Restart albo wdrożenie je czyści.",
+    "disabled": "Podgląd logów jest wyłączony (ADMIN_LOGS_ENABLED=false)"
+  }
+}

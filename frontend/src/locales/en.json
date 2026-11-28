@@ -1,0 +1,396 @@
+{
+  "app": {
+    "name": "Timber Theft Detector",
+    "loading": "Loading…",
+    "shortName": "Detector"
+  },
+  "login": {
+    "description": "Sign in to see sensors and alarms.",
+    "login": "Login",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…"
+  },
+  "home": {
+    "logout": "Sign out",
+    "changePassword": "Change password",
+    "passwordChanged": "Your password has been changed."
+  },
+  "changePassword": {
+    "title": "Change password",
+    "description": "Enter your current password and choose a new one.",
+    "forcedDescription": "This is your first sign-in. Set your own password to continue.",
+    "oldPassword": "Current password",
+    "temporaryPassword": "Temporary password",
+    "newPassword": "New password",
+    "repeatPassword": "Repeat new password",
+    "submit": "Change password",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "errors": {
+      "tooShort": "The new password must be at least {{count}} characters long",
+      "mismatch": "The new passwords do not match",
+      "sameAsOld": "The new password must be different from the current one"
+    }
+  },
+  "admin": {
+    "menu": "Panel menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "soon": "soon",
+    "nav": {
+      "users": "Users",
+      "sensors": "Sensors",
+      "ranges": "Forest ranges",
+      "logs": "Logs"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "add": "Add account",
+    "search": "Search by name or login",
+    "noResults": "No accounts",
+    "stats": {
+      "all": "All accounts",
+      "foresters": "Foresters",
+      "temporaryPassword": "With a temporary password",
+      "inactive": "Inactive"
+    },
+    "table": {
+      "name": "Full name",
+      "login": "Login",
+      "role": "Role",
+      "range": "Forest range",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "temporaryPassword": "Temporary password",
+      "inactive": "Inactive"
+    },
+    "form": {
+      "title": "New account",
+      "description": "The login is filled in from the full name. At first sign-in the user sets their own password.",
+      "fullName": "Full name",
+      "login": "Login",
+      "role": "Role",
+      "range": "Forest range",
+      "chooseRange": "Choose a forest range",
+      "password": "Temporary password",
+      "generate": "Generate",
+      "submit": "Create account",
+      "submitting": "Creating…",
+      "errors": {
+        "passwordTooShort": "The password must be at least {{count}} characters long",
+        "rangeRequired": "A forester must have a forest range"
+      },
+      "close": "Close"
+    },
+    "edit": {
+      "open": "Edit account {{login}}",
+      "title": "Edit account",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Changes to account {{login}} saved.",
+      "active": "Account active",
+      "activeHint": "An inactive account cannot sign in and its session ends at once.",
+      "selfHint": "You cannot deactivate your own account or change your own role.",
+      "resetTitle": "Password",
+      "resetHint": "The backend draws a new temporary password. The current password stops working and the user sets their own at sign-in.",
+      "reset": "Reset password",
+      "resetConfirm": "Yes, reset the password",
+      "resetCancel": "Cancel"
+    },
+    "created": {
+      "title": "Account created",
+      "resetTitle": "Password reset",
+      "description": "Pass these details on to the user. The password cannot be viewed later.",
+      "login": "Login",
+      "password": "Password",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done"
+    }
+  },
+  "sensors": {
+    "title": "Sensors",
+    "search": "Search by name or ID",
+    "noResults": "No sensors",
+    "noName": "no name",
+    "noForester": "no forester",
+    "add": "Add sensor",
+    "added": "Sensor {{id}} added. The forester will mount it in the app.",
+    "addedDone": "OK",
+    "saved": "Changes to sensor {{id}} saved.",
+    "deleted": "Sensor {{id}} deleted.",
+    "switchedOff": "Sensor {{id}} switched off.",
+    "delete": {
+      "section": "Deleting the sensor",
+      "open": "Delete sensor",
+      "hint": "Only a sensor with no alarms or releases.",
+      "question": "Delete sensor {{id}} for good?",
+      "cannotUndo": "This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…",
+      "hasHistory": "This sensor cannot be deleted, because it has alarms or releases.",
+      "switchOffHint": "You can switch it off: it stops raising alarms, and the history stays.",
+      "alreadyOff": "It stays in the system switched off, with its history.",
+      "switchOff": "Switch the sensor off",
+      "switchingOff": "Switching off…",
+      "ok": "OK"
+    },
+    "form": {
+      "title": "New sensor",
+      "description": "The sensor will show up on the forester’s list to mount. The phone saves its location when mounting.",
+      "id": "Sensor ID (DevEUI)",
+      "idHint": "16 characters from the sticker on the sensor. Spaces and dashes are removed.",
+      "range": "Forest range",
+      "chooseRange": "Choose a forest range",
+      "name": "Name (optional)",
+      "nameHint": "Usually the forester names it when mounting.",
+      "submit": "Add sensor",
+      "submitting": "Adding…",
+      "close": "Close",
+      "errors": {
+        "invalidId": "The sensor ID must have 16 characters: digits 0–9 and letters A–F",
+        "rangeRequired": "Choose a forest range"
+      }
+    },
+    "edit": {
+      "open": "Edit sensor {{id}}",
+      "title": "Edit sensor",
+      "description": "After changing the forest range, the sensor is shown to the forester of the new range.",
+      "save": "Save",
+      "saving": "Saving…",
+      "active": "Sensor switched on",
+      "activeHint": "A switched-off sensor raises no alarms and its pin is grey. The alarm and release history stays.",
+      "activeUnmounted": "The sensor switches on by itself when a forester mounts it."
+    },
+    "stats": {
+      "all": "All sensors",
+      "alarm": "With an alarm",
+      "silent": "No contact",
+      "unmounted": "To be mounted"
+    },
+    "table": {
+      "name": "Name",
+      "id": "ID (DevEUI)",
+      "range": "Forest range",
+      "forester": "Forester",
+      "state": "State",
+      "battery": "Battery",
+      "lastSeen": "Last contact",
+      "actions": "Actions"
+    },
+    "status": {
+      "ok": "Working",
+      "muted": "Muted",
+      "alarm": "Alarm",
+      "silent": "No contact",
+      "inactive": "Turned off",
+      "unmounted": "Not mounted"
+    }
+  },
+  "map": {
+    "title": "Sensor map",
+    "menu": "Menu",
+    "legend": "Legend",
+    "noSensors": "No mounted sensors",
+    "sensorNotFound": "Sensor {{id}} is not on the map.",
+    "unmounted_one": "{{count}} sensor waiting to be mounted",
+    "unmounted_other": "{{count}} sensors waiting to be mounted",
+    "unmounted_few": "{{count}} sensors waiting to be mounted",
+    "unmounted_many": "{{count}} sensors waiting to be mounted",
+    "mutedUntil": "until {{time}}",
+    "views": "View",
+    "viewMap": "Map",
+    "viewAlarms": "Alarms",
+    "viewAlarmsOpen_one": "Alarms, {{count}} open",
+    "viewAlarmsOpen_other": "Alarms, {{count}} open",
+    "viewAlarmsOpen_few": "Alarms, {{count}} open",
+    "viewAlarmsOpen_many": "Alarms, {{count}} open",
+    "viewReleases": "Releases",
+    "viewReleasesOngoing_one": "Releases, {{count}} ongoing",
+    "viewReleasesOngoing_other": "Releases, {{count}} ongoing",
+    "viewReleasesOngoing_few": "Releases, {{count}} ongoing",
+    "viewReleasesOngoing_many": "Releases, {{count}} ongoing"
+  },
+  "alarms": {
+    "title": "Alarms",
+    "filter": "Show alarms",
+    "filters": {
+      "new": "New",
+      "theft": "Theft",
+      "false_alarm": "False",
+      "all": "All"
+    },
+    "status": {
+      "new": "New",
+      "theft": "Theft",
+      "false_alarm": "False alarm"
+    },
+    "sources": {
+      "microphone": "sound",
+      "vibration": "vibration"
+    },
+    "confidence": "confidence {{value}}%",
+    "tampering": "Possible tampering with the sensor (vibration only, no sound)",
+    "responded": "Checked by {{by}}, {{time}}",
+    "comment": "“{{comment}}”",
+    "noNew": "No new alarms",
+    "empty": "No alarms",
+    "notFound": "Alarm {{id}} was not found. It may have been removed or belong to another range.",
+    "answer": {
+      "question": "What happened?",
+      "theft": "Theft",
+      "falseAlarm": "False alarm",
+      "confirmTheft": "Confirm the theft?",
+      "confirmFalseAlarm": "Mark as a false alarm?",
+      "comment": "Comment (optional)",
+      "theftHint": "e.g. the carrier loaded extra logs",
+      "falseAlarmHint": "e.g. an animal by the pile",
+      "cancel": "Back",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved: {{result}} – {{sensor}}",
+      "ok": "OK"
+    }
+  },
+  "role": {
+    "forester": "Forester",
+    "district_manager": "District manager",
+    "admin": "Administrator"
+  },
+  "mount": {
+    "open": "Mount",
+    "move": "Move sensor",
+    "title": "Mount a sensor",
+    "description": "Stand by the timber stack and take the location from your phone.",
+    "moveTitle": "Move a sensor",
+    "moveDescription": "Stand by the new timber stack and take the location from your phone.",
+    "sensor": "Sensor",
+    "name": "Name",
+    "nameHint": "e.g. “Stack by road 5”",
+    "location": "Location",
+    "locate": "Get location",
+    "relocate": "Get it again",
+    "locating": "Looking for the location…",
+    "current": "Current location: {{lat}}, {{lon}}",
+    "accuracy": "±{{meters}} m",
+    "poorAccuracy": "Poor accuracy, try again in the open",
+    "save": "Save",
+    "saveMove": "Save new location",
+    "saving": "Saving…",
+    "saved": "Mounted: {{name}}",
+    "moved": "Moved: {{name}}",
+    "close": "Close",
+    "errors": {
+      "unsupported": "This browser does not give the location",
+      "insecure": "Location only works on an https page",
+      "denied": "No permission for the location. Allow it in the browser settings",
+      "unavailable": "Could not find the location. Check that GPS is on",
+      "timeout": "Finding the location took too long. Try again"
+    }
+  },
+  "release": {
+    "open": "Mute for timber pickup",
+    "end": "End muting",
+    "duration": "Mute for",
+    "hours": "{{hours}} h",
+    "until": "The sensor watches again at {{time}}",
+    "carrier": "Carrier (optional)",
+    "logCount": "Number of logs (optional)",
+    "comment": "Comment (optional)",
+    "save": "Mute",
+    "saving": "Muting…",
+    "title": "Mute for timber pickup",
+    "description": "The sensor raises no alarm while the carrier loads the timber.",
+    "saved": "Muted: {{name}} until {{time}}",
+    "endTitle": "End muting?",
+    "endDescription": "When the carrier has left.",
+    "endQuestion": "Sensor “{{name}}” will raise alarms again.",
+    "endConfirm": "End",
+    "ending": "Ending…",
+    "cancel": "Cancel",
+    "ended": "{{name}} is watching again"
+  },
+  "releases": {
+    "title": "Timber releases",
+    "ongoing": "Ongoing releases",
+    "noOngoing": "No sensor is muted right now.",
+    "until": "until {{time}}",
+    "leftMinutes": "{{minutes}} min left",
+    "leftHours": "{{hours}} h left",
+    "leftHoursMinutes": "{{hours}} h {{minutes}} min left",
+    "logs_one": "{{count}} log",
+    "logs_other": "{{count}} logs",
+    "logs_few": "{{count}} logs",
+    "logs_many": "{{count}} logs",
+    "comment": "“{{comment}}”",
+    "since": "from {{time}}",
+    "tabs": "Show releases",
+    "tab": {
+      "ongoing": "Ongoing",
+      "history": "History"
+    },
+    "history": "Finished releases",
+    "noHistory": "No finished releases.",
+    "more": "Show older",
+    "loadingMore": "Loading…",
+    "notFound": "Release {{id}} is not in the history. It may have been deleted or belong to another range.",
+    "noHistoryFiltered": "No finished releases in this period.",
+    "filters": {
+      "sensor": "Sensor",
+      "allSensors": "All sensors",
+      "period": "Period",
+      "periods": {
+        "7": "7 days",
+        "30": "30 days",
+        "365": "Year",
+        "all": "All"
+      }
+    }
+  },
+  "errors": {
+    "network": "Cannot connect to the server",
+    "http": "Error {{status}}"
+  },
+  "install": {
+    "button": "Install app"
+  },
+  "push": {
+    "enable": "Turn on notifications",
+    "enabling": "Turning on…",
+    "enabled": "Notifications are on",
+    "denied": "Notifications are blocked. Allow them in the site settings (the lock by the address) and reload the app.",
+    "unsupported": "This device does not support notifications.",
+    "error": "Could not turn on notifications. Try again."
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "logs": {
+    "title": "Backend logs",
+    "refresh": "Refresh",
+    "auto": "Refresh every 5 s",
+    "search": "Search logs",
+    "level": "Level",
+    "levels": {
+      "all": "All",
+      "WARNING": "Warnings and errors",
+      "ERROR": "Errors only"
+    },
+    "empty": "No entries",
+    "count": "{{shown}} of {{total}} entries",
+    "note": "Latest entries from the backend's memory. A restart or deploy clears them.",
+    "disabled": "Log view is disabled (ADMIN_LOGS_ENABLED=false)"
+  }
+}
