@@ -165,23 +165,24 @@ def main():
     y = M['label'] == '1'
     susp = dec >= ts
     high = dec >= th
-    cv = (src == 'esc50') | (src == 'soc2')
+    cv = (src == 'esc50') | (src == 'soc2') | (src == 'fsd') | (src == 'synth')
 
     G = [
         ('Silnik: ESC-50 "engine" (CV)', (kind == 'engine') & (src == 'esc50')),
         ('Silnik: maszyny soc2, 32 nagrania (CV)', (kind == 'engine') & (src == 'soc2')),
         ('Silnik: zewnętrzne (traktory, ciężarówki)', (kind == 'engine') & ((src == 'soc') | (src == 'sample'))),
-        ('Silnik: FSD50K, niezależny korpus', (kind == 'engine') & (src == 'fsd')),
+        ('Silnik: FSD50K (CV)', (kind == 'engine') & (src == 'fsd')),
         ('Silnik + pogoda 0 dB (CV)', (kind == 'engine_mix') & cv & (snr == '0.0')),
         ('Silnik + pogoda +6 dB (CV)', (kind == 'engine_mix') & cv & (snr == '6.0')),
         ('Silnik + burza/deszcz/wiatr +3 dB (CV)', (kind == 'engine_mix') & cv & (snr == '3.0')),
         ('Silnik + burza/deszcz/wiatr −3 dB (CV)', (kind == 'engine_mix') & cv & (snr == '-3.0')),
-        ('Silnik + pogoda, FSD50K', (kind == 'engine_mix') & (src == 'fsd')),
+        ('Silnik + pogoda, FSD50K (CV)', (kind == 'engine_mix') & (src == 'fsd')),
         ('FP: przyroda i pogoda ESC-50 (CV)', (kind == 'forest') & (src == 'esc50')),
-        ('FP: przyroda i pogoda FSD50K', (kind == 'forest') & (src == 'fsd')),
+        ('FP: przyroda i pogoda FSD50K (CV)', (kind == 'forest') & (src == 'fsd')),
+        ('FP: przydźwięk 50 Hz i wentylacja (synt.)', src == 'synth'),
         ('FP: nagranie lasu (z odległym szumem drogi)', (kind == 'forest') & (src == 'sample')),
         ('FP: przelot śmigłowca/samolotu/pociągu ESC-50', (kind == 'mech') & (src == 'esc50')),
-        ('FP: przeloty FSD50K', (kind == 'mech') & (src == 'fsd')),
+        ('FP: przeloty FSD50K (CV)', (kind == 'mech') & (src == 'fsd')),
     ]
     g_rows = []
     for name, m in G:
@@ -300,6 +301,29 @@ def main():
             arch.append('<tr><td>%s</td><td><code>%s</code></td><td><code>%s</code></td></tr>'
                         % (desc, html.escape(url), sha256(p)))
 
+    # transfer table from the v4 run (FSD50K never trained)
+    transfer = []
+    try:
+        S4, M4 = cache.load('v4')
+        del S4
+        d4 = np.load(devsim.DATA / 'cache' / 'dec_ens8_v4.npy')
+        b4 = np.load(devsim.DATA / 'cache' / 'res_burst_v4.npy')[:, 0] == 1
+        m4 = json.loads((devsim.DATA / 'cache' / 'model_v4.json').read_text())
+        n4 = M4['level'] == NOMINAL
+        for name, mk in [('FSD50K: silniki', (M4['kind'] == 'engine') & (M4['src'] == 'fsd')),
+                         ('FSD50K: silnik + pogoda', (M4['kind'] == 'engine_mix') & (M4['src'] == 'fsd')),
+                         ('FSD50K: przyroda i pogoda (FP)', (M4['kind'] == 'forest') & (M4['src'] == 'fsd')),
+                         ('FSD50K: przeloty (FP)', (M4['kind'] == 'mech') & (M4['src'] == 'fsd')),
+                         ('dla porównania: przyroda ESC-50 w CV (FP)', (M4['kind'] == 'forest') & (M4['src'] == 'esc50'))]:
+            mk = mk & n4
+            transfer.append('<tr><th>%s</th>%s%s%s</tr>' % (name, cell(d4 >= m4['T_SUSP'], mk), cell(d4 >= m4['T_HIGH'], mk), cell(b4, mk)))
+    except FileNotFoundError:
+        transfer.append('<tr><td colspan="4">brak wyników v4</td></tr>')
+    corridor = ''
+    log = devsim.DATA / 'log_pipe6b.txt'
+    if log.exists():
+        corridor = '\n'.join(ln for ln in log.read_text().splitlines()
+                              if ln.startswith(('speaker', 'corridor')))
     tests = subprocess.run([sys.executable, '-m', 'unittest', 'test_v2_device'], cwd=HERE,
                            capture_output=True, text=True)
     tlines = [ln for ln in tests.stderr.splitlines() if ln.startswith(('Ran', 'OK', 'FAILED'))]
@@ -369,6 +393,7 @@ def main():
         '{{TESTS}}': html.escape(' · '.join(tlines)), '{{MAIN_SIZE}}': '%d' % main_py.stat().st_size,
         '{{MAIN_SHA}}': sha256(main_py), '{{GIT}}': html.escape(git),
         '{{NSESS}}': '%d' % len(dec), '{{SUMMARY}}': summary, '{{LIMITS}}': limits,
+        '{{TRANSFER}}': '\n'.join(transfer), '{{CORRIDOR}}': html.escape(corridor or 'brak wyników'),
     }
     for k, v in rep.items():
         tpl = tpl.replace(k, v)

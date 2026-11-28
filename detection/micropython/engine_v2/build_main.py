@@ -200,7 +200,9 @@ def fmt_model(m):
         return '(' + ', '.join('%.6g' % x for x in v) + ',)'
 
     def i8(v):
-        return repr(bytes((x + 256) % 256 for x in v))
+        import base64
+        b = base64.b64encode(bytes((x + 256) % 256 for x in v)).decode()
+        return 'ubinascii.a2b_base64(%r)' % b
     return ('dict(MU=%s, SD=%s, W1=%s, S1=%.6g, B1=%s, W2=%s, S2=%.6g, B2=%.6g)'
             % (tup(m['MU']), tup(m['SD']), i8(m['W1']), m['S1'], tup(m['B1']), i8(m['W2']),
                m['S2'], m['B2']))

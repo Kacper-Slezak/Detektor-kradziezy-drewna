@@ -184,6 +184,11 @@ V2_MAXB = 12
 V2_LINE = 0.8
 V2_MID0 = 20
 V2_MID1 = 128
+V2_HUM = bytearray(244)
+for _k in range(1, 39):
+    _b = int(50.0 * _k / 7.8125 + 0.5)
+    if 4 <= _b < 244:
+        V2_HUM[_b] = 1
 def _zeros(tc, n):
     a = array(tc, range(n))
     z = 0.0 if tc == 'f' else 0
@@ -229,13 +234,25 @@ class V2State:
         self.tb2 = 0.0
         self.tbm = 0.0
         self.wf = _zeros('f', 4 * (V2_LO1 - V2_LO0))  # whitened LO of 4 frames
-        self.Wsum = _zeros('f', V2_LO1 - V2_LO0)   # sum over blocks of W[LO]
+        self.Wsum = _zeros('f', V2_HI1 - V2_LO0)   # sum over blocks of W[4..243]
         self.B = _zeros('f', 15 * V2_MAXB)         # band shape per block
         self.sc = _zeros('f', 5 * V2_MAXB)         # harm, flat, env, lowhi, tf_lo per block
         self.lv = _zeros('f', V2_MAXB)             # log block RMS
         self.imp = 0.0
         self.frr = 0.0
         self.e = _zeros('f', 124)
+        self.fbp = _zeros('f', 15)                 # previous frame band logs
+        self.fbc = _zeros('f', 15)                 # current frame band logs
+        self.md1 = _zeros('f', 15)                 # sum of d, d^2 per band
+        self.md2 = _zeros('f', 15)
+        self.mr1 = _zeros('f', 15)                 # sum of rel, rel^2 per band
+        self.mr2 = _zeros('f', 15)
+        self.mrs = _zeros('f', 15)                 # shift (first frame) for stable variance
+        self.mls = 0.0
+        self.mda = 0.0
+        self.ml1 = 0.0
+        self.ml2 = 0.0
+        self.nf = 0
         self.es = _zeros('f', 124)                 # sorted copy for the median
         self.nb = 0
         self.tb_lo = 0.0
@@ -350,6 +367,7 @@ class V2State:
                 p1[k] = pw
                 P[k] += pw
             self._whiten_frame(fi)
+            self._frame_mod()
         for k in range(V2_HALF + 1):
             P[k] *= 0.25
         b = self.nb
@@ -454,8 +472,9 @@ class V2State:
         self.sc[osc + 3] = lowhi
         self.sc[osc + 4] = tf
         sw = 0.0
-        for k in range(V2_LO0, V2_LO1):
+        for k in range(V2_LO0, V2_HI1):
             self.Wsum[k - V2_LO0] += W[k]
+        for k in range(V2_LO0, V2_LO1):
             sw += W[k]
         mw = sw / nlo
         vv = 0.0
@@ -492,6 +511,39 @@ class V2State:
         for k in range(V2_HALF + 1):
             self.Wp[k] = W[k]
         self.nb = b + 1
+    def _frame_mod(self):
+        p1 = self.p1
+        fbc = self.fbc
+        fbp = self.fbp
+        m = 0.0
+        for q in range(15):
+            a0 = V2_BINS[q]
+            a1 = V2_BINS[q + 1]
+            s = 0.0
+            for k in range(a0, a1):
+                s += p1[k]
+            vl = math.log(s / (a1 - a0) + 1e-6)
+            fbc[q] = vl
+            m += vl
+        m /= 15.0
+        if self.nf == 0:
+            self.mls = m
+            for q in range(15):
+                self.mrs[q] = fbc[q] - m
+        x = m - self.mls
+        self.ml1 += x
+        self.ml2 += x * x
+        for q in range(15):
+            r = fbc[q] - m - self.mrs[q]
+            self.mr1[q] += r
+            self.mr2[q] += r * r
+            if self.nf > 0:
+                dd = fbc[q] - fbp[q]
+                self.md1[q] += dd
+                self.md2[q] += dd * dd
+                self.mda += dd if dd > 0.0 else -dd
+            fbp[q] = fbc[q]
+        self.nf += 1
     def _whiten_frame(self, fi):
         nlo = V2_LO1 - V2_LO0
         W = self.W
@@ -570,6 +622,45 @@ class V2State:
         v.append(math.sqrt(s / nb))
         v.append(da / (nb - 1))
         v.append(self.frr / nb)
+        n_h = 0
+        p_h = 0.0
+        best = -1e30
+        kb = 0
+        for i in range(V2_HI1 - V2_LO0):
+            wm = self.Wsum[i] / nb
+            if wm > best:
+                best = wm
+                kb = i
+            if i >= V2_LO1 - V2_LO0 and wm > V2_LINE:
+                n_h += 1
+                p_h += wm - V2_LINE
+        v.append(float(n_h))
+        v.append(p_h)
+        v.append(math.log((prom + 0.1) / (p_h + 0.1)))
+        v.append((kb + V2_LO0) * 7.8125)
+        eh = 0.0
+        et = 0.0
+        for i in range(V2_HI1 - V2_LO0):
+            x = self.Wsum[i] / nb - V2_LINE
+            if x > 0.0:
+                et += x
+                if V2_HUM[i + V2_LO0]:
+                    eh += x
+        v.append((eh + 0.016) / (et + 0.1))
+        nf = self.nf
+        nd = nf - 1
+        for q in range(15):
+            mm = self.md1[q] / nd
+            x = self.md2[q] / nd - mm * mm
+            v.append(math.sqrt(x if x > 0.0 else 0.0))
+        for q in range(15):
+            mm = self.mr1[q] / nf
+            x = self.mr2[q] / nf - mm * mm
+            v.append(math.sqrt(x if x > 0.0 else 0.0))
+        v.append(self.mda / (nd * 15))
+        mm = self.ml1 / nf
+        x = self.ml2 / nf - mm * mm
+        v.append(math.sqrt(x if x > 0.0 else 0.0))
         return v
 def score(vec, model):
     mu = model['MU']
@@ -598,12 +689,14 @@ def score(vec, model):
     return out * model['S2'] + model['B2']
 
 
-V2_T_HIGH = 6.9603
-V2_T_SUSP = 3.0273
-V2_CONFIRM_SLEEP_MS = 120000   # 2nd look after 2 min: a machine loading timber is still there
+V2_T_HIGH = 5.2177
+V2_T_SUSP = 2.6165
+V2_TRYB_POKAZ = False          # True for the corridor demo: short confirm and lock-out
+V2_CONFIRM_SLEEP_MS = 15000 if V2_TRYB_POKAZ else 120000   # 2nd look: machine still there?
+V2_PO_ALARMIE_MS = 60000 if V2_TRYB_POKAZ else CZAS_SNU_SZTYWNEGO_MS
 V2_NVS_KEY = "v2_conf"
 V2_MODELS = (
-    dict(MU=(0.258472, 0.557089, 0.588283, 0.51667, 0.347622, 0.235492, 0.14792, 0.0790456, 0.000709949, -0.173655, -0.308646, -0.414961, -0.529299, -0.608721, -0.696021, 0.569868, 0.565967, 0.508128, 0.47304, 0.462768, 0.419405, 0.410459, 0.399594, 0.405264, 0.405261, 0.404386, 0.412927, 0.426381, 0.439225, 0.443456, 0.350336, 0.0584339, 0.509803, 0.0997469, -0.171541, 0.34121, -0.794627, 0.583304, 0.171512, 0.0926502, 0.332797, 0.117074, 0.65084, 0.715599, 4.62802, 2.72939, 1.17117, 0.298559, 0.199974, 0.0785646, 0.495923, 0.441745, 1.45975,), SD=(1.54371, 1.45027, 1.23938, 1.08333, 0.925293, 0.829411, 0.813458, 0.777383, 0.781141, 0.81257, 0.859553, 0.925929, 0.963388, 1.0511, 1.12755, 0.389679, 0.373025, 0.34476, 0.322929, 0.328849, 0.313, 0.32037, 0.321186, 0.353587, 0.354864, 0.351091, 0.357905, 0.367154, 0.387072, 0.391937, 0.0702498, 0.0296368, 0.199651, 0.07962, 0.62049, 0.294239, 1.61956, 0.5147, 0.155819, 0.042718, 0.252075, 0.143324, 0.141341, 0.292689, 4.07246, 4.22857, 2.11785, 0.255126, 0.192487, 0.0893753, 0.638699, 0.53818, 1.56615,), W1=b'\xf0\xe6\x0f\xfa\x07\x01\xea\x00\xfa\n\xe8\r\xd7+5\n\xf7\x19\xfb\x0b\xf5\xfc\x10\xdd\x08\x11\x1d\xe6\xfd\xf5\xc8\t\xfa\xf7\xe6\x1b\xf7\x11\xe9\xfa\n\xfa(!\xe8\x18\x05\xde\xc94*8\xd0\xfd\xef\x05\x02\n\xff\xf7\xe0\xf6\x12\x03\xfb\t\r\x11\x01\xde2\xeb\x10\xf8\x18\xe1\xdb\x18\xe8\x14\x07\x16\xfc\xdf\x03\x13\x08\xea\x14\r\xf5\x13\x11)\x17\xcd5\xe4\n\xec\x12\xf7\x08-\xfd\x0f\xf9\xd4\x13\x01\x1a\x1f\xf8+\xf1\xeb#\xfa\xe9\x01\xfb\x01\xd2\x0f\x0c\xf9\x0c\x0c\r\x02\x03\xdc\x03\xfc\xc0\xcf\xfb\xfc\xfe\xe3\xd5\xdb\x14\x07\n\xe6\xf6\xdf\x04\xf3\xf2\xf0-\xe1\x1c\r\x18\x05W\xbd\x1d\xf1\x08\x02#\xec\x01\x012\x19\xf8\x1e\x01\xe6\x07\xe6\xff\x10\x18\x0c)\x13\xd9\x0c\xf0\xf8(\xe4\x0f+\x1b\xd7\x08\xe4\xf1\xfe\xee\xdb\r\x1b:7\x07\x1b\xfc\xfa\xdb\xd4\x1d\xf2&:\xdc\r\n\xf6\xe1E\x03\x12\x00\xea\xf1\xfc\n\x06\t\xf1\x05\xf4\x1a\xe5\t\x16(\x00\xff\xf6\xea\x04\xf3\x00\n\x1c\x02\x10\x17\xf3\x00\xfb\xfd\xfaA\x17\x81\x0e\x01\xff\xe8N\xf4\x06\x19\xef\xdb\xf4\xfc\x0b\'\x02\xf0\xf0\xff\x13\x10\xe1\x0f\x04\xf6\xf5\x10\xfb\xed\xf4"\xe5\x13\xfa\xf0\x0e\xfd\x13\xe6\xe5\x03\x00\x1e\xf5\xf5\x1c\xfd\xe8\xf4\x17\x1e(\xfe\xf0\xe2\xd7\n\x128\xfd\xe5\'\x01\xf3\xea\x0c\xe9\xfa\xdd\xf1\x07\xe1\x10\x1e\xe51&\x0c\x08\xe7\x03\xea\x00\xf0\xf8\xed\xe2\t\x16\xca\x02\xef\x18\x01\x04\r\xb0\x1f\x10\x04\xdd\x02\xe0$\xcd\xf4\xe7\xfd\xd1\x1b)\x04@\xe6\x05\t \x1f\x00\xee\xf4\xd6\xd5\xfa5\x10\xf7\xfd\x01\xfe\xfa\x1c\xee\xe8\xfa\x01\x05\xe4\xd5\xf0\xfd\xf7\xee\xfe\xf1\xd8\xf4&\xf2+3\xe7\xf48/\x10\xf8\xc4\xee+ \xff\xef)\xc7&\xf4\x0c\x1f\x03', S1=0.0128561, B1=(0.0708698, 1.14421, -0.148202, 0.638457, 0.40756, -0.223078, 0.0764731, -0.165704,), W2=b'\x8db\x8d\x82\x7f]\x86{', S2=0.0215386, B2=-2.25876),
+    dict(MU=(0.433906, 0.642708, 0.819817, 0.765554, 0.599136, 0.380742, 0.227888, 0.0890671, -0.076091, -0.277996, -0.447619, -0.588484, -0.742791, -0.854323, -0.971513, 0.636639, 0.618909, 0.560176, 0.525299, 0.499702, 0.453634, 0.441323, 0.428251, 0.43634, 0.446372, 0.458147, 0.46486, 0.480853, 0.49825, 0.505536, 0.376483, 0.0643617, 0.468866, 0.10035, -0.149305, 0.355242, -0.528035, 0.66729, 0.223198, 0.0986805, 0.377223, 0.131881, 0.653132, 0.714098, 5.87002, 5.48935, 2.02852, 0.342934, 0.229916, 0.0790471, 0.486856, 0.428082, 1.47604, 4.08833, 2.60826, 1.23163, 364.923, 0.217009, 1.32253, 1.41968, 1.33609, 1.33543, 1.35158, 1.35193, 1.38284, 1.40475, 1.42707, 1.43634, 1.43888, 1.43193, 1.43449, 1.41282, 1.39401, 0.911233, 0.901522, 0.806705, 0.754351, 0.716898, 0.64635, 0.626489, 0.606235, 0.603444, 0.615341, 0.62353, 0.627617, 0.646318, 0.660293, 0.670542, 1.0363, 1.20402,), SD=(1.80131, 1.56094, 1.43139, 1.28961, 1.11351, 0.921041, 0.859492, 0.812266, 0.821239, 0.907195, 1.03774, 1.13959, 1.20658, 1.27683, 1.35188, 0.441181, 0.407199, 0.384405, 0.356138, 0.347257, 0.320074, 0.325178, 0.327564, 0.352061, 0.362427, 0.37169, 0.374201, 0.388166, 0.407738, 0.413681, 0.122784, 0.0391116, 0.226132, 0.0760277, 0.654555, 0.275915, 1.81835, 0.567482, 0.219697, 0.0509363, 0.275019, 0.18447, 0.169222, 0.284332, 5.9514, 12.1394, 4.76219, 0.27904, 0.236757, 0.0873024, 0.550067, 0.48694, 1.46645, 7.32608, 8.29495, 1.78265, 451.755, 0.184811, 0.854861, 0.884807, 0.905153, 0.919651, 0.928788, 0.965785, 1.02405, 1.05954, 1.078, 1.08142, 1.11422, 1.1252, 1.12564, 1.11978, 1.12619, 0.426733, 0.389886, 0.365118, 0.332598, 0.321769, 0.300411, 0.31417, 0.324271, 0.338953, 0.343234, 0.361695, 0.373117, 0.38187, 0.399279, 0.410387, 0.703529, 1.00794,), W1=ubinascii.a2b_base64('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'), S1=0.00571061, B1=(-0.519386, 0.571396, -0.0754916, -0.0195732, -0.426257, -0.376342, -0.227792, -0.00284539, -0.518146, -0.154068, -0.163539, -0.26537, -0.205398, -0.0129075, 0.1238, -0.217547, 0.0854661, -0.222173, -0.209336, -0.680645, 0.326808, -0.39308, 0.593549, -0.0761917, -0.389451, 0.0709565, -0.0950338, -0.348748, -0.249475, 0.336714, -0.252025, -0.116908, -0.300584, -0.2035, -0.16754, -0.156858, -0.273029, -0.444668, 0.0189509, -0.200635, 0.128067, -0.116787, 0.10407, -0.111556, -0.712687, -0.233995, -0.0936994, -0.15676, -0.478417, 0.0293338, -0.294517, 0.448457, -0.0495657, 0.0748874, -0.887712, 0.136411, 0.152463, -0.228059, 0.108468, -0.128858, -0.400685, 0.454477, 0.0641312, -0.25493,), W2=ubinascii.a2b_base64('G4ZHrp8oMjnLSdvtjnKkK5zTl26YcFSVsVmEupBUtdemx16O48g6QjFlz2eva4+RnxmRoGMvgVRCk3mci09eMQ=='), S2=0.0112837, B2=0.0459014),
 )
 V2_OSTATNI = [0.0, False]       # last session: mean logit, suspicious
 
@@ -795,7 +888,7 @@ def main():
             print("Confirm result: alarm/conf/logit", czy, conf, V2_OSTATNI[0])
             if czy:
                 _v2_alarm(conf, vib)
-                idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
+                idz_spac_na_sztywno(V2_PO_ALARMIE_MS)
                 return
         except Exception as e:
             print("Det err:", e)
@@ -826,7 +919,7 @@ def main():
         gc.collect()
         if czy:
             _v2_alarm(conf, vib)
-            idz_spac_na_sztywno(CZAS_SNU_SZTYWNEGO_MS)
+            idz_spac_na_sztywno(V2_PO_ALARMIE_MS)
         elif V2_OSTATNI[1]:
             _v2_nvs_set(V2_NVS_KEY, 1 | (2 if vib else 0))
             idz_spac_na_sztywno(V2_CONFIRM_SLEEP_MS)
