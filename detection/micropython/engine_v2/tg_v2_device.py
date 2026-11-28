@@ -7,7 +7,7 @@
 #   st = V2State()                 # allocate once per wake (about 9 KB)
 #   for blk in nagraj_audio():     # 8000-byte LE blocks of 12-bit ADC codes
 #       st.add_block(blk)
-#   vec = st.session_vector()      # list of 58 floats, same order as features.NAMES
+#   vec = st.session_vector()      # list of 90 floats, same order as features.NAMES
 #   p = score(vec, MODEL)          # probability of "machine at the pile"
 
 import math
@@ -89,6 +89,18 @@ class V2State:
         self.imp = 0.0
         self.frr = 0.0
         self.e = _zeros('f', 124)
+        self.fbp = _zeros('f', 15)                 # previous frame band logs
+        self.fbc = _zeros('f', 15)                 # current frame band logs
+        self.md1 = _zeros('f', 15)                 # sum of d, d^2 per band
+        self.md2 = _zeros('f', 15)
+        self.mr1 = _zeros('f', 15)                 # sum of rel, rel^2 per band
+        self.mr2 = _zeros('f', 15)
+        self.mrs = _zeros('f', 15)                 # shift (first frame) for stable variance
+        self.mls = 0.0
+        self.mda = 0.0
+        self.ml1 = 0.0
+        self.ml2 = 0.0
+        self.nf = 0
         self.es = _zeros('f', 124)                 # sorted copy for the median
         self.nb = 0
         self.tb_lo = 0.0
@@ -213,6 +225,7 @@ class V2State:
                 p1[k] = pw
                 P[k] += pw
             self._whiten_frame(fi)
+            self._frame_mod()
         for k in range(V2_HALF + 1):
             P[k] *= 0.25
         b = self.nb
@@ -363,6 +376,40 @@ class V2State:
             self.Wp[k] = W[k]
         self.nb = b + 1
 
+    def _frame_mod(self):
+        p1 = self.p1
+        fbc = self.fbc
+        fbp = self.fbp
+        m = 0.0
+        for q in range(15):
+            a0 = V2_BINS[q]
+            a1 = V2_BINS[q + 1]
+            s = 0.0
+            for k in range(a0, a1):
+                s += p1[k]
+            vl = math.log(s / (a1 - a0) + 1e-6)
+            fbc[q] = vl
+            m += vl
+        m /= 15.0
+        if self.nf == 0:
+            self.mls = m
+            for q in range(15):
+                self.mrs[q] = fbc[q] - m
+        x = m - self.mls
+        self.ml1 += x
+        self.ml2 += x * x
+        for q in range(15):
+            r = fbc[q] - m - self.mrs[q]
+            self.mr1[q] += r
+            self.mr2[q] += r * r
+            if self.nf > 0:
+                dd = fbc[q] - fbp[q]
+                self.md1[q] += dd
+                self.md2[q] += dd * dd
+                self.mda += dd if dd > 0.0 else -dd
+            fbp[q] = fbc[q]
+        self.nf += 1
+
     def _whiten_frame(self, fi):
         nlo = V2_LO1 - V2_LO0
         W = self.W
@@ -467,7 +514,21 @@ class V2State:
                 et += x
                 if V2_HUM[i + V2_LO0]:
                     eh += x
-        v.append(eh / (et + 0.1))
+        v.append((eh + 0.016) / (et + 0.1))
+        nf = self.nf
+        nd = nf - 1
+        for q in range(15):
+            mm = self.md1[q] / nd
+            x = self.md2[q] / nd - mm * mm
+            v.append(math.sqrt(x if x > 0.0 else 0.0))
+        for q in range(15):
+            mm = self.mr1[q] / nf
+            x = self.mr2[q] / nf - mm * mm
+            v.append(math.sqrt(x if x > 0.0 else 0.0))
+        v.append(self.mda / (nd * 15))
+        mm = self.ml1 / nf
+        x = self.ml2 / nf - mm * mm
+        v.append(math.sqrt(x if x > 0.0 else 0.0))
         return v
 
 

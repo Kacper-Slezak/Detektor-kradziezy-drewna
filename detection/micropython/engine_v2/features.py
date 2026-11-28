@@ -31,6 +31,9 @@ Session (blocks b = 0..nb-1):
   frame_range  mean log(max/min) of the energy of the four 248 ms quarters of a block
   lines_*_hi like lines_* over 500-1906 Hz; lines_lo_hi = log((prom_lo+0.1)/(prom_hi+0.1));
              peak_hz: frequency of the strongest bin of the session-mean W (31-1906 Hz)
+  mod_d[15]  per band: std of the frame-to-frame change of log band energy (frames 250 ms
+             apart, across the whole session); mod_r[15]: std of the band level relative to
+             the frame mean; mod_dabs: mean |change|; mod_lvl: std of the frame mean level
   hum50      share of line prominence (session-mean W above LINE) that sits on the bins of
              exact multiples of 50 Hz: mains hum is there, an engine's drifting comb is not
   + mean and std over blocks of bands, harm, flat, env, lowhi, tf_lo.
@@ -56,7 +59,9 @@ NAMES = (['band_mu%d' % i for i in range(15)] + ['band_sd%d' % i for i in range(
             'tb_lo', 'tb_hi', 'stab_lo', 'cos_bands',
             'lines_n', 'lines_prom', 'lines_persist', 'tb2_lo', 'tb_mid',
             'imp_rate', 'lvl_sd', 'lvl_dabs', 'frame_range',
-            'lines_n_hi', 'lines_prom_hi', 'lines_lo_hi', 'peak_hz', 'hum50'])
+            'lines_n_hi', 'lines_prom_hi', 'lines_lo_hi', 'peak_hz', 'hum50']
+         + ['mod_d%d' % i for i in range(15)] + ['mod_r%d' % i for i in range(15)]
+         + ['mod_dabs', 'mod_lvl'])
 HUM_BINS = sorted({int(round(50.0 * k / 7.8125)) for k in range(1, 39)} & set(range(4, 244)))
 LINE = 0.8                                       # whitened log level of a 'strong line'
 MID = slice(20, 128)                             # 156-1000 Hz
@@ -84,12 +89,14 @@ def block_features(block):
     assert x.shape == (4000,)
     P = np.zeros(N // 2 + 1)                                   # (257,)
     Wf = []
+    Fb = []                                                    # (4, 15) frame band logs
     for o in OFFS:
         f = x[o:o + N]
         f = (f - f.mean()) * HANN
         X = np.fft.rfft(f)
         p = X.real ** 2 + X.imag ** 2
         Wf.append(whiten(p)[LO])
+        Fb.append([np.log(p[BINS[q]:BINS[q + 1]].mean() + 1e-6) for q in range(15)])
         P += p
     P /= len(OFFS)
     bp = np.array([P[BINS[b]:BINS[b + 1]].mean() for b in range(15)]) + 1e-6
@@ -113,7 +120,7 @@ def block_features(block):
     lowhi = float(np.log((P[4:45].sum() + 1e-9) / (P[45:244].sum() + 1e-9)))
     tf_lo = float(np.mean([corr(Wf[j], Wf[j + 1]) for j in range(len(Wf) - 1)]))
     return dict(harm=harm, flat=flat, env=env, lowhi=lowhi, tf_lo=tf_lo, imp=imp, lvl=lvl,
-                frr=frr), bands, W
+                frr=frr, fb=np.array(Fb)), bands, W
 
 
 def session_features(codes):
@@ -128,7 +135,8 @@ def session_features(codes):
         W.append(w)
     B = np.array(B)                                            # (nb, 15)
     W = np.array(W)                                            # (nb, 257)
-    sc = {k: np.array([d[k] for d in D]) for k in D[0]}
+    sc = {k: np.array([d[k] for d in D]) for k in D[0] if k != 'fb'}
+    E = np.concatenate([d['fb'] for d in D])                    # (4*nb, 15)
     tb_lo = np.mean([corr(W[i, LO], W[i + 1, LO]) for i in range(nb - 1)])
     tb_hi = np.mean([corr(W[i, HI], W[i + 1, HI]) for i in range(nb - 1)])
     stab_lo = W[:, LO].mean(0).std() / (np.mean(W[:, LO].std(1)) + 1e-9)
@@ -152,5 +160,8 @@ def session_features(codes):
     v += [float((wh > LINE).sum()), p_hi, float(np.log((p_lo + 0.1) / (p_hi + 0.1))),
           float(np.argmax(W[:, 4:244].mean(0)) + 4) * 7.8125]
     ex = np.clip(W[:, 4:244].mean(0) - LINE, 0, None)
-    v += [float(ex[[k - 4 for k in HUM_BINS]].sum() / (ex.sum() + 0.1))]
+    v += [float((ex[[k - 4 for k in HUM_BINS]].sum() + 0.016) / (ex.sum() + 0.1))]  # no lines -> 0.16 (chance)
+    dE = np.diff(E, axis=0)
+    rel = E - E.mean(1, keepdims=True)
+    v += list(np.std(dE, 0)) + list(np.std(rel, 0)) + [float(np.mean(np.abs(dE))), float(np.std(E.mean(1)))]
     return np.array(v)
