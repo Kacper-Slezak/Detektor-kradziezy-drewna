@@ -134,7 +134,7 @@ svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
     <li><b>Zbiory zewnętrzne</b> (soc, sample, FSD50K) ocenia model trenowany na wszystkich danych CV i ICE.</li>
     <li><b>Burst</b> jest uruchamiany jako niezmieniony <code>deploy/burst/main.py</code> na tych samych sesjach (<code>eval_firmware.py</code>, atrapy modułów Pycom). Jego alarm to wynik <code>analizuj_sygnaly</code>.</li>
     <li>Przedziały to 95% Wilsona. Odsetki liczone są na sesjach przy nominalnej głośności (RMS 120), chyba że zaznaczono inaczej.</li>
-    <li><b>Wybór modelu</b> (CV na trzech korpusach): MLP-8 AUC 0,838 → z cechami modulacji 0,849 → H32 0,862 → <b>H64 0,874</b>; drzewa (GBT, 300) 0,839. <b>Ablacja</b> wcześniejsza (2 ziarna, AUC na CV bez trudnych mieszanek): bez trudnych mieszanek w treningu 0,953 (×1 pogoda) i 0,952 (×3 pogoda); z trudnymi mieszankami 0,938 i 0,929. Waga ×3 dla deszczu, wiatru i burzy zmniejsza podejrzenia od deszczu z 17,9% do 9,6% przy tej samej czułości na maszynach (71,8% → 71,7%).</li>
+    <li><b>Wybór modelu</b> (CV na trzech korpusach): MLP-8 AUC 0,838 → z cechami modulacji 0,849 → H32 0,862 → <b>H64 0,874</b>; drzewa (GBT, 300) 0,839. Augmentacja głośnikiem i pogłosem co trzeciej sesji (v7) nie poprawiła wykrycia przez głośnik BT (maszyny 27% zamiast 32%), więc jej nie wdrożono. <b>Ablacja</b> wcześniejsza (2 ziarna, AUC na CV bez trudnych mieszanek): bez trudnych mieszanek w treningu 0,953 (×1 pogoda) i 0,952 (×3 pogoda); z trudnymi mieszankami 0,938 i 0,929. Waga ×3 dla deszczu, wiatru i burzy zmniejsza podejrzenia od deszczu z 17,9% do 9,6% przy tej samej czułości na maszynach (71,8% → 71,7%).</li>
   </ul>
 </section>
 
@@ -217,13 +217,15 @@ curl -L -o $TG_DATA/fsd50k/gt.zip   https://zenodo.org/api/records/4060432/files
 
 # 3. potok
 ../.venv/bin/python fsd50k_extract.py
-../.venv/bin/python cache.py v4            # sesje w torze płytki
-../.venv/bin/python feat_cache.py v4       # 57 cech na sesję
-../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v4   # burst bez zmian
-TG_TAG=v4 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
+../.venv/bin/python cache.py v5            # sesje w torze płytki (FSD50K w CV, przydźwięk)
+ln -s sessions_v5.npz $TG_DATA/cache/sessions_v6.npz
+../.venv/bin/python feat_cache.py v6       # 90 cech na sesję
+../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v6   # burst bez zmian
+TG_TAG=v6 TG_H=64 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
 ../.venv/bin/python build_main.py          # deploy/v2/main.py
 ../.venv/bin/python -m unittest test_v2_device
-TG_TAG=v4 ../.venv/bin/python make_report.py    # ten raport</pre>
+../.venv/bin/python eval_corridor.py       # test korytarza
+TG_TAG=v6 ../.venv/bin/python make_report.py    # ten raport</pre>
   <p class="small">Ziarna są stałe (render: <code>i*7+poziom</code>, mieszanki: 2026, MLP: 11). Na maszynie z 20 wątkami cały potok trwa około 30 min.</p>
 </section>
 

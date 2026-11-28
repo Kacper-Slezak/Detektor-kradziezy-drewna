@@ -351,7 +351,7 @@ def main():
     forest_cv = (kind == 'forest') & (src == 'esc50') & nom
     forest_fsd = (kind == 'forest') & (src == 'fsd') & nom
     summary = '<ol class="plain">' + ''.join('<li>%s</li>' % t for t in [
-        '<b>Silnik kontra las (priorytet 1).</b> Na jednej sesji 10 s v2 podejrzewa maszynę w %.0f%% sesji maszyn z CV (burst alarmuje w %.0f%%), w %.0f%% sesji zewnętrznych nagrań maszyn (burst %.0f%%) i w %.0f%% sesji niezależnego FSD50K (burst %.0f%%). Fałszywe podejrzenia: %.1f%% klipów przyrody ESC-50 i %.1f%% FSD50K; alarm od razu: %.1f%% i %.1f%%.' % (
+        '<b>Silnik kontra las (priorytet 1).</b> Na jednej sesji 10 s v2 podejrzewa maszynę w %.0f%% sesji maszyn z CV (burst alarmuje w %.0f%%), w %.0f%% sesji zewnętrznych nagrań maszyn (burst %.0f%%) i w %.0f%% sesji FSD50K w CV (burst %.0f%%; przeniesienie bez treningu na FSD50K: sekcja 5b). Fałszywe podejrzenia: %.1f%% klipów przyrody ESC-50 i %.1f%% FSD50K; alarm od razu: %.1f%% i %.1f%%.' % (
             r(m_soc2, susp)[0], r(m_soc2, burst)[0], r(m_ext, susp)[0], r(m_ext, burst)[0], r(m_fsd, susp)[0], r(m_fsd, burst)[0],
             pct(susp[forest_cv].sum(), forest_cv.sum()), pct(susp[forest_fsd].sum(), max(1, forest_fsd.sum())),
             pct(high[forest_cv].sum(), forest_cv.sum()), pct(high[forest_fsd].sum(), max(1, forest_fsd.sum()))),
@@ -379,6 +379,8 @@ def main():
         'Przeloty liczone są na pojedynczych klipach. Dwuetapowe potwierdzenie (2 min) nie było sprawdzane na długich nagraniach przelotów.',
         'Uderzenia kłód przy załadunku nie są wykrywane osobno. Czujnik drgań podnosi pewność i przyspiesza alarm.',
         'Pewność w ramce ALARM to 100·sigmoid(logit), a nie skalibrowane prawdopodobieństwo.',
+        '<b>Pokaz w korytarzu (sekcja 7b):</b> głośnik bez basu (górnoprzepustowy 150–300 Hz) wyraźnie obniża wykrycie, a ciężarówka z <code>forest-with-truck.wav</code> jest wykrywana słabo w każdym wariancie (jej linie w 31–500 Hz są słabe). Na pokaz: kolumna z dobrym basem, nagranie maszyny z wyraźnym silnikiem (np. traktory z sekcji 3), płytka na baterii, <code>V2_TRYB_POKAZ = True</code> (drugi pomiar po 15 s, blokada 60 s).',
+        '<code>deploy/v2/main.py</code> ma około 38,7 KB, a burst około 17,7 KB. Jeśli kompilacja na LoPy skończy się <code>MemoryError</code>: <code>mpy-cross</code> albo przebudowa z <code>TG_H=32</code> (AUC 0,862 zamiast 0,874).',
     ])
     tpl = (HERE / 'report_template.html').read_text()
     rep = {

@@ -13,11 +13,12 @@ blocks at 4 kHz with the existing `nagraj_audio()`, and scores the session:
 2. Per block features: 15-band spectral shape, whitened log spectrum (log P minus its local
    mean over +-12 bins), harmonicity, flatness, sub-frame envelope variation, low/high ratio,
    frame-to-frame line correlation, impulse rate, level.
-3. Session vector (57 values, `features.NAMES`): means and spreads over blocks plus the
+3. Session vector (90 values, `features.NAMES`): means and spreads over blocks plus the
    line-persistence features (correlation of the whitened spectrum between consecutive and
    every-other blocks, number and persistence of strong lines below 500 Hz) and level
-   variation (gusts).
-4. MLP 57-8-1 with int8 weights -> logit.
+   variation (gusts), per-band modulation, and the share of lines on exact 50 Hz multiples
+   (mains hum).
+4. MLP 90-64-1 with int8 weights (base64 in main.py) -> logit.
 5. Decision (`main()`):
    * logit >= `V2_T_HIGH` -> ALARM now;
    * logit >= `V2_T_SUSP` -> store a flag in NVS, deep sleep 2 min (timer), record a second
@@ -61,12 +62,13 @@ in `RAPORT_v2.html`, section "Dane". Then:
 
 ```bash
 ../.venv/bin/python fsd50k_extract.py
-../.venv/bin/python cache.py v4
-../.venv/bin/python feat_cache.py v4
-../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v4   # baseline
-TG_TAG=v4 ../.venv/bin/python export_model.py
+../.venv/bin/python cache.py v5   # FSD50K in CV + hum; tag v6 reuses these sessions
+ln -s sessions_v5.npz $TG_DATA/cache/sessions_v6.npz
+../.venv/bin/python feat_cache.py v6
+../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v6   # baseline
+TG_TAG=v6 TG_H=64 ../.venv/bin/python export_model.py
 ../.venv/bin/python build_main.py
-../.venv/bin/python make_report.py
+TG_TAG=v6 ../.venv/bin/python make_report.py
 ```
 
 ## Known limits

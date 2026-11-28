@@ -58,7 +58,7 @@ def all_items(tag):
     if tag == 'v1':
         return items
     items += devsim.soc2_items()
-    if tag in ('v4', 'v5'):
+    if tag in ('v4', 'v5', 'v7'):
         items += devsim.fsd_items()             # v4: held-out corpus; v5: third CV corpus
     rng = np.random.default_rng(2026)
     esc = devsim.esc50_items()
@@ -79,14 +79,14 @@ def all_items(tag):
         if it['src'] == 'ice':
             m['bg'] = ('synth', ('wind', 'rain')[(i // 2) % 2])
         elif it['src'] == 'fsd':
-            pool = [e for e in fsd_bg if tag != 'v5' or e['fold'] == it['fold']]
+            pool = [e for e in fsd_bg if tag not in ('v5', 'v7') or e['fold'] == it['fold']]
             b = pool[rng.integers(len(pool))]
             m['bg'] = (str(b['path']), b['cls'])
         else:
             b = bg_by_fold[it['fold']][rng.integers(len(bg_by_fold[it['fold']]))]
             m['bg'] = (str(b['path']), b['cls'])
         mixes.append(m)
-        if tag not in ('v3', 'v4', 'v5'):
+        if tag not in ('v3', 'v4', 'v5', 'v7'):
             continue
         # v3: a second, harder mixture with storm / rain / wind only (theft during bad weather)
         m2 = dict(it)
@@ -95,7 +95,7 @@ def all_items(tag):
         if it['src'] == 'ice':
             m2['bg'] = ('synth', ('wind', 'rain')[i % 2])
         elif it['src'] == 'fsd':
-            pool = [e for e in fsd_storm if tag != 'v5' or e['fold'] == it['fold']]
+            pool = [e for e in fsd_storm if tag not in ('v5', 'v7') or e['fold'] == it['fold']]
             b = pool[rng.integers(len(pool))]
             m2['bg'] = (str(b['path']), b['cls'])
         else:
@@ -104,7 +104,15 @@ def all_items(tag):
             m2['bg'] = (str(b['path']), b['cls'])
         mixes.append(m2)
     extra = []
-    if tag == 'v5':
+    if tag == 'v7':
+        # loudspeaker + room: a third of the CV items, positives and negatives alike
+        for j, e in enumerate([e for e in items if e['src'] in ('esc50', 'soc2', 'fsd')]):
+            if j % 3 == 0:
+                h = dict(e)
+                h['spk'] = float(rng.uniform(100.0, 300.0))
+                h['cls'] = e['cls'] + '+spk'
+                extra.append(h)
+    if tag in ('v5', 'v7'):
         # corridor / mains: pure hum and ventilation sessions (negatives, CV folds 1-5)
         for j in range(250):
             k = 'hum' if j < 200 else 'vent'
@@ -126,7 +134,16 @@ def render(it, level, seed):
     if str(it['path']).startswith('synth:'):
         x = synth_noise(int(it['dur'] * 4000), rng, str(it['path'])[6:])
         return devsim.to_adc(x, level, rng)
-    x = devsim.device_float(it['path'], it['start'], it['dur'], seed=seed)
+    if 'spk' in it:
+        import eval_corridor
+        xr, fs = devsim.read_wav_cached(it['path'])
+        a = int(it['start'] * fs)
+        b = len(xr) if it['dur'] is None else a + int(it['dur'] * fs)
+        xr = eval_corridor.speaker_room(xr[a:b], fs, it['spk'], rng,
+                                        rt60=float(rng.uniform(0.4, 1.5)))
+        x = devsim.decimate_no_filter(devsim.highpass(xr, fs), fs, jitter_us=2.0, rng=rng)
+    else:
+        x = devsim.device_float(it['path'], it['start'], it['dur'], seed=seed)
     if 'bg' in it:
         src, k = it['bg']
         if src == 'synth':
@@ -158,7 +175,7 @@ def build(tag='v2'):
             if n < 3 * 4000:            # burst needs >= 3 blocks for a 2-of-2 decision
                 continue
             codes.append(c[:n].astype(np.int16))
-            m = {k: str(v) for k, v in it.items() if k not in ('path', 'bg', 'snr', 'hum')}
+            m = {k: str(v) for k, v in it.items() if k not in ('path', 'bg', 'snr', 'hum', 'spk')}
             m['path'] = str(it['path'])
             m['level'] = str(lv)
             m['snr'] = str(it.get('snr', ''))

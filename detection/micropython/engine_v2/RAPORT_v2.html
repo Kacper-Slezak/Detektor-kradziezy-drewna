@@ -69,7 +69,7 @@ svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
 
 <section class="box">
   <h2 style="border:0;padding:0">Najważniejsze</h2>
-  <ol class="plain"><li><b>Silnik kontra las (priorytet 1).</b> Na jednej sesji 10 s v2 podejrzewa maszynę w 53% sesji maszyn z CV (burst alarmuje w 10%), w 64% sesji zewnętrznych nagrań maszyn (burst 41%) i w 27% sesji niezależnego FSD50K (burst 10%). Fałszywe podejrzenia: 1.0% klipów przyrody ESC-50 i 3.5% FSD50K; alarm od razu: 0.2% i 0.4%.</li><li><b>Urządzenie (kolejne wybudzenia, maks. 2 min dźwięku):</b> alarm dla 25 z 31 nagrań maszyn (burst: 13 z 31). Fałszywe alarmy: przyroda ESC-50 0 z 50, las Valla 0 z 1, nagranie lasu z szumem drogi 0 z 1, przeloty ESC-50 0 z 5 (sekcja 6).</li><li><b>Burza, deszcz, wiatr kontra silnik (priorytet 2).</b> Podejrzenie / alarm od razu: burza 1.4% / 0.0% (n=217), deszcz 4.1% / 0.0% (n=172), wiatr 2.8% / 0.7% (n=141). Burst alarmuje: burza 3.2%, deszcz 7.0%, wiatr 14.9%.</li><li><b>Kradzież w czasie burzy, deszczu lub wiatru (priorytet 3).</b> Na urządzeniu alarm dla 6 z 16 nagrań maszyn zmieszanych z burzą/deszczem/wiatrem przy +3 dB i 4 z 19 przy −3 dB (burst: 7 i 8).</li><li><b>Niezależność od głośności:</b> wyniki v2 przy RMS 40, 120 i 360 różnią się o pojedyncze sesje, a burst zmienia się wraz z głośnością (sekcja 8).</li><li><b>Najsłabsze miejsca:</b> świerszcze i owady (ich śpiew zawija się bez filtra antyaliasingowego do pasma 0–2 kHz jako stałe linie), śmigłowiec oraz nagranie lasu z odległym szumem drogi. Do tego brak nagrania z naszego mikrofonu i niezmierzony czas działania na LoPy.</li></ol>
+  <ol class="plain"><li><b>Silnik kontra las (priorytet 1).</b> Na jednej sesji 10 s v2 podejrzewa maszynę w 53% sesji maszyn z CV (burst alarmuje w 10%), w 64% sesji zewnętrznych nagrań maszyn (burst 41%) i w 27% sesji FSD50K w CV (burst 10%; przeniesienie bez treningu na FSD50K: sekcja 5b). Fałszywe podejrzenia: 1.0% klipów przyrody ESC-50 i 3.5% FSD50K; alarm od razu: 0.2% i 0.4%.</li><li><b>Urządzenie (kolejne wybudzenia, maks. 2 min dźwięku):</b> alarm dla 25 z 31 nagrań maszyn (burst: 13 z 31). Fałszywe alarmy: przyroda ESC-50 0 z 50, las Valla 0 z 1, nagranie lasu z szumem drogi 0 z 1, przeloty ESC-50 0 z 5 (sekcja 6).</li><li><b>Burza, deszcz, wiatr kontra silnik (priorytet 2).</b> Podejrzenie / alarm od razu: burza 1.4% / 0.0% (n=217), deszcz 4.1% / 0.0% (n=172), wiatr 2.8% / 0.7% (n=141). Burst alarmuje: burza 3.2%, deszcz 7.0%, wiatr 14.9%.</li><li><b>Kradzież w czasie burzy, deszczu lub wiatru (priorytet 3).</b> Na urządzeniu alarm dla 6 z 16 nagrań maszyn zmieszanych z burzą/deszczem/wiatrem przy +3 dB i 4 z 19 przy −3 dB (burst: 7 i 8).</li><li><b>Niezależność od głośności:</b> wyniki v2 przy RMS 40, 120 i 360 różnią się o pojedyncze sesje, a burst zmienia się wraz z głośnością (sekcja 8).</li><li><b>Najsłabsze miejsca:</b> świerszcze i owady (ich śpiew zawija się bez filtra antyaliasingowego do pasma 0–2 kHz jako stałe linie), śmigłowiec oraz nagranie lasu z odległym szumem drogi. Do tego brak nagrania z naszego mikrofonu i niezmierzony czas działania na LoPy.</li></ol>
 </section>
 
 <section>
@@ -80,7 +80,8 @@ svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
     <li><b>Nowy firmware <code>detection/micropython/deploy/v2/main.py</code></b> (38653 B, sha256 <code>409b596767a83d6f5d7860ba26706ed94ab3f9b0d6df81d217cee6acfcf1a096</code>), generowany przez <code>build_main.py</code> z <code>deploy/burst/main.py</code> Kiryla. Bez zmian zostają: Wi-Fi, ramki protokołu (ALARM, HEARTBEAT, BOOT), nagrywanie ADC (<code>nagraj_audio</code>), sen, NVS. Wymienione zostały <code>analizuj_sygnaly()</code> (nowy detektor) i <code>main()</code> (drugi pomiar po 2 min). <code>FIRMWARE_VER</code> = 2.</li>
     <li><b><code>deploy/burst/main.py</code> nie był modyfikowany</b>. Służy jako punkt odniesienia i jest uruchamiany w ewaluacji bez zmian.</li>
   </ul>
-  <pre>628e3fc feat(detection): per-band modulation features (90 inputs), hum50 at chance without lines
+  <pre>e2525ac feat(detection): final v6 model (90 inputs, MLP 90-64-1, base64 int8 weights) and report
+628e3fc feat(detection): per-band modulation features (90 inputs), hum50 at chance without lines
 d42c65d feat(detection): mains-hum rejection and FSD50K as third CV corpus (58 inputs)
 22c12af fix(detection): read the multi-disk Zip64 FSD50K archive by hand, drop ESC-50 overlap
 e592b80 feat(detection): weather-aware v2 detector (53 inputs) and held-out FSD50K hooks
@@ -91,7 +92,6 @@ f3b39a0 feat(detection): device-domain evaluation harness for engine detector
 3307f98 Modified main.py for LoPy integration
 f315635 Adapt detection algorithm for LoPy streaming firmware integration
 43fb5c4 Update firmware reference for detection integration
-d644b13 Integrate alghoritm optimizations
 </pre>
 </section>
 
@@ -183,7 +183,7 @@ d644b13 Integrate alghoritm optimizations
     <li><b>Zbiory zewnętrzne</b> (soc, sample, FSD50K) ocenia model trenowany na wszystkich danych CV i ICE.</li>
     <li><b>Burst</b> jest uruchamiany jako niezmieniony <code>deploy/burst/main.py</code> na tych samych sesjach (<code>eval_firmware.py</code>, atrapy modułów Pycom). Jego alarm to wynik <code>analizuj_sygnaly</code>.</li>
     <li>Przedziały to 95% Wilsona. Odsetki liczone są na sesjach przy nominalnej głośności (RMS 120), chyba że zaznaczono inaczej.</li>
-    <li><b>Wybór modelu</b> (CV na trzech korpusach): MLP-8 AUC 0,838 → z cechami modulacji 0,849 → H32 0,862 → <b>H64 0,874</b>; drzewa (GBT, 300) 0,839. <b>Ablacja</b> wcześniejsza (2 ziarna, AUC na CV bez trudnych mieszanek): bez trudnych mieszanek w treningu 0,953 (×1 pogoda) i 0,952 (×3 pogoda); z trudnymi mieszankami 0,938 i 0,929. Waga ×3 dla deszczu, wiatru i burzy zmniejsza podejrzenia od deszczu z 17,9% do 9,6% przy tej samej czułości na maszynach (71,8% → 71,7%).</li>
+    <li><b>Wybór modelu</b> (CV na trzech korpusach): MLP-8 AUC 0,838 → z cechami modulacji 0,849 → H32 0,862 → <b>H64 0,874</b>; drzewa (GBT, 300) 0,839. Augmentacja głośnikiem i pogłosem co trzeciej sesji (v7) nie poprawiła wykrycia przez głośnik BT (maszyny 27% zamiast 32%), więc jej nie wdrożono. <b>Ablacja</b> wcześniejsza (2 ziarna, AUC na CV bez trudnych mieszanek): bez trudnych mieszanek w treningu 0,953 (×1 pogoda) i 0,952 (×3 pogoda); z trudnymi mieszankami 0,938 i 0,929. Waga ×3 dla deszczu, wiatru i burzy zmniejsza podejrzenia od deszczu z 17,9% do 9,6% przy tej samej czułości na maszynach (71,8% → 71,7%).</li>
   </ul>
 </section>
 
@@ -492,7 +492,7 @@ corridor background only: hum   n=40  podejrzenie   0.0%  alarm od razu   0.0%  
 <section>
   <h2>9. Płytka</h2>
   <ul class="plain">
-    <li><b>Zgodność:</b> <code>tg_v2_device.py</code> (czysty Python, tablice <code>array('f')</code>, bez f-stringów, zgodny z MicroPython v1.11) daje te same 90 cech co numpy z dokładnością 10<sup>−4</sup>. Logit z <code>deploy/v2/main.py</code> zgadza się z modelem numpy (int8) do 10<sup>−2</sup>. Maszyna stanów (alarm od razu, potwierdzenie, brak potwierdzenia, heartbeat) jest pokryta testami. Testy: <code>Ran 12 tests in 0.616s · OK</code>.</li>
+    <li><b>Zgodność:</b> <code>tg_v2_device.py</code> (czysty Python, tablice <code>array('f')</code>, bez f-stringów, zgodny z MicroPython v1.11) daje te same 90 cech co numpy z dokładnością 10<sup>−4</sup>. Logit z <code>deploy/v2/main.py</code> zgadza się z modelem numpy (int8) do 10<sup>−2</sup>. Maszyna stanów (alarm od razu, potwierdzenie, brak potwierdzenia, heartbeat) jest pokryta testami. Testy: <code>Ran 12 tests in 0.664s · OK</code>.</li>
     <li><b>Wagi int8</b> (jak w burst). Największa różnica logitu int8 i float na zbiorze treningowym to ~0,7 przy medianie |logit| ~9.</li>
     <li><b>Niezmierzone:</b> czas obliczeń i wolna sterta na LoPy. Na sekundę dźwięku płytka liczy 5 FFT-512 (burst: 4). Sterta zajęta przez stan to około 10 KB. Pomiar: <code>import main; main.v2_bench()</code> w REPL wypisuje ms na blok i wolną stertę.</li>
   </ul>
@@ -501,7 +501,7 @@ corridor background only: hum   n=40  podejrzenie   0.0%  alarm od razu   0.0%  
 <section class="warn">
   <h2 style="border:0;padding:0">10. Ograniczenia</h2>
   <ul class="plain">
-    <li>Brak nagrania z naszego mikrofonu i ADC. Tor płytki jest symulowany (filtr 100 Hz, decymacja bez filtra, 12 bit). Pierwszy krok walidacji to nagranie przez LoPy (<code>lopy_capture.py</code>) i powtórzenie oceny.</li><li>Czas obliczeń i sterta na LoPy niezmierzone (<code>main.v2_bench()</code>). Jeśli 10 bloków liczy się zbyt długo, można zmniejszyć liczbę ramek albo przejść na rzeczywistą FFT przez FFT połowy długości.</li><li>Pozytywy to głównie auta (ICE), muzealne maszyny (soc2) i klipy ESC-50/FSD50K. Brak nagrań maszyn leśnych (forwarder, harvester, dźwig HDS) przy mygle.</li><li>Nagranie lasu <code>forest-ambience.wav</code> zawiera dryfujące linie 25–100 Hz (prawdopodobnie odległy ruch drogowy), a burst też alarmuje na 73% jego sesji. Trzeba to sprawdzić odsłuchem. Jeśli to droga, czujnik przy ruchliwej drodze będzie wymagał wyższego progu.</li><li>Klipy ESC-50 trwają 5 s, więc sesja ma 5 bloków, a nie 10. Część etykiet ESC-50 zawiera tło: niektóre klipy „rain” mają w tle silnik lub przydźwięk 120 Hz.</li><li>Przeloty liczone są na pojedynczych klipach. Dwuetapowe potwierdzenie (2 min) nie było sprawdzane na długich nagraniach przelotów.</li><li>Uderzenia kłód przy załadunku nie są wykrywane osobno. Czujnik drgań podnosi pewność i przyspiesza alarm.</li><li>Pewność w ramce ALARM to 100·sigmoid(logit), a nie skalibrowane prawdopodobieństwo.</li>
+    <li>Brak nagrania z naszego mikrofonu i ADC. Tor płytki jest symulowany (filtr 100 Hz, decymacja bez filtra, 12 bit). Pierwszy krok walidacji to nagranie przez LoPy (<code>lopy_capture.py</code>) i powtórzenie oceny.</li><li>Czas obliczeń i sterta na LoPy niezmierzone (<code>main.v2_bench()</code>). Jeśli 10 bloków liczy się zbyt długo, można zmniejszyć liczbę ramek albo przejść na rzeczywistą FFT przez FFT połowy długości.</li><li>Pozytywy to głównie auta (ICE), muzealne maszyny (soc2) i klipy ESC-50/FSD50K. Brak nagrań maszyn leśnych (forwarder, harvester, dźwig HDS) przy mygle.</li><li>Nagranie lasu <code>forest-ambience.wav</code> zawiera dryfujące linie 25–100 Hz (prawdopodobnie odległy ruch drogowy), a burst też alarmuje na 73% jego sesji. Trzeba to sprawdzić odsłuchem. Jeśli to droga, czujnik przy ruchliwej drodze będzie wymagał wyższego progu.</li><li>Klipy ESC-50 trwają 5 s, więc sesja ma 5 bloków, a nie 10. Część etykiet ESC-50 zawiera tło: niektóre klipy „rain” mają w tle silnik lub przydźwięk 120 Hz.</li><li>Przeloty liczone są na pojedynczych klipach. Dwuetapowe potwierdzenie (2 min) nie było sprawdzane na długich nagraniach przelotów.</li><li>Uderzenia kłód przy załadunku nie są wykrywane osobno. Czujnik drgań podnosi pewność i przyspiesza alarm.</li><li>Pewność w ramce ALARM to 100·sigmoid(logit), a nie skalibrowane prawdopodobieństwo.</li><li><b>Pokaz w korytarzu (sekcja 7b):</b> głośnik bez basu (górnoprzepustowy 150–300 Hz) wyraźnie obniża wykrycie, a ciężarówka z <code>forest-with-truck.wav</code> jest wykrywana słabo w każdym wariancie (jej linie w 31–500 Hz są słabe). Na pokaz: kolumna z dobrym basem, nagranie maszyny z wyraźnym silnikiem (np. traktory z sekcji 3), płytka na baterii, <code>V2_TRYB_POKAZ = True</code> (drugi pomiar po 15 s, blokada 60 s).</li><li><code>deploy/v2/main.py</code> ma około 38,7 KB, a burst około 17,7 KB. Jeśli kompilacja na LoPy skończy się <code>MemoryError</code>: <code>mpy-cross</code> albo przebudowa z <code>TG_H=32</code> (AUC 0,862 zamiast 0,874).</li>
   </ul>
 </section>
 
@@ -528,13 +528,15 @@ curl -L -o $TG_DATA/fsd50k/gt.zip   https://zenodo.org/api/records/4060432/files
 
 # 3. potok
 ../.venv/bin/python fsd50k_extract.py
-../.venv/bin/python cache.py v4            # sesje w torze płytki
-../.venv/bin/python feat_cache.py v4       # 57 cech na sesję
-../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v4   # burst bez zmian
-TG_TAG=v4 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
+../.venv/bin/python cache.py v5            # sesje w torze płytki (FSD50K w CV, przydźwięk)
+ln -s sessions_v5.npz $TG_DATA/cache/sessions_v6.npz
+../.venv/bin/python feat_cache.py v6       # 90 cech na sesję
+../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v6   # burst bez zmian
+TG_TAG=v6 TG_H=64 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
 ../.venv/bin/python build_main.py          # deploy/v2/main.py
 ../.venv/bin/python -m unittest test_v2_device
-TG_TAG=v4 ../.venv/bin/python make_report.py    # ten raport</pre>
+../.venv/bin/python eval_corridor.py       # test korytarza
+TG_TAG=v6 ../.venv/bin/python make_report.py    # ten raport</pre>
   <p class="small">Ziarna są stałe (render: <code>i*7+poziom</code>, mieszanki: 2026, MLP: 11). Na maszynie z 20 wątkami cały potok trwa około 30 min.</p>
 </section>
 
