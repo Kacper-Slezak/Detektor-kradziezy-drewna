@@ -1,0 +1,26 @@
+{
+  "mode": "audio",
+  "windows": 47,
+  "time_range_s": [
+    0.0,
+    48.0
+  ],
+  "state_counts": {
+    "BACKGROUND": 27,
+    "ENGINE_SOUND": 17,
+    "ENGINE_AND_AUDIO_IMPACT": 3
+  },
+  "engine_windows": 4,
+  "audio_impact_windows": 3,
+  "motion_windows": 0,
+  "alarm_count": 0,
+  "alarm_times_s": [],
+  "thresholds": {
+    "audio_rms": 0.03650445839603858,
+    "audio_transient": 3.0
+  },
+  "calibration": "heuristic_low_30pct",
+  "warning": "Suspicious pattern only; NOT proof of theft. Thresholds require real data validation.",
+  "audio_file": "C:\\Kiryl_Workspace\\Studies\\IoT\\Detektor-kradziezy-drewna\\detection\\algorithm\\sample_audio\\forest-with-truck.wav",
+  "sensor_file": null
+}

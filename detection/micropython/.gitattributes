@@ -1,0 +1,3 @@
+# Keep trained export hashes stable when checking out on Windows.
+firmware/lib/tg_model_burst.py text eol=lf
+algorithm/models/tg_model_recall.py text eol=lf

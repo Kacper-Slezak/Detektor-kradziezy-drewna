@@ -1,0 +1,26 @@
+{
+  "mode": "audio",
+  "windows": 109,
+  "time_range_s": [
+    0.0,
+    110.0
+  ],
+  "state_counts": {
+    "BACKGROUND": 21,
+    "ENGINE_SOUND": 78,
+    "ENGINE_AND_AUDIO_IMPACT": 10
+  },
+  "engine_windows": 58,
+  "audio_impact_windows": 10,
+  "motion_windows": 0,
+  "alarm_count": 0,
+  "alarm_times_s": [],
+  "thresholds": {
+    "audio_rms": 0.0164859599673714,
+    "audio_transient": 3.0
+  },
+  "calibration": "separate_quiet_baseline",
+  "warning": "Suspicious pattern only; NOT proof of theft. Thresholds require real data validation.",
+  "audio_file": "C:\\Kiryl_Workspace\\Studies\\IoT\\Detektor-kradziezy-drewna\\detection\\algorithm\\results\\demo\\raw_demo\\scenario\\microphone.wav",
+  "sensor_file": null
+}

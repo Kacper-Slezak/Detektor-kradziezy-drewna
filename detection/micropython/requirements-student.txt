@@ -1,0 +1,3 @@
+# PC only. Works with a recent Python 3.11-3.13 and NumPy 2.x.
+numpy>=2.1,<3
+# FFmpeg must be installed separately and available on PATH.

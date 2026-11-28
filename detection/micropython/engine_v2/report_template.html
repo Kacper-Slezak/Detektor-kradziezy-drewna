@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raport detektora v2</title>
+<style>
+:root{
+  --bg:#f6f7f5; --surface:#fff; --fg:#1c231f; --muted:#5b665f; --line:#d9ded9;
+  --accent:#2f5d46; --accent-soft:#e3ece6; --warn:#99640f; --warn-soft:#f6ecd9;
+  --c1:#2f5d46; --c2:#7fb08f; --c3:#b0603a;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131815; --surface:#1a201c; --fg:#e4e9e5; --muted:#9aa69e; --line:#2e3731;
+  --accent:#7fbf9c; --accent-soft:#213229; --warn:#e0b25e; --warn-soft:#352b1a;
+  --c1:#7fbf9c; --c2:#3f7458; --c3:#e08a5f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#131815; --surface:#1a201c; --fg:#e4e9e5; --muted:#9aa69e; --line:#2e3731;
+  --accent:#7fbf9c; --accent-soft:#213229; --warn:#e0b25e; --warn-soft:#352b1a;
+  --c1:#7fbf9c; --c2:#3f7458; --c3:#e08a5f; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);padding:32px 16px 64px}
+main{max-width:56rem;margin:0 auto;display:flex;flex-direction:column;gap:2.2rem}
+h1{font-size:2rem;margin:0;line-height:1.2}
+h2{font-size:1.4rem;margin:0;padding-top:.5rem;border-top:2px solid var(--accent)}
+h3{font-size:1.1rem;margin:.4rem 0 0}
+p,ul,ol{margin:0}
+section{display:flex;flex-direction:column;gap:.9rem}
+code{font-family:var(--mono);font-size:.84em;background:var(--accent-soft);padding:.05em .3em;border-radius:3px;overflow-wrap:anywhere}
+pre{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.8rem;overflow-x:auto;font:13px/1.5 var(--mono)}
+.lede{color:var(--muted);font-size:1.05rem}
+.eyebrow{font:12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1rem 1.2rem}
+.warn{background:var(--warn-soft);border-radius:6px;padding:1rem 1.2rem}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;vertical-align:top;padding:.45rem .6rem;border-bottom:1px solid var(--line)}
+thead th{background:var(--accent-soft);font-weight:600}
+tbody th{font-weight:500}
+td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ci{color:var(--muted);font-size:.78em}
+ul.plain,ol.plain{padding-left:1.2rem;display:flex;flex-direction:column;gap:.35rem}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.75rem;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto;min-width:520px}
+svg text{font-family:var(--font);fill:var(--fg)}
+svg .axis{fill:var(--muted);font-size:11px}
+svg .lab{font-size:12px}
+svg .val{font-size:10.5px;fill:var(--muted)}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg rect.c1{fill:var(--c1)} svg rect.c2{fill:var(--c2)} svg rect.c3{fill:var(--c3)}
+svg .line{fill:none;stroke-width:2.2}
+svg polyline.c1{stroke:var(--c1)} svg polyline.c3{stroke:var(--c3)}
+.flow{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:.9rem}
+.flow span.b{border:1px solid var(--accent);border-radius:4px;padding:.2rem .5rem;background:var(--surface)}
+.small{font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+<header style="display:flex;flex-direction:column;gap:.7rem">
+  <div class="eyebrow">Detektor kradzieży drewna · issue #31 · gałąź feat/detection-issue-31</div>
+  <h1>Raport detektora v2</h1>
+  <p class="lede">Nowy detektor pracy maszyny przy mygle dla Pycom LoPy: co zmieniono, jak działa, na jakich danych go sprawdzono, jakie są wyniki w porównaniu z obecnym burst i jak to wszystko odtworzyć.</p>
+  <p class="small">Zbiór sesji: <code>{{TAG}}</code>, {{NSESS}} sesji po 10 s (każda w 3 głośnościach). Progi: T_HIGH = {{T_HIGH}}, T_SUSP = {{T_SUSP}} (logit). Raport wygenerował <code>engine_v2/make_report.py</code>, a wszystkie liczby są liczone wprost z danych.</p>
+</header>
+
+<section class="box">
+  <h2 style="border:0;padding:0">Najważniejsze</h2>
+  {{SUMMARY}}
+</section>
+
+<section>
+  <h2>1. Co zmieniono</h2>
+  <ul class="plain">
+    <li><b>Git:</b> na <code>main</code> był przerwany rebase (ktoś zrobił <code>git pull origin issue-31</code> z <code>pull.rebase=true</code>, więc git zaczął przenosić 52 commity <code>main</code> na gałąź Kiryla). Rebase został anulowany; <code>main</code> = <code>origin/main</code>, nic nie zginęło. Praca jest na nowej gałęzi <code>feat/detection-issue-31</code>, utworzonej z <code>origin/issue-31</code>. Gałąź Kiryla jest nietknięta.</li>
+    <li><b>Nowy katalog <code>detection/micropython/engine_v2/</code>:</b> symulacja toru płytki, ewaluacja, cechy (numpy, wzorzec), te same cechy w MicroPythonie, trening, eksport, budowa firmware, testy, ten raport.</li>
+    <li><b>Nowy firmware <code>detection/micropython/deploy/v2/main.py</code></b> ({{MAIN_SIZE}} B, sha256 <code>{{MAIN_SHA}}</code>), generowany przez <code>build_main.py</code> z <code>deploy/burst/main.py</code> Kiryla. Bez zmian zostają: Wi-Fi, ramki protokołu (ALARM, HEARTBEAT, BOOT), nagrywanie ADC (<code>nagraj_audio</code>), sen, NVS. Wymienione zostały <code>analizuj_sygnaly()</code> (nowy detektor) i <code>main()</code> (drugi pomiar po 2 min). <code>FIRMWARE_VER</code> = 2.</li>
+    <li><b><code>deploy/burst/main.py</code> nie był modyfikowany</b>. Służy jako punkt odniesienia i jest uruchamiany w ewaluacji bez zmian.</li>
+  </ul>
+  <pre>{{GIT}}</pre>
+</section>
+
+<section>
+  <h2>2. Jak działa detektor</h2>
+  <div class="flow"><span class="b">wybudzenie GPIO (dźwięk / drgania)</span>→<span class="b">10 × 1 s, 4 kHz, 12 bit</span>→<span class="b">cechy każdej sekundy</span>→<span class="b">90 cech sesji</span>→<span class="b">MLP 90-64-1 (int8)</span>→<span class="b">decyzja</span></div>
+  <h3>Intuicja</h3>
+  <ul class="plain">
+    <li>Silnik to zestaw <b>stałych linii tonalnych</b>: częstotliwość zapłonu f<sub>z</sub> = obr/min ÷ 60 × cylindry ÷ 2 (23–111 Hz) i jej harmoniczne. Utrzymują się sekunda po sekundzie. Wiatr, deszcz, burza, owady i ptaki takich trwałych linii poniżej 500 Hz nie mają.</li>
+    <li>Wszystkie cechy to stosunki albo korelacje, więc <b>głośność (odległość, wzmocnienie mikrofonu, głośnik na pokazie) nie zmienia wyniku</b>. Obecny burst rozpoznawał silnik w dużej mierze po głośności (cecha <code>mean log RMS</code>).</li>
+    <li>Kradzież trwa wiele minut, a przelot, przejazd czy grzmot trwają chwilę. Dlatego sesja „podejrzana” jest potwierdzana drugą sesją po 2 minutach.</li>
+  </ul>
+  <h3>Cechy (<code>features.py</code>, w tej samej kolejności w <code>tg_v2_device.py</code>)</h3>
+  <ul class="plain">
+    <li>Na każdą sekundę: 4 ramki Hann po 512 próbek (offsety 0/1000/2000/3000, jak w burst), uśrednione widmo mocy (Welch 1967). Z niego: kształt 15 pasm 31–1906 Hz; <b>wybielone widmo</b> W = log P − lokalna średnia log P (±12 binów), które zostawia wąskie linie i usuwa obwiednię widma; harmoniczność (autokorelacja max(W,0), opóźnienia 9–43 ms; Tolonen i Karjalainen 2000, Boersma 1993); płaskość (Johnston 1988); zmienność obwiedni podramek 8 ms; stosunek energii 31–350 / 350–1900 Hz; korelacja W między ramkami; udział impulsów (podramki > 4× mediany: trzaski deszczu); poziom.</li>
+    <li>Na każdą ramkę 250 ms: logarytmy energii 15 pasm; na sesję: zmienność tych energii z ramki na ramkę i względem średniej ramki (modulacja: silnik równy, wiatr, deszcz i ptaki fluktuują).</li>
+    <li>Na sesję: średnie i rozrzuty powyższych oraz cechy trwałości linii: korelacja W między kolejnymi sekundami i co dwie sekundy (31–500 Hz, 156–1000 Hz, 500–1900 Hz), liczba i wyrazistość silnych linii (W &gt; 0,8) w średnim W, liczba linii obecnych w każdej sekundzie, zmienność poziomu między sekundami (porywy wiatru), położenie najsilniejszej linii, linie powyżej 500 Hz oraz <b>udział linii na dokładnych wielokrotnościach 50 Hz</b> (przydźwięk sieci ma stałą częstotliwość, obroty silnika pływają).</li>
+  </ul>
+  <h3>Decyzja na płytce (<code>main()</code>)</h3>
+  <ul class="plain">
+    <li>logit ≥ T_HIGH ({{T_HIGH}}): ALARM od razu (wybrany przy 0,5% fałszywych alarmów na sesję).</li>
+    <li>logit ≥ T_SUSP ({{T_SUSP}}): sesja podejrzana. Flaga trafia do NVS, potem deep sleep z timerem 2 min, druga sesja i ALARM, jeśli też ≥ T_SUSP (próg wybrany przy 3% na sesję).</li>
+    <li>Wybudzenie przez czujnik drgań i sesja podejrzana: ALARM od razu (drgania to dodatkowy dowód).</li>
+    <li>W pozostałych przypadkach płytka wraca do snu na GPIO. Heartbeat i boot działają bez zmian.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Dane</h2>
+  <p>Żadne nagranie z naszego mikrofonu i ADC jeszcze nie istnieje, dlatego wszystkie nagrania przechodzą przez <b>symulację toru płytki</b> (<code>devsim.py</code>): filtr górnoprzepustowy 1. rzędu 100 Hz (BOB-12758: 100 Hz–10 kHz), próbkowanie 4 kHz przez wybieranie co n-tej próbki <b>bez filtra antyaliasingowego</b> (jak ADC ESP32), jitter 2 µs, skalowanie do RMS 40 / 120 / 360 jednostek ADC, szum 1,5 LSB i kwantyzacja 12 bit. Sesja to 10 s (dłuższe nagrania są cięte co 10 s, maksymalnie 12 sesji na nagranie).</p>
+  <div class="tw"><table><thead><tr><th>Źródło</th><th>Rodzaj</th><th class="num">Sesji (przy RMS 120)</th></tr></thead><tbody>{{INV}}</tbody></table></div>
+  <ul class="plain small">
+    <li><code>esc50</code>: ESC-50 (Piczak, ACM MM 2015), 2000 klipów po 5 s, 50 klas. „engine” to pozytywy, przyroda i pogoda to negatywy, śmigłowiec, samolot i pociąg to przeloty (negatywy). Piła łańcuchowa i ręczna są raportowane osobno (decyzja zespołu).</li>
+    <li><code>soc2</code>: 32 nagrania maszyn z soundsofchanges.eu (CC BY 4.0): traktory Ursus i Lanz, lokomotywy spalinowe, silniki stacjonarne, auta, ładowarka w kopalni, rębak. Do tego las Valla jako negatyw.</li>
+    <li><code>ice</code>: Sounds of Vehicle ICE (Univ. of Niš, Zenodo 18777405), 320 aut na biegu jałowym. Tylko trening, bo brak identyfikatorów pojazdów nie pozwala na uczciwy podział.</li>
+    <li><code>soc</code>, <code>sample</code>: 4 nagrania z <code>real_recordings.csv</code> Kiryla (traktory, furgonetka, ciężarówki w porcie) oraz <code>forest-ambience.wav</code> i <code>forest-with-truck.wav</code> z gałęzi. Nigdy nie są trenowane.</li>
+    <li><code>fsd</code>: <b>FSD50K eval</b> (Fonseca i in., IEEE/ACM TASLP 2022, Zenodo 4060432). Klipy z etykietami silnika, przyrody i pogody oraz przelotów, wybrane regułą w <code>fsd50k_extract.py</code>. Usunięto 39 klipów, których identyfikator Freesound jest źródłem klipu ESC-50 (wyciek). W modelu końcowym FSD50K jest trzecim korpusem CV (foldy po identyfikatorze Freesound). Osobno, w sekcji 5b, podano wynik modelu trenowanego <b>bez</b> FSD50K i ocenianego na nim jako na nieznanym korpusie.</li>
+    <li><code>synth</code>: syntetyczny przydźwięk sieci 50 Hz (±0,2%) i wentylacja (szum różowy + ton wentylatora 80–250 Hz), 250 sesji. Do tego przydźwięk dodany pod co czwartą sesję przyrody i silnika (6–20 dB pod dźwiękiem).</li>
+    <li><code>engine_mix</code>: silnik + tło przyrody/pogody z tego samego foldu CV, przy SNR 0 i +6 dB, oraz silnik + burza, deszcz lub wiatr przy −3 i +3 dB. Mieszanki −3/+3 dB służą tylko do oceny (w treningu pogarszały wynik: ablacja w sekcji 4).</li>
+  </ul>
+  <h3>Archiwa i sumy kontrolne</h3>
+  <div class="tw"><table><thead><tr><th>Archiwum</th><th>URL</th><th>sha256</th></tr></thead><tbody>{{ARCH}}</tbody></table></div>
+  <details><summary>Nagrania soundsofchanges.eu (soc2) z adresami i sha256 (pierwsze 16 znaków)</summary>
+  <div class="tw"><table><thead><tr><th>Nagranie</th><th>Rola</th><th>URL</th><th>sha256</th></tr></thead><tbody>{{SOC2}}</tbody></table></div></details>
+</section>
+
+<section>
+  <h2>4. Protokół oceny</h2>
+  <ul class="plain">
+    <li><b>Walidacja krzyżowa po źródłach:</b> 5 oficjalnych foldów ESC-50 (rozłącznych po plikach źródłowych) i nagrania soc2 przypisane do foldów skrótem nazwy. Każda sesja testowa jest oceniana modelem, który nie widział ani tego nagrania, ani innych wycinków z tego samego źródła, w żadnej głośności. Wyniki „(CV)” są out-of-fold.</li>
+    <li><b>Progi</b> wybierane są wyłącznie z decyzji out-of-fold na negatywach istotnych dla lasu (przyroda, pogoda, przeloty), bez nagrań zewnętrznych i bez FSD50K.</li>
+    <li><b>Zbiory zewnętrzne</b> (soc, sample, FSD50K) ocenia model trenowany na wszystkich danych CV i ICE.</li>
+    <li><b>Burst</b> jest uruchamiany jako niezmieniony <code>deploy/burst/main.py</code> na tych samych sesjach (<code>eval_firmware.py</code>, atrapy modułów Pycom). Jego alarm to wynik <code>analizuj_sygnaly</code>.</li>
+    <li>Przedziały to 95% Wilsona. Odsetki liczone są na sesjach przy nominalnej głośności (RMS 120), chyba że zaznaczono inaczej.</li>
+    <li><b>Wybór modelu</b> (CV na trzech korpusach): MLP-8 AUC 0,838 → z cechami modulacji 0,849 → H32 0,862 → <b>H64 0,874</b>; drzewa (GBT, 300) 0,839. Augmentacja głośnikiem i pogłosem co trzeciej sesji (v7) nie poprawiła wykrycia przez głośnik BT (maszyny 27% zamiast 32%), więc jej nie wdrożono. <b>Ablacja</b> wcześniejsza (2 ziarna, AUC na CV bez trudnych mieszanek): bez trudnych mieszanek w treningu 0,953 (×1 pogoda) i 0,952 (×3 pogoda); z trudnymi mieszankami 0,938 i 0,929. Waga ×3 dla deszczu, wiatru i burzy zmniejsza podejrzenia od deszczu z 17,9% do 9,6% przy tej samej czułości na maszynach (71,8% → 71,7%).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>5. Wyniki: pojedyncza sesja 10 s</h2>
+  <div class="tw"><table><thead><tr><th>Grupa (RMS 120)</th><th class="num">v2: podejrzenie ≥ T_SUSP</th><th class="num">v2: alarm od razu ≥ T_HIGH</th><th class="num">burst: alarm</th></tr></thead><tbody>{{G_ROWS}}</tbody></table></div>
+  <p class="small">W wierszach „Silnik” wyższa wartość jest lepsza, w wierszach „FP” niższa. Podejrzenie samo nie wysyła alarmu, potrzebna jest druga podejrzana sesja (sekcja 6).</p>
+  <div class="fig">{{ROC}}</div>
+  <p class="small">Krzywa ROC na sesjach CV i FSD50K (silnik kontra przyroda, pogoda i przeloty). AUC v2 {{AUC_V2}}, burst {{AUC_B}} (burst jako wynik ma tylko pewność 0–100). Na samym FSD50K: v2 {{AUC_F2}}, burst {{AUC_FB}}.</p>
+</section>
+
+<section>
+  <h2>5b. Przeniesienie na nieznany korpus (model bez FSD50K)</h2>
+  <p>Model v4 (57 cech, MLP-8) był trenowany tylko na ESC-50, soc2 i ICE. Na FSD50K, którego nie widział, wypadł wyraźnie gorzej niż w CV. To najlepsza dostępna miara tego, czego spodziewać się w terenie przy nowych nagraniach. Dlatego model końcowy trenowany jest na trzech korpusach.</p>
+  <div class="tw"><table><thead><tr><th>Grupa (RMS 120)</th><th class="num">v4: podejrzenie</th><th class="num">v4: alarm od razu</th><th class="num">burst: alarm</th></tr></thead><tbody>{{TRANSFER}}</tbody></table></div>
+</section>
+
+<section>
+  <h2>6. Wyniki: jak działa urządzenie (kolejne wybudzenia)</h2>
+  <p>Symulacja <code>main()</code> na kolejnych sesjach tego samego nagrania: alarm od razu albo podejrzenie potwierdzone kolejną sesją. Liczone są nagrania z co najmniej 4 sesjami (maksymalnie 12, czyli do 2 minut dźwięku). Dla burst przyjęto korzystnie, że alarm następuje, gdy którakolwiek sesja daje alarm.</p>
+  <div class="tw"><table><thead><tr><th>Nagrania (RMS 120)</th><th class="num">nagrań</th><th class="num">sesji</th><th class="num">v2: nagrań z alarmem</th><th class="num">v2: mediana sesji do alarmu</th><th class="num">burst: nagrań z alarmem</th></tr></thead><tbody>{{SEQ_ROWS}}</tbody></table></div>
+</section>
+
+<section>
+  <h2>7. Pogoda: burza, deszcz, wiatr i reszta</h2>
+  <div class="fig">{{WX_CHART}}</div>
+  <div class="tw"><table><thead><tr><th rowspan="2">Klasa</th><th colspan="3">ESC-50 (CV)</th><th colspan="3">FSD50K (niezależny)</th></tr><tr><th class="num">v2 podejrz.</th><th class="num">v2 alarm</th><th class="num">burst</th><th class="num">v2 podejrz.</th><th class="num">v2 alarm</th><th class="num">burst</th></tr></thead><tbody>{{WX_ROWS}}</tbody></table></div>
+  <h3>Kradzież w czasie burzy lub wiatru</h3>
+  <div class="fig">{{SNR_CHART}}</div>
+  <p class="small">SNR to stosunek mocy silnika do tła. Przy −3 dB tło jest głośniejsze od silnika.</p>
+</section>
+
+<section>
+  <h2>7b. Pokaz w korytarzu: głośnik, pogłos, przydźwięk</h2>
+  <p>Nagrania odtwarzane przez głośnik (filtr górnoprzepustowy 2. rzędu: brak, 150 Hz = głośnik BT, 300 Hz = laptop), pogłos korytarza RT60 1,2 s, tło wentylacji albo przydźwięku 15 dB pod nagraniem (<code>eval_corridor.py</code>, model końcowy).</p>
+  <pre>{{CORRIDOR}}</pre>
+</section>
+
+<section>
+  <h2>8. Niezależność od głośności</h2>
+  <div class="tw"><table><thead><tr><th>Grupa</th><th class="num">v2 RMS 40</th><th class="num">burst RMS 40</th><th class="num">v2 RMS 120</th><th class="num">burst RMS 120</th><th class="num">v2 RMS 360</th><th class="num">burst RMS 360</th></tr></thead><tbody>{{LV_ROWS}}</tbody></table></div>
+</section>
+
+<section>
+  <h2>9. Płytka</h2>
+  <ul class="plain">
+    <li><b>Zgodność:</b> <code>tg_v2_device.py</code> (czysty Python, tablice <code>array('f')</code>, bez f-stringów, zgodny z MicroPython v1.11) daje te same 90 cech co numpy z dokładnością 10<sup>−4</sup>. Logit z <code>deploy/v2/main.py</code> zgadza się z modelem numpy (int8) do 10<sup>−2</sup>. Maszyna stanów (alarm od razu, potwierdzenie, brak potwierdzenia, heartbeat) jest pokryta testami. Testy: <code>{{TESTS}}</code>.</li>
+    <li><b>Wagi int8</b> (jak w burst). Największa różnica logitu int8 i float na zbiorze treningowym to ~0,7 przy medianie |logit| ~9.</li>
+    <li><b>Niezmierzone:</b> czas obliczeń i wolna sterta na LoPy. Na sekundę dźwięku płytka liczy 5 FFT-512 (burst: 4). Sterta zajęta przez stan to około 10 KB. Pomiar: <code>import main; main.v2_bench()</code> w REPL wypisuje ms na blok i wolną stertę.</li>
+  </ul>
+</section>
+
+<section class="warn">
+  <h2 style="border:0;padding:0">10. Ograniczenia</h2>
+  <ul class="plain">
+    {{LIMITS}}
+  </ul>
+</section>
+
+<section>
+  <h2>11. Jak odtworzyć</h2>
+<pre># 1. środowisko (tylko numpy)
+cd detection/micropython
+python3 -m venv .venv && .venv/bin/pip install "numpy&gt;=2.1,&lt;3"
+cd engine_v2
+export TG_DATA=~/tg-data
+
+# 2. dane (URL i sha256 w sekcji 3)
+mkdir -p $TG_DATA/esc50 $TG_DATA/ice $TG_DATA/soc $TG_DATA/soc2 $TG_DATA/fsd50k
+curl -L -o $TG_DATA/esc50/esc50.zip https://github.com/karoldvl/ESC-50/archive/master.zip
+(cd $TG_DATA/esc50 && unzip -q esc50.zip)
+curl -L -o $TG_DATA/ice/diesel.zip "https://zenodo.org/api/records/18777405/files/Diesel%20Motor%20Sounds.zip/content"
+curl -L -o $TG_DATA/ice/petrol.zip "https://zenodo.org/api/records/18777405/files/Petrol%20Motor%20Sounds.zip/content"
+(cd $TG_DATA/ice && unzip -q diesel.zip -d diesel && unzip -q petrol.zip -d petrol)
+# soc: 4 pliki z detection/micropython/algorithm/real_recordings.csv (kolumna download_url)
+# soc2: pliki z tabeli w sekcji 3; manifest.csv: "pos|neg,slug,url,"
+curl -L -o $TG_DATA/fsd50k/eval.z01 https://zenodo.org/api/records/4060432/files/FSD50K.eval_audio.z01/content
+curl -L -o $TG_DATA/fsd50k/eval.zip https://zenodo.org/api/records/4060432/files/FSD50K.eval_audio.zip/content
+curl -L -o $TG_DATA/fsd50k/gt.zip   https://zenodo.org/api/records/4060432/files/FSD50K.ground_truth.zip/content
+
+# 3. potok
+../.venv/bin/python fsd50k_extract.py
+../.venv/bin/python cache.py v5            # sesje w torze płytki (FSD50K w CV, przydźwięk)
+ln -s sessions_v5.npz $TG_DATA/cache/sessions_v6.npz
+../.venv/bin/python feat_cache.py v6       # 90 cech na sesję
+../.venv/bin/python eval_firmware.py ../deploy/burst/main.py v6   # burst bez zmian
+TG_TAG=v6 TG_H=64 ../.venv/bin/python export_model.py   # CV, progi, model_v2.json
+../.venv/bin/python build_main.py          # deploy/v2/main.py
+../.venv/bin/python -m unittest test_v2_device
+../.venv/bin/python eval_corridor.py       # test korytarza
+TG_TAG=v6 ../.venv/bin/python make_report.py    # ten raport</pre>
+  <p class="small">Ziarna są stałe (render: <code>i*7+poziom</code>, mieszanki: 2026, MLP: 11). Na maszynie z 20 wątkami cały potok trwa około 30 min.</p>
+</section>
+
+<footer class="small">Wygenerowano przez <code>engine_v2/make_report.py</code>. Źródła metod: Welch, IEEE Trans. Audio Electroacoust. 15(2), 1967; Tolonen i Karjalainen, IEEE TSAP 8(6), 2000; Boersma, IFA Proc. 17, 1993; Johnston, IEEE JSAC 6(2), 1988; Wilson, JASA 22, 1927; Piczak, ACM MM 2015; Fonseca i in., IEEE/ACM TASLP 30, 2022.</footer>
+</main>
+</body>
+</html>
